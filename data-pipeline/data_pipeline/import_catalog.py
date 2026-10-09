@@ -8,8 +8,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
 
-from data_pipeline.validate import SCHEMA_NAMES, validate_bundle
 from data_pipeline.bundle_filter import filter_complete_bundle
+from data_pipeline.validate import SCHEMA_NAMES, validate_bundle
 
 # Natural keys used for idempotent upsert (documented for DB unique indexes).
 VEHICLE_KEY = ("vin_prefix", "chassis_code", "engine_code", "production_year", "model_variant")
@@ -221,7 +221,7 @@ def load_bundle(path: Path) -> dict[str, list[dict[str, Any]]]:
     with path.open(encoding="utf-8") as fh:
         payload = json.load(fh)
     if not isinstance(payload, dict):
-        raise ValueError(f"Expected object bundle in {path}")
+        raise TypeError(f"Expected object bundle in {path}")
     return payload
 
 

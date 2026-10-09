@@ -5,8 +5,10 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import co.zw.nissangtr.bridges.escpos.BluetoothPermissionStatus
 import co.zw.nissangtr.bridges.escpos.BondedEscPosDevice
+import co.zw.nissangtr.bridges.escpos.DocumentPrinterBridge
 import co.zw.nissangtr.bridges.escpos.EscPosPrinterBridge
 import co.zw.nissangtr.bridges.escpos.EscPosReceiptLine
+import co.zw.nissangtr.bridges.escpos.PrinterTransport
 import co.zw.nissangtr.bridges.qr.CameraPermissionStatus
 import co.zw.nissangtr.bridges.qr.QrScannerBridge
 import co.zw.nissangtr.management.pos.offline.LocalCartLine
@@ -15,10 +17,19 @@ import co.zw.nissangtr.management.rpc.CatalogPartHit
 import co.zw.nissangtr.management.rpc.CatalogSearchMode
 import co.zw.nissangtr.management.rpc.CurrencyCode
 import co.zw.nissangtr.management.rpc.CustomerOption
+import co.zw.nissangtr.management.rpc.CustomerGarageVehicle
+import co.zw.nissangtr.management.rpc.PosCustomerKind
 import co.zw.nissangtr.management.rpc.FakeRpcClient
 import co.zw.nissangtr.management.rpc.FulfillmentMode
+import co.zw.nissangtr.management.rpc.EpcModel
+import co.zw.nissangtr.management.rpc.EpcVariant
 import co.zw.nissangtr.management.rpc.PosCartLineSummary
+import co.zw.nissangtr.management.rpc.PopularPosSpare
+import co.zw.nissangtr.management.rpc.PosPopularItemKind
+import co.zw.nissangtr.management.rpc.PosPopularPin
+import co.zw.nissangtr.management.rpc.PosInvoiceSummary
 import co.zw.nissangtr.management.rpc.PosQuotationSummary
+import co.zw.nissangtr.management.rpc.PosSaleVehicleSelection
 import co.zw.nissangtr.management.rpc.PosTenderLine
 import co.zw.nissangtr.management.rpc.RpcClient
 import co.zw.nissangtr.management.rpc.RpcNames
@@ -47,14 +58,31 @@ data class PosTenderDraft(
     val amount: String = "",
 )
 
+data class PosVehicleGenerationOption(
+    val chassisCode: String,
+    val label: String,
+)
+
+internal enum class CustomerVehicleSelectionAction { NONE, AUTO_SELECT, CHOOSE }
+
+internal fun customerVehicleSelectionAction(vehicles: List<CustomerGarageVehicle>): CustomerVehicleSelectionAction =
+    when (vehicles.size) {
+        0 -> CustomerVehicleSelectionAction.NONE
+        1 -> CustomerVehicleSelectionAction.AUTO_SELECT
+        else -> CustomerVehicleSelectionAction.CHOOSE
+    }
+
 data class PosUiState(
     val mode: PosWorkspaceMode = PosWorkspaceMode.Till,
     val warehouses: List<WarehouseRef> = emptyList(),
     val warehouseId: String = "",
     val customerId: String = "",
     val customerName: String = "",
+    val selectedCustomer: CustomerOption? = null,
     val customerQuery: String = "",
     val customerHits: List<CustomerOption> = emptyList(),
+    val customerGarage: List<CustomerGarageVehicle> = emptyList(),
+    val customerVehiclePickerOpen: Boolean = false,
     val currency: CurrencyCode = CurrencyCode.USD,
     val fulfillmentMode: FulfillmentMode = FulfillmentMode.IMMEDIATE,
     val cartId: String = "",
@@ -62,6 +90,29 @@ data class PosUiState(
     val searchMode: CatalogSearchMode = CatalogSearchMode.PART,
     val searchQuery: String = "",
     val searchHits: List<CatalogPartHit> = emptyList(),
+    /** Nissan-only cascade: model -> generation/chassis -> engine. */
+    val vehicleModels: List<EpcModel> = emptyList(),
+    val vehicleVariants: List<EpcVariant> = emptyList(),
+    val vehicleGenerations: List<PosVehicleGenerationOption> = emptyList(),
+    val vehicleEngines: List<String> = emptyList(),
+    val selectedVehicleModelSlug: String = "",
+    val selectedVehicleModelName: String = "",
+    val selectedVehicleGeneration: String = "",
+    val selectedVehicleChassisCode: String = "",
+    val selectedVehicleEngineCode: String = "",
+    val saleVehicle: PosSaleVehicleSelection? = null,
+    /** All vehicle filters used during this sale. The active filter is [saleVehicle]. */
+    val shoppingVehicles: List<PosSaleVehicleSelection> = emptyList(),
+    /** Home-screen best sellers derived from posted invoice lines. */
+    val popularSpares: List<PopularPosSpare> = emptyList(),
+    /** Operator-owned EPC shortcuts merged with [popularSpares] into the Popular Items row. */
+    val popularPins: List<PosPopularPin> = emptyList(),
+    /** Posted sales history shared by Orders and Returns. */
+    val invoiceQuery: String = "",
+    val recentInvoices: List<PosInvoiceSummary> = emptyList(),
+    /** Explicit invoice selected for manager-approved refund. */
+    val refundInvoiceId: String? = null,
+    val refundInvoiceTotal: Double = 0.0,
     val addQty: String = "1",
     val receiptEmail: String = "",
     val receiptWhatsapp: String = "",
@@ -75,10 +126,15 @@ data class PosUiState(
     val companionPairingInput: String = "",
     val companionCartId: String = "",
     val companionSessionId: String = "",
+    val printerTransport: PrinterTransport = PrinterTransport.BLUETOOTH,
     val printerMac: String = "",
+    val printerHost: String = "",
+    val printerPort: String = "9100",
     val printerConnected: Boolean = false,
     val bondedPrinters: List<BondedEscPosDevice> = emptyList(),
     val lastInvoiceId: String? = null,
+    /** A4 document payload retained for explicit system/vendor print after checkout. */
+    val lastA4DocumentLines: List<String> = emptyList(),
     val lastBindMessage: String? = null,
     val lastQrPayload: String? = null,
     val isSalesHome: Boolean = false,
@@ -100,6 +156,10 @@ data class PosUiState(
     /** Queued offline cash sales waiting for replay. */
     val pendingOfflineSales: Int = 0,
     val offlineSnapshotAgeLabel: String? = null,
+    /** Complete local Nissan EPC bundle state (same encrypted SQLite file). */
+    val epcCatalogAvailable: Boolean = false,
+    val epcCatalogSyncedAtEpochMs: Long? = null,
+    val epcSyncBusy: Boolean = false,
     val busy: Boolean = false,
     val message: String? = null,
     val error: String? = null,
@@ -137,6 +197,7 @@ class PosViewModel(
     private val rpc: RpcClient,
     private val qr: QrScannerBridge,
     private val printer: EscPosPrinterBridge,
+    private val documentPrinter: DocumentPrinterBridge? = null,
     private val offlineEngine: OfflinePosSyncEngine? = null,
     private val onlineFlow: Flow<Boolean>? = null,
 ) : ViewModel() {
@@ -148,6 +209,14 @@ class PosViewModel(
     private val offlineLocalLines = mutableListOf<LocalCartLine>()
 
     init {
+        _state.update {
+            it.copy(
+                printerTransport = printer.getConfiguredTransport(),
+                printerMac = printer.getConfiguredPrinterAddress().orEmpty(),
+                printerHost = printer.getConfiguredNetworkHost().orEmpty(),
+                printerPort = printer.getConfiguredNetworkPort().toString(),
+            )
+        }
         viewModelScope.launch {
             loadWarehouses()
             // Batch 1 §1.2 — open cart invisibly (parity with web POS)
@@ -155,6 +224,8 @@ class PosViewModel(
                 ensureOpenCart(showMessage = false)
             }
             refreshOfflineBadge()
+            loadOperatorDiscovery()
+            loadVehicleSelector()
         }
         if (onlineFlow != null) {
             viewModelScope.launch {
@@ -167,6 +238,379 @@ class PosViewModel(
                     refreshOfflineBadge()
                 }
             }
+        }
+    }
+
+    private suspend fun loadOperatorDiscovery() {
+        val operatorId = rpc.currentUserId()?.trim()?.takeIf { it.isNotEmpty() }
+        if (operatorId != null) {
+            val localPins = offlineEngine?.listLocalPopularPins(operatorId).orEmpty()
+            if (localPins.isNotEmpty() || _state.value.isOffline) {
+                _state.update { it.copy(popularPins = localPins) }
+            }
+            if (!_state.value.isOffline) {
+                runCatching {
+                    offlineEngine?.refreshPopularPins(operatorId) ?: rpc.listPosPopularPins()
+                }.onSuccess { pins -> _state.update { it.copy(popularPins = pins) } }
+            }
+        }
+        if (_state.value.isOffline) return
+        runCatching { rpc.listPosPopularSpares(days = 90, limit = 8) }
+            .onSuccess { rows -> _state.update { it.copy(popularSpares = rows) } }
+        runCatching { rpc.listPosRecentInvoices(query = null, limit = 20) }
+            .onSuccess { rows -> _state.update { it.copy(recentInvoices = rows) } }
+    }
+
+    fun refreshOperatorDiscovery() {
+        viewModelScope.launch { loadOperatorDiscovery() }
+    }
+
+    fun isPopularPinned(pin: PosPopularPin): Boolean =
+        _state.value.popularPins.any { it.kind == pin.kind && it.itemKey == pin.itemKey }
+
+    fun pinPopularItem(pin: PosPopularPin) {
+        val operatorId = rpc.currentUserId()?.trim()?.takeIf { it.isNotEmpty() } ?: run {
+            _state.update { it.copy(error = "Signed-in operator required to pin Popular Items") }
+            return
+        }
+        if (_state.value.popularPins.size >= 24 && !isPopularPinned(pin)) {
+            _state.update { it.copy(error = "Popular Items pin limit reached (24)") }
+            return
+        }
+        _state.update { st ->
+            st.copy(
+                popularPins = listOf(pin) + st.popularPins.filterNot { it.kind == pin.kind && it.itemKey == pin.itemKey },
+                message = "Pinned ${pin.label} to Popular Items",
+                error = null,
+            )
+        }
+        viewModelScope.launch {
+            try {
+                val engine = offlineEngine
+                if (engine != null) {
+                    engine.pinPopularItem(operatorId, pin, online = !_state.value.isOffline)
+                } else {
+                    if (_state.value.isOffline) error("Encrypted local pin store unavailable")
+                    rpc.upsertPosPopularPin(pin)
+                }
+            } catch (e: Exception) {
+                if (offlineEngine != null) {
+                    _state.update { it.copy(message = "Pinned locally · sync pending", error = null) }
+                } else {
+                    _state.update { st ->
+                        st.copy(
+                            popularPins = st.popularPins.filterNot { it.kind == pin.kind && it.itemKey == pin.itemKey },
+                            error = e.message ?: "pin failed",
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun unpinPopularItem(pin: PosPopularPin) {
+        val operatorId = rpc.currentUserId()?.trim()?.takeIf { it.isNotEmpty() } ?: run {
+            _state.update { it.copy(error = "Signed-in operator required to unpin Popular Items") }
+            return
+        }
+        _state.update { st ->
+            st.copy(
+                popularPins = st.popularPins.filterNot { it.kind == pin.kind && it.itemKey == pin.itemKey },
+                message = "Unpinned ${pin.label}",
+                error = null,
+            )
+        }
+        viewModelScope.launch {
+            try {
+                val engine = offlineEngine
+                if (engine != null) {
+                    engine.unpinPopularItem(operatorId, pin.kind, pin.itemKey, online = !_state.value.isOffline)
+                } else {
+                    if (_state.value.isOffline) error("Encrypted local pin store unavailable")
+                    rpc.deletePosPopularPin(pin.kind, pin.itemKey)
+                }
+            } catch (e: Exception) {
+                if (offlineEngine != null) {
+                    _state.update { it.copy(message = "Unpinned locally · sync pending", error = null) }
+                } else {
+                    _state.update { it.copy(error = e.message ?: "unpin failed") }
+                }
+            }
+        }
+    }
+
+    private suspend fun loadVehicleSelector() {
+        val engine = offlineEngine
+        val localReady = engine?.hasLocalEpcCatalog() == true
+        val models = when {
+            localReady -> runCatching { engine!!.listLocalEpcModels(NISSAN_MAKER_SLUG) }.getOrDefault(emptyList())
+            !_state.value.isOffline -> runCatching { rpc.listCatalogModels(NISSAN_MAKER_SLUG) }.getOrDefault(emptyList())
+            else -> emptyList()
+        }
+        _state.update { it.copy(vehicleModels = models) }
+    }
+
+    fun selectVehicleModel(model: EpcModel) {
+        viewModelScope.launch {
+            _state.update { it.copy(busy = true, error = null) }
+            try {
+                clearPersistedVehicleIfNeeded()
+                val variants = if (offlineEngine?.hasLocalEpcCatalog() == true) {
+                    offlineEngine.listLocalEpcVariants(NISSAN_MAKER_SLUG, model.slug)
+                } else {
+                    if (_state.value.isOffline) error("Offline EPC bundle required for vehicle selector")
+                    rpc.listCatalogVariants(NISSAN_MAKER_SLUG, model.slug)
+                }
+                val generations = variants
+                    .groupBy { it.chassisCode }
+                    .map { (chassis, rows) ->
+                        val years = rows.mapNotNull { it.yearLabel }.distinct().joinToString(" / ")
+                        PosVehicleGenerationOption(
+                            chassisCode = chassis,
+                            label = listOf(chassis, years).filter { it.isNotBlank() }.joinToString(" · "),
+                        )
+                    }
+                    .sortedBy { it.label }
+                _state.update {
+                    it.copy(
+                        busy = false,
+                        vehicleVariants = variants,
+                        vehicleGenerations = generations,
+                        vehicleEngines = emptyList(),
+                        selectedVehicleModelSlug = model.slug,
+                        selectedVehicleModelName = model.displayName,
+                        selectedVehicleGeneration = "",
+                        selectedVehicleChassisCode = "",
+                        selectedVehicleEngineCode = "",
+                        saleVehicle = null,
+                        searchHits = emptyList(),
+                        message = "${model.displayName} selected — choose generation",
+                    )
+                }
+            } catch (e: Exception) {
+                _state.update { it.copy(busy = false, error = e.message ?: "vehicle model load failed") }
+            }
+        }
+    }
+
+    fun selectVehicleGeneration(option: PosVehicleGenerationOption) {
+        viewModelScope.launch {
+            try {
+                clearPersistedVehicleIfNeeded()
+                val engines = _state.value.vehicleVariants
+                    .filter { it.chassisCode == option.chassisCode }
+                    .mapNotNull { it.engineCode?.trim()?.takeIf(String::isNotEmpty) }
+                    .distinct()
+                    .sorted()
+                _state.update {
+                    it.copy(
+                        vehicleEngines = engines,
+                        selectedVehicleGeneration = option.label,
+                        selectedVehicleChassisCode = option.chassisCode,
+                        selectedVehicleEngineCode = "",
+                        saleVehicle = null,
+                        searchHits = emptyList(),
+                        message = if (engines.size == 1) "${option.label} selected" else "${option.label} selected — choose engine",
+                    )
+                }
+                if (engines.size == 1) selectVehicleEngineInternal(engines.first())
+            } catch (e: Exception) {
+                _state.update { it.copy(error = e.message ?: "vehicle generation selection failed") }
+            }
+        }
+    }
+
+    fun selectVehicleEngine(engineCode: String) {
+        viewModelScope.launch {
+            try {
+                selectVehicleEngineInternal(engineCode)
+            } catch (e: Exception) {
+                _state.update { it.copy(error = e.message ?: "vehicle engine selection failed") }
+            }
+        }
+    }
+
+    private suspend fun selectVehicleEngineInternal(engineCode: String) {
+        val current = _state.value
+        require(current.selectedVehicleModelSlug.isNotBlank() && current.selectedVehicleChassisCode.isNotBlank()) {
+            "Select model and generation first"
+        }
+        val vehicle = PosSaleVehicleSelection(
+            modelSlug = current.selectedVehicleModelSlug,
+            modelName = current.selectedVehicleModelName,
+            generation = current.selectedVehicleGeneration,
+            chassisCode = current.selectedVehicleChassisCode,
+            engineCode = engineCode,
+        )
+        _state.update {
+            it.copy(
+                selectedVehicleEngineCode = engineCode,
+                saleVehicle = vehicle,
+                shoppingVehicles = (it.shoppingVehicles + vehicle).distinctBy { v ->
+                    "${v.modelSlug}|${v.chassisCode}|${v.engineCode}"
+                },
+                searchHits = emptyList(),
+                message = "Vehicle filter: ${vehicle.displayLabel}",
+                error = null,
+            )
+        }
+        persistVehicleToCurrentCart(vehicle)
+    }
+
+    fun clearVehicleSelection() {
+        viewModelScope.launch {
+            runCatching { clearPersistedVehicleIfNeeded() }
+            _state.update {
+                it.copy(
+                    vehicleVariants = emptyList(),
+                    vehicleGenerations = emptyList(),
+                    vehicleEngines = emptyList(),
+                    selectedVehicleModelSlug = "",
+                    selectedVehicleModelName = "",
+                    selectedVehicleGeneration = "",
+                    selectedVehicleChassisCode = "",
+                    selectedVehicleEngineCode = "",
+                    saleVehicle = null,
+                    searchHits = emptyList(),
+                    message = "Vehicle filter cleared",
+                )
+            }
+        }
+    }
+
+    private suspend fun clearPersistedVehicleIfNeeded() {
+        val cartId = _state.value.cartId
+        if (!_state.value.isOffline && cartId.isNotBlank()) rpc.setPosCartVehicle(cartId, null)
+    }
+
+    private suspend fun persistVehicleToCurrentCart(vehicle: PosSaleVehicleSelection?) {
+        val cartId = _state.value.cartId
+        if (!_state.value.isOffline && cartId.isNotBlank()) rpc.setPosCartVehicle(cartId, vehicle)
+    }
+
+    private fun clearVehicleSelectionLocal() {
+        _state.update {
+            it.copy(
+                vehicleVariants = emptyList(),
+                vehicleGenerations = emptyList(),
+                vehicleEngines = emptyList(),
+                selectedVehicleModelSlug = "",
+                selectedVehicleModelName = "",
+                selectedVehicleGeneration = "",
+                selectedVehicleChassisCode = "",
+                selectedVehicleEngineCode = "",
+                saleVehicle = null,
+                shoppingVehicles = emptyList(),
+            )
+        }
+    }
+
+    private suspend fun restoreVehicleFromCart(cartId: String) {
+        val vehicle = runCatching { rpc.getPosCartVehicle(cartId) }.getOrNull()
+        if (vehicle == null) {
+            clearVehicleSelectionLocal()
+            return
+        }
+        val variants = runCatching {
+            rpc.listCatalogVariants(NISSAN_MAKER_SLUG, vehicle.modelSlug)
+        }.getOrDefault(emptyList())
+        val generations = variants.groupBy { it.chassisCode }.map { (chassis, rows) ->
+            val years = rows.mapNotNull { it.yearLabel }.distinct().joinToString(" / ")
+            PosVehicleGenerationOption(
+                chassisCode = chassis,
+                label = listOf(chassis, years).filter { it.isNotBlank() }.joinToString(" · "),
+            )
+        }.sortedBy { it.label }
+        val engines = variants.filter { it.chassisCode == vehicle.chassisCode }
+            .mapNotNull { it.engineCode?.trim()?.takeIf(String::isNotEmpty) }
+            .distinct().sorted()
+        _state.update {
+            it.copy(
+                vehicleVariants = variants,
+                vehicleGenerations = generations,
+                vehicleEngines = engines,
+                selectedVehicleModelSlug = vehicle.modelSlug,
+                selectedVehicleModelName = vehicle.modelName,
+                selectedVehicleGeneration = vehicle.generation,
+                selectedVehicleChassisCode = vehicle.chassisCode,
+                selectedVehicleEngineCode = vehicle.engineCode,
+                saleVehicle = vehicle,
+            )
+        }
+    }
+
+    internal fun epcCatalogSource(): EpcCatalogSource {
+        val engine = offlineEngine
+        return if (engine != null && engine.hasLocalEpcCatalog()) {
+            OfflineEpcCatalogSource(engine)
+        } else {
+            RpcEpcCatalogSource(rpc)
+        }
+    }
+
+    fun refreshOfflineEpcCatalog() {
+        val engine = offlineEngine ?: run {
+            _state.update { it.copy(error = "Encrypted offline catalog store unavailable") }
+            return
+        }
+        if (_state.value.isOffline) {
+            _state.update { it.copy(error = "Connect once to refresh the full EPC bundle; browsing remains offline after sync") }
+            return
+        }
+        viewModelScope.launch {
+            _state.update { it.copy(epcSyncBusy = true, error = null, message = "Syncing complete Nissan EPC catalog…") }
+            try {
+                val bundle = engine.refreshEpcCatalog(cacheDiagramImages = true)
+                _state.update {
+                    it.copy(
+                        epcSyncBusy = false,
+                        epcCatalogAvailable = true,
+                        epcCatalogSyncedAtEpochMs = bundle.syncedAtEpochMs,
+                        vehicleModels = bundle.models.filter { it.makerSlug == NISSAN_MAKER_SLUG }.map { it.model },
+                        message = "Offline EPC ready · ${bundle.models.size} models · ${bundle.variants.size} generations/variants · ${bundle.diagrams.size} diagrams",
+                    )
+                }
+            } catch (e: Exception) {
+                _state.update { it.copy(epcSyncBusy = false, error = e.message ?: "EPC sync failed") }
+            }
+        }
+    }
+
+    fun onInvoiceQueryChange(value: String) {
+        _state.update { it.copy(invoiceQuery = value) }
+    }
+
+    fun searchRecentInvoices() {
+        if (_state.value.isOffline) {
+            _state.update { it.copy(error = "Sales history search requires an online connection") }
+            return
+        }
+        viewModelScope.launch {
+            _state.update { it.copy(busy = true, error = null) }
+            try {
+                val rows = rpc.listPosRecentInvoices(
+                    query = _state.value.invoiceQuery.trim().ifBlank { null },
+                    limit = 50,
+                )
+                _state.update { it.copy(busy = false, recentInvoices = rows) }
+            } catch (e: Exception) {
+                _state.update { it.copy(busy = false, error = e.message ?: "invoice search failed") }
+            }
+        }
+    }
+
+    fun requestRefund(invoice: PosInvoiceSummary) {
+        if (_state.value.isOffline) {
+            _state.update { it.copy(error = "Refunds require live manager auth + finance pipeline (online only)") }
+            return
+        }
+        _state.update {
+            it.copy(
+                refundInvoiceId = invoice.id,
+                refundInvoiceTotal = invoice.total,
+                managerPrompt = ManagerPrompt.Refund,
+                error = null,
+            )
         }
     }
 
@@ -183,6 +627,8 @@ class PosViewModel(
             it.copy(
                 pendingOfflineSales = pending,
                 offlineSnapshotAgeLabel = age,
+                epcCatalogAvailable = offlineEngine?.hasLocalEpcCatalog() == true,
+                epcCatalogSyncedAtEpochMs = offlineEngine?.localEpcSyncedAtEpochMs(),
             )
         }
     }
@@ -195,6 +641,10 @@ class PosViewModel(
                 engine.pullSnapshot(wh)
             }
             val drain = engine.drainQueue()
+            rpc.currentUserId()?.trim()?.takeIf { it.isNotEmpty() }?.let { operatorId ->
+                runCatching { engine.refreshPopularPins(operatorId) }
+                    .onSuccess { pins -> _state.update { it.copy(popularPins = pins) } }
+            }
             refreshOfflineBadge()
             val msg = buildString {
                 append("Back online")
@@ -280,35 +730,230 @@ class PosViewModel(
     fun onCustomerQueryChange(v: String) =
         _state.update { it.copy(customerQuery = v, error = null) }
 
-    fun selectCustomer(c: CustomerOption) =
-        _state.update {
-            it.copy(
-                customerId = c.id,
-                customerName = c.displayName,
-                customerQuery = c.displayName,
-                customerHits = emptyList(),
-            )
-        }
-
-    fun clearCustomer() =
-        _state.update {
-            it.copy(customerId = "", customerName = "", customerQuery = "", customerHits = emptyList())
-        }
-
     fun searchCustomers() {
-        val q = _state.value.customerQuery
+        val q = _state.value.customerQuery.trim()
+        if (_state.value.isOffline) {
+            _state.update { it.copy(error = "Named customer lookup requires an online connection") }
+            return
+        }
+        if (q.length < 2) {
+            _state.update { it.copy(error = "Enter at least 2 characters") }
+            return
+        }
         viewModelScope.launch {
+            _state.update { it.copy(busy = true, error = null) }
             try {
                 val hits = rpc.searchCustomers(q)
                 _state.update {
                     it.copy(
+                        busy = false,
                         customerHits = hits,
                         message = if (hits.isEmpty()) "No customers matched" else null,
-                        error = null,
                     )
                 }
             } catch (e: Exception) {
-                _state.update { it.copy(error = e.message ?: "customer search failed") }
+                _state.update { it.copy(busy = false, error = e.message ?: "customer search failed") }
+            }
+        }
+    }
+
+    fun selectCustomer(c: CustomerOption) {
+        if (_state.value.isOffline) {
+            _state.update { it.copy(error = "Named customers are online-only; use walk-in offline sales") }
+            return
+        }
+        viewModelScope.launch {
+            _state.update { it.copy(busy = true, error = null) }
+            try {
+                val cartId = _state.value.cartId
+                if (cartId.isNotBlank()) rpc.setPosCartCustomer(cartId, c.id)
+                val garage = rpc.listPosCustomerGarage(c.id)
+                val action = customerVehicleSelectionAction(garage)
+                _state.update { st ->
+                    st.copy(
+                        busy = false,
+                        customerId = c.id,
+                        customerName = c.receiptDisplayName,
+                        selectedCustomer = c,
+                        customerQuery = c.receiptDisplayName,
+                        customerHits = emptyList(),
+                        customerGarage = garage,
+                        customerVehiclePickerOpen = action == CustomerVehicleSelectionAction.CHOOSE,
+                        receiptEmail = st.receiptEmail.ifBlank { c.email.orEmpty() },
+                        receiptWhatsapp = st.receiptWhatsapp.ifBlank { c.whatsappE164 ?: c.phoneE164.orEmpty() },
+                        message = when (action) {
+                            CustomerVehicleSelectionAction.NONE -> "${c.receiptDisplayName} selected · no garage vehicle yet"
+                            CustomerVehicleSelectionAction.AUTO_SELECT -> "${c.receiptDisplayName} selected · garage vehicle applied"
+                            CustomerVehicleSelectionAction.CHOOSE -> "${c.receiptDisplayName} selected · choose a garage vehicle"
+                        },
+                    )
+                }
+                if (action == CustomerVehicleSelectionAction.AUTO_SELECT) applyGarageVehicle(garage.first())
+            } catch (e: Exception) {
+                _state.update { it.copy(busy = false, error = e.message ?: "customer selection failed") }
+            }
+        }
+    }
+
+    fun createCustomer(
+        kind: PosCustomerKind,
+        displayName: String,
+        businessName: String?,
+        email: String?,
+        phoneE164: String?,
+        whatsappE164: String?,
+    ) {
+        if (_state.value.isOffline) {
+            _state.update { it.copy(error = "Customer creation requires an online connection") }
+            return
+        }
+        viewModelScope.launch {
+            _state.update { it.copy(busy = true, error = null) }
+            try {
+                val id = rpc.createPosCustomer(kind, displayName, businessName, email, phoneE164, whatsappE164)
+                val created = CustomerOption(
+                    id = id, displayName = displayName.trim(), kind = kind, businessName = businessName?.trim(),
+                    email = email?.trim(), phoneE164 = phoneE164?.trim(), whatsappE164 = whatsappE164?.trim(),
+                )
+                _state.update { it.copy(busy = false, message = "Customer created") }
+                selectCustomer(created)
+            } catch (e: Exception) {
+                _state.update { it.copy(busy = false, error = e.message ?: "customer create failed") }
+            }
+        }
+    }
+
+    fun updateSelectedCustomer(
+        kind: PosCustomerKind,
+        displayName: String,
+        businessName: String?,
+        email: String?,
+        phoneE164: String?,
+        whatsappE164: String?,
+    ) {
+        val id = _state.value.customerId.takeIf { it.isNotBlank() } ?: return
+        if (_state.value.isOffline) {
+            _state.update { it.copy(error = "Customer editing requires an online connection") }
+            return
+        }
+        viewModelScope.launch {
+            _state.update { it.copy(busy = true, error = null) }
+            try {
+                rpc.updatePosCustomer(id, kind, displayName, businessName, email, phoneE164, whatsappE164)
+                val updated = CustomerOption(
+                    id = id, displayName = displayName.trim(), kind = kind, businessName = businessName?.trim(),
+                    email = email?.trim(), phoneE164 = phoneE164?.trim(), whatsappE164 = whatsappE164?.trim(),
+                )
+                _state.update {
+                    it.copy(
+                        busy = false, selectedCustomer = updated, customerName = updated.receiptDisplayName,
+                        customerQuery = updated.receiptDisplayName, message = "Customer updated",
+                    )
+                }
+            } catch (e: Exception) {
+                _state.update { it.copy(busy = false, error = e.message ?: "customer update failed") }
+            }
+        }
+    }
+
+    fun clearCustomer() {
+        viewModelScope.launch {
+            try {
+                val cartId = _state.value.cartId
+                if (!_state.value.isOffline && cartId.isNotBlank()) rpc.setPosCartCustomer(cartId, null)
+                _state.update {
+                    it.copy(
+                        customerId = "", customerName = "", selectedCustomer = null, customerQuery = "",
+                        customerHits = emptyList(), customerGarage = emptyList(), customerVehiclePickerOpen = false,
+                        message = "Customer cleared", error = null,
+                    )
+                }
+            } catch (e: Exception) {
+                _state.update { it.copy(error = e.message ?: "customer clear failed") }
+            }
+        }
+    }
+
+    fun dismissCustomerVehiclePicker() =
+        _state.update { it.copy(customerVehiclePickerOpen = false) }
+
+    fun selectCustomerGarageVehicle(vehicle: CustomerGarageVehicle) {
+        viewModelScope.launch {
+            try { applyGarageVehicle(vehicle) }
+            catch (e: Exception) { _state.update { it.copy(error = e.message ?: "garage vehicle selection failed") } }
+        }
+    }
+
+    private suspend fun applyGarageVehicle(vehicle: CustomerGarageVehicle) {
+        val modelSlug = vehicle.modelSlug?.takeIf { it.isNotBlank() }
+            ?: error("Garage vehicle is missing catalog model mapping")
+        val modelName = vehicle.model?.takeIf { it.isNotBlank() } ?: error("Garage vehicle model required")
+        val generation = vehicle.generation?.takeIf { it.isNotBlank() } ?: vehicle.chassisCode.orEmpty()
+        val chassis = vehicle.chassisCode?.takeIf { it.isNotBlank() } ?: error("Garage vehicle chassis required")
+        val engine = vehicle.engine?.takeIf { it.isNotBlank() } ?: error("Garage vehicle engine required")
+        val selection = PosSaleVehicleSelection(modelSlug, modelName, generation, chassis, engine)
+        val variants = when {
+            offlineEngine?.hasLocalEpcCatalog() == true -> offlineEngine.listLocalEpcVariants(NISSAN_MAKER_SLUG, modelSlug)
+            !_state.value.isOffline -> runCatching { rpc.listCatalogVariants(NISSAN_MAKER_SLUG, modelSlug) }.getOrDefault(emptyList())
+            else -> emptyList()
+        }
+        val generations = variants.groupBy { it.chassisCode }.map { (code, rows) ->
+            val years = rows.mapNotNull { it.yearLabel }.distinct().joinToString(" / ")
+            PosVehicleGenerationOption(code, listOf(code, years).filter { it.isNotBlank() }.joinToString(" · "))
+        }.sortedBy { it.label }
+        val engines = variants.filter { it.chassisCode == chassis }.mapNotNull { it.engineCode }.distinct().sorted()
+        _state.update { st ->
+            st.copy(
+                vehicleVariants = variants, vehicleGenerations = generations, vehicleEngines = engines,
+                selectedVehicleModelSlug = modelSlug, selectedVehicleModelName = modelName,
+                selectedVehicleGeneration = generation, selectedVehicleChassisCode = chassis, selectedVehicleEngineCode = engine,
+                saleVehicle = selection,
+                shoppingVehicles = (st.shoppingVehicles + selection).distinctBy { v -> "${v.modelSlug}|${v.chassisCode}|${v.engineCode}" },
+                customerVehiclePickerOpen = false, searchHits = emptyList(),
+                message = "Vehicle filter: ${selection.displayLabel}", error = null,
+            )
+        }
+        persistVehicleToCurrentCart(selection)
+    }
+
+    /** Retains the cart and its lines while preparing the cascade for another vehicle. */
+    fun shopForAnotherVehicle() {
+        viewModelScope.launch {
+            runCatching { clearPersistedVehicleIfNeeded() }
+            _state.update {
+                it.copy(
+                    vehicleVariants = emptyList(), vehicleGenerations = emptyList(), vehicleEngines = emptyList(),
+                    selectedVehicleModelSlug = "", selectedVehicleModelName = "", selectedVehicleGeneration = "",
+                    selectedVehicleChassisCode = "", selectedVehicleEngineCode = "", saleVehicle = null,
+                    customerVehiclePickerOpen = false, searchHits = emptyList(),
+                    message = "Choose another vehicle with Model → Generation → Engine", error = null,
+                )
+            }
+        }
+    }
+
+    fun addCurrentVehicleToCustomerGarage(vin: String?, isPrimary: Boolean) {
+        val customerId = _state.value.customerId.takeIf { it.isNotBlank() } ?: run {
+            _state.update { it.copy(error = "Select a customer first") }; return
+        }
+        val vehicle = _state.value.saleVehicle ?: run {
+            _state.update { it.copy(error = "Complete Model → Generation → Engine first") }; return
+        }
+        if (_state.value.isOffline) {
+            _state.update { it.copy(error = "Garage changes require an online connection") }; return
+        }
+        viewModelScope.launch {
+            _state.update { it.copy(busy = true, error = null) }
+            try {
+                rpc.upsertPosCustomerGarageVehicle(
+                    customerId = customerId, modelSlug = vehicle.modelSlug, make = "Nissan", model = vehicle.modelName,
+                    generation = vehicle.generation, chassisCode = vehicle.chassisCode, engine = vehicle.engineCode,
+                    vin = vin, isPrimary = isPrimary,
+                )
+                val garage = rpc.listPosCustomerGarage(customerId)
+                _state.update { it.copy(busy = false, customerGarage = garage, message = "Vehicle saved to customer garage") }
+            } catch (e: Exception) {
+                _state.update { it.copy(busy = false, error = e.message ?: "garage save failed") }
             }
         }
     }
@@ -414,8 +1059,17 @@ class PosViewModel(
     fun onCompanionPairingInputChange(v: String) =
         _state.update { it.copy(companionPairingInput = v.filter { ch -> ch.isDigit() }.take(6)) }
 
+    fun onPrinterTransportChange(transport: PrinterTransport) =
+        _state.update { it.copy(printerTransport = transport, printerConnected = false, error = null) }
+
     fun onPrinterMacChange(v: String) =
         _state.update { it.copy(printerMac = v) }
+
+    fun onPrinterHostChange(v: String) =
+        _state.update { it.copy(printerHost = v.trim()) }
+
+    fun onPrinterPortChange(v: String) =
+        _state.update { it.copy(printerPort = v.filter(Char::isDigit)) }
 
     fun selectWarehouse(ref: WarehouseRef) =
         _state.update { it.copy(warehouseId = ref.id, error = null) }
@@ -504,6 +1158,7 @@ class PosViewModel(
                     error = null,
                 )
             }
+            persistVehicleToCurrentCart(_state.value.saleVehicle)
             startCartPolling(id)
             true
         } catch (e: Exception) {
@@ -532,13 +1187,21 @@ class PosViewModel(
                     val engine = offlineEngine
                         ?: throw IllegalStateException("Offline catalog unavailable")
                     val wh = _state.value.warehouseId.trim()
-                    val local = engine.searchLocal(wh, q)
-                    val hits = local.map {
-                        CatalogPartHit(
-                            oemPartNumber = it.oemPartNumber,
-                            categoryName = it.description,
-                            saleableQty = it.saleableQty,
-                        )
+                    val vehicle = _state.value.saleVehicle
+                    val hits = if (vehicle != null && engine.hasLocalEpcCatalog()) {
+                        engine.searchLocalEpcParts(vehicle, q).map { hit ->
+                            val stock = engine.searchLocal(wh, hit.oemPartNumber)
+                                .firstOrNull { it.oemPartNumber.equals(hit.oemPartNumber, ignoreCase = true) }
+                            hit.copy(description = stock?.description ?: hit.description, saleableQty = stock?.saleableQty)
+                        }
+                    } else {
+                        engine.searchLocal(wh, q).map {
+                            CatalogPartHit(
+                                oemPartNumber = it.oemPartNumber,
+                                description = it.description,
+                                saleableQty = it.saleableQty,
+                            )
+                        }
                     }
                     _state.update {
                         it.copy(
@@ -553,7 +1216,12 @@ class PosViewModel(
                     }
                     return@launch
                 }
-                val result = rpc.searchCatalog(_state.value.searchMode, q)
+                val vehicle = _state.value.saleVehicle
+                val result = if (vehicle != null) {
+                    rpc.searchCatalogForVehicle(vehicle, q, limit = 50)
+                } else {
+                    rpc.searchCatalog(_state.value.searchMode, q)
+                }
                 val enriched = result.parts.map { hit ->
                     if (hit.saleableQty != null) {
                         hit
@@ -898,23 +1566,108 @@ class PosViewModel(
         }
     }
 
-    fun connectPrinter() {
-        val mac = _state.value.printerMac.trim()
-        if (mac.isEmpty()) {
-            _state.update { it.copy(error = "Printer Bluetooth MAC required") }
+    fun openA4PrintServices() {
+        runCatching { documentPrinter?.openPrintServiceSettings() ?: error("A4 print bridge unavailable") }
+            .onFailure { e -> _state.update { it.copy(error = e.message ?: "Print services unavailable") } }
+    }
+
+    fun printLastInvoiceA4() {
+        val lines = _state.value.lastA4DocumentLines
+        val invoice = _state.value.lastInvoiceId ?: "POS-document"
+        if (lines.isEmpty()) {
+            _state.update { it.copy(error = "Complete a sale before A4 invoice printing") }
             return
         }
+        runCatching {
+            documentPrinter?.printTextDocument("Nissan GTR Auto $invoice", lines)
+                ?: error("A4 print bridge unavailable")
+        }.onFailure { e -> _state.update { it.copy(error = e.message ?: "A4 printing unavailable") } }
+    }
+
+    private fun buildA4ReceiptLines(invoiceLabel: String, lines: List<PosCartLineSummary>, total: Double): List<String> = buildList {
+        add("NISSAN GTR AUTO")
+        add("Sale invoice: $invoiceLabel")
+        add("Currency: ${_state.value.currency.rpcValue}")
+        val receiptVehicles = _state.value.shoppingVehicles.ifEmpty { listOfNotNull(_state.value.saleVehicle) }
+        receiptVehicles.forEach { add("Vehicle: ${it.displayLabel} · chassis ${it.chassisCode}") }
+        val customer = _state.value.selectedCustomer
+        if (customer != null) {
+            add("Customer: ${customer.receiptDisplayName}")
+            if (customer.kind == PosCustomerKind.BUSINESS && customer.displayName != customer.businessName) {
+                add("Contact: ${customer.displayName}")
+            }
+            customer.email?.takeIf { it.isNotBlank() }?.let { add("Email: $it") }
+            customer.phoneE164?.takeIf { it.isNotBlank() }?.let { add("Phone: $it") }
+        } else if (_state.value.customerName.isNotBlank()) {
+            add("Customer: ${_state.value.customerName}")
+        }
+        add("")
+        add("Qty    OEM / Part                              Unit             Total")
+        lines.forEach { line ->
+            add("${line.qty}    ${(line.oemPartNumber ?: line.stockItemId).take(34)}    ${"%.2f".format(line.unitPrice)}    ${"%.2f".format(line.lineTotal)}")
+        }
+        add("")
+        add("TOTAL ${_state.value.currency.rpcValue} ${"%.2f".format(total)}")
+        add("Thank you for your business.")
+    }
+
+    private fun buildThermalReceiptLines(
+        invoiceLabel: String,
+        total: Double,
+        offline: Boolean = false,
+        bindMessage: String? = null,
+    ): List<EscPosReceiptLine> = buildList {
+        add(EscPosReceiptLine(if (offline) "GTR Auto POS (OFFLINE)" else "GTR Auto POS", emphasis = true))
+        add(EscPosReceiptLine(if (offline) "Queued: $invoiceLabel" else "Invoice: $invoiceLabel"))
+        add(EscPosReceiptLine("Currency: ${_state.value.currency.rpcValue}"))
+        val vehicles = _state.value.shoppingVehicles.ifEmpty { listOfNotNull(_state.value.saleVehicle) }
+        vehicles.forEachIndexed { index, vehicle ->
+            val prefix = if (vehicles.size > 1) "Vehicle ${index + 1}" else "Vehicle"
+            add(EscPosReceiptLine("$prefix: ${vehicle.displayLabel}"))
+        }
+        _state.value.selectedCustomer?.let { customer ->
+            add(EscPosReceiptLine("Customer: ${customer.receiptDisplayName}"))
+            if (customer.kind == PosCustomerKind.BUSINESS && customer.businessName != customer.displayName) {
+                add(EscPosReceiptLine("Contact: ${customer.displayName}"))
+            }
+            customer.email?.takeIf { it.isNotBlank() }?.let { add(EscPosReceiptLine("Email: $it")) }
+            customer.phoneE164?.takeIf { it.isNotBlank() }?.let { add(EscPosReceiptLine("Phone: $it")) }
+        }
+        add(EscPosReceiptLine("Total: ${"%.2f".format(total)}"))
+        bindMessage?.takeIf { it.isNotBlank() }?.let { add(EscPosReceiptLine(it)) }
+        if (offline) add(EscPosReceiptLine("Sync when online"))
+        add(EscPosReceiptLine("Thank you"))
+    }
+
+    fun connectPrinter() {
         viewModelScope.launch {
             _state.update { it.copy(busy = true, error = null, message = null) }
             try {
-                ensureBluetooth()
-                printer.configurePrinterAddress(mac)
+                when (_state.value.printerTransport) {
+                    PrinterTransport.BLUETOOTH -> {
+                        val mac = _state.value.printerMac.trim()
+                        require(mac.isNotEmpty()) { "Printer Bluetooth MAC required" }
+                        ensureBluetooth()
+                        printer.configurePrinterAddress(mac)
+                    }
+                    PrinterTransport.WIFI -> {
+                        val host = _state.value.printerHost.trim()
+                        val port = _state.value.printerPort.toIntOrNull()
+                            ?: throw IllegalArgumentException("Printer TCP port required")
+                        printer.configureNetworkPrinter(host, port)
+                    }
+                }
+                printer.selectTransport(_state.value.printerTransport)
                 printer.connect()
+                val endpoint = when (_state.value.printerTransport) {
+                    PrinterTransport.BLUETOOTH -> _state.value.printerMac
+                    PrinterTransport.WIFI -> "${_state.value.printerHost}:${_state.value.printerPort}"
+                }
                 _state.update {
                     it.copy(
                         busy = false,
                         printerConnected = true,
-                        message = "ESC/POS printer connected ($mac)",
+                        message = "ESC/POS printer connected ($endpoint)",
                     )
                 }
             } catch (e: Exception) {
@@ -951,7 +1704,7 @@ class PosViewModel(
     }
 
     fun selectBondedPrinter(device: BondedEscPosDevice) {
-        _state.update { it.copy(printerMac = device.address) }
+        _state.update { it.copy(printerTransport = PrinterTransport.BLUETOOTH, printerMac = device.address) }
         connectPrinter()
     }
 
@@ -1038,6 +1791,7 @@ class PosViewModel(
                     error = null,
                 )
             }
+            clearVehicleSelectionLocal()
             return
         }
         if (_state.value.cartId.isBlank()) {
@@ -1058,7 +1812,14 @@ class PosViewModel(
             _state.update { it.copy(error = "Checkout an invoice first to refund") }
             return
         }
-        _state.update { it.copy(managerPrompt = ManagerPrompt.Refund, error = null) }
+        _state.update {
+            it.copy(
+                refundInvoiceId = it.lastInvoiceId,
+                refundInvoiceTotal = it.lastInvoiceTotal,
+                managerPrompt = ManagerPrompt.Refund,
+                error = null,
+            )
+        }
     }
 
     fun confirmManagerAction() {
@@ -1127,9 +1888,12 @@ class PosViewModel(
                                 message = "Cart voided (manager approved)",
                             )
                         }
+                        clearVehicleSelectionLocal()
                     }
                     ManagerPrompt.Refund -> {
-                        val invoiceId = _state.value.lastInvoiceId!!
+                        val invoiceId = _state.value.refundInvoiceId
+                            ?: _state.value.lastInvoiceId
+                            ?: throw IllegalStateException("Select an invoice to refund")
                         val refundId = withManagerApproval(identifier, password) {
                             rpc.postPosRefund(invoiceId, "POS counter refund")
                         }
@@ -1139,6 +1903,8 @@ class PosViewModel(
                                 managerPrompt = null,
                                 managerIdentifier = "",
                                 managerPassword = "",
+                                refundInvoiceId = null,
+                                refundInvoiceTotal = 0.0,
                                 message = "${RpcNames.POST_POS_REFUND} → $refundId " +
                                     "(via ${RpcNames.POST_FINANCE_REFUND})",
                             )
@@ -1173,6 +1939,7 @@ class PosViewModel(
                         message = "Cart parked — resume with id $cartId",
                     )
                 }
+                clearVehicleSelectionLocal()
             } catch (e: Exception) {
                 _state.update { it.copy(busy = false, error = e.message ?: "park failed") }
             }
@@ -1190,6 +1957,7 @@ class PosViewModel(
             try {
                 rpc.resumePosCart(cartId)
                 refreshCartLines(cartId)
+                restoreVehicleFromCart(cartId)
                 startCartPolling(cartId)
                 _state.update {
                     it.copy(
@@ -1287,6 +2055,7 @@ class PosViewModel(
             try {
                 val cartId = rpc.convertPosQuotationToCart(quotationId)
                 refreshCartLines(cartId)
+                restoreVehicleFromCart(cartId)
                 startCartPolling(cartId)
                 val quotes = rpc.listPosQuotations()
                 _state.update {
@@ -1380,20 +2149,21 @@ class PosViewModel(
                         receiptEmail = _state.value.receiptEmail.trim().ifBlank { null },
                         receiptWhatsapp = _state.value.receiptWhatsapp.trim().ifBlank { null },
                         receiptPhone = _state.value.receiptWhatsapp.trim().ifBlank { null },
+                        vehicle = _state.value.saleVehicle,
+                        vehicleContexts = _state.value.shoppingVehicles,
                     )
                     val total = offlineLocalLines.sumOf { it.lineTotal }
+                    val a4Lines = buildA4ReceiptLines(clientSaleId, PosCartLineOps.toSummaries(offlineLocalLines), total)
                     offlineLocalLines.clear()
                     refreshOfflineBadge()
                     var msg = "Offline sale queued $clientSaleId — will sync when online"
                     if (printer.isConnected()) {
                         try {
                             printer.printReceiptLines(
-                                listOf(
-                                    EscPosReceiptLine("GTR Auto POS (OFFLINE)", emphasis = true),
-                                    EscPosReceiptLine("Queued: $clientSaleId"),
-                                    EscPosReceiptLine("Currency: ${_state.value.currency.rpcValue}"),
-                                    EscPosReceiptLine("Total: ${"%.2f".format(total)}"),
-                                    EscPosReceiptLine("Sync when online"),
+                                buildThermalReceiptLines(
+                                    invoiceLabel = clientSaleId,
+                                    total = total,
+                                    offline = true,
                                 ),
                             )
                             msg += " · provisional receipt printed"
@@ -1409,10 +2179,15 @@ class PosViewModel(
                             tenderLines = listOf(PosTenderDraft()),
                             lastInvoiceId = clientSaleId,
                             lastInvoiceTotal = total,
+                            lastA4DocumentLines = a4Lines,
                             lastBindMessage = "Offline walk-in — pending sync",
+                            customerId = "", customerName = "", selectedCustomer = null, customerQuery = "",
+                            customerHits = emptyList(), customerGarage = emptyList(), customerVehiclePickerOpen = false,
+                            receiptEmail = "", receiptWhatsapp = "",
                             message = msg,
                         )
                     }
+                    clearVehicleSelectionLocal()
                     return@launch
                 }
                 val tenders = _state.value.tenderLines.mapNotNull { row ->
@@ -1448,15 +2223,14 @@ class PosViewModel(
                 }
                 msg += " · ${result.bindMessage}"
                 val total = _state.value.cartLines.sumOf { it.lineTotal }
+                val a4Lines = buildA4ReceiptLines(result.invoiceId, _state.value.cartLines, total)
                 if (printer.isConnected()) {
                     try {
                         printer.printReceiptLines(
-                            listOf(
-                                EscPosReceiptLine("GTR Auto POS", emphasis = true),
-                                EscPosReceiptLine("Invoice: ${result.invoiceId}"),
-                                EscPosReceiptLine("Currency: ${_state.value.currency.rpcValue}"),
-                                EscPosReceiptLine(result.bindMessage),
-                                EscPosReceiptLine("Thank you"),
+                            buildThermalReceiptLines(
+                                invoiceLabel = result.invoiceId,
+                                total = total,
+                                bindMessage = result.bindMessage,
                             ),
                         )
                         msg += " · receipt printed"
@@ -1474,13 +2248,15 @@ class PosViewModel(
                         tenderLines = listOf(PosTenderDraft()),
                         lastInvoiceId = result.invoiceId,
                         lastInvoiceTotal = total,
+                        lastA4DocumentLines = a4Lines,
                         lastBindMessage = result.bindMessage,
-                        ecocashMsisdn = _state.value.receiptWhatsapp.ifBlank {
-                            it.ecocashMsisdn
-                        },
+                        customerId = "", customerName = "", selectedCustomer = null, customerQuery = "",
+                        customerHits = emptyList(), customerGarage = emptyList(), customerVehiclePickerOpen = false,
+                        receiptEmail = "", receiptWhatsapp = "", ecocashMsisdn = "",
                         message = msg,
                     )
                 }
+                clearVehicleSelectionLocal()
             } catch (e: Exception) {
                 _state.update {
                     it.copy(busy = false, error = e.message ?: "checkout failed")
@@ -1515,19 +2291,21 @@ class PosViewModel(
     }
 
     companion object {
+        private const val NISSAN_MAKER_SLUG = "nissan"
         private const val CART_POLL_MS = 4_000L
 
         fun factory(
             rpc: RpcClient,
             qr: QrScannerBridge,
             printer: EscPosPrinterBridge,
+            documentPrinter: DocumentPrinterBridge? = null,
             offlineEngine: OfflinePosSyncEngine? = null,
             onlineFlow: Flow<Boolean>? = null,
         ): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                    PosViewModel(rpc, qr, printer, offlineEngine, onlineFlow) as T
+                    PosViewModel(rpc, qr, printer, documentPrinter, offlineEngine, onlineFlow) as T
             }
     }
 }

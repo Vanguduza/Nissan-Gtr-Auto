@@ -291,7 +291,7 @@ fun ShopAddressPicker(
     longitude: String,
     onLatitudeChange: (String) -> Unit,
     onLongitudeChange: (String) -> Unit,
-    mapsKeyPresent: Boolean,
+    mapAvailable: Boolean,
     modifier: Modifier = Modifier,
     mapSlot: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
@@ -301,11 +301,10 @@ fun ShopAddressPicker(
     ) {
         ShopSectionHeader(title = "Delivery address", actionLabel = null)
         Text(
-            if (mapsKeyPresent) {
+            if (mapAvailable) {
                 "Pick a point on the map, then confirm the street address."
             } else {
-                "Set GOOGLE_MAPS_API_KEY in local.properties to enable the map picker " +
-                    "(Shopping-By-KMP pattern). Lat/lng + line work offline until then."
+                "Map tiles are unavailable. You can still enter latitude/longitude manually."
             },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -329,7 +328,7 @@ fun ShopAddressPicker(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    if (mapsKeyPresent) "Map host not wired in this build" else "Map unavailable — enter coordinates",
+                    if (mapAvailable) "Map host not wired in this build" else "Map unavailable — enter coordinates",
                     style = MaterialTheme.typography.bodySmall,
                     color = GtrColors.Steel,
                 )

@@ -96,6 +96,22 @@ interface RpcClient {
         query: String,
     ): CatalogSearchResult
 
+    /** Fitment-scoped spare search when the attendant selected a specific Nissan. */
+    suspend fun searchCatalogForVehicle(
+        vehicle: PosSaleVehicleSelection,
+        query: String,
+        limit: Int = 50,
+    ): CatalogSearchResult = searchCatalog(CatalogSearchMode.PART, query)
+
+    /** Persist or clear sale vehicle context on an open cart. */
+    suspend fun setPosCartVehicle(
+        cartId: String,
+        vehicle: PosSaleVehicleSelection?,
+    ): String = cartId
+
+    /** Read vehicle snapshot from a live/parked cart (resume / quote conversion). */
+    suspend fun getPosCartVehicle(cartId: String): PosSaleVehicleSelection? = null
+
     /**
      * Megazip hierarchy browse (online-only). Offline POS cache remains flat catalog_items.
      */
@@ -114,6 +130,43 @@ interface RpcClient {
         variantSlug: String,
         sectionSlug: String,
     ): EpcDiagramResponse = EpcDiagramResponse()
+    /**
+     * Full-catalogue gateway (`catalog-live-r2`): the Supabase hierarchy plus R2 part shards and
+     * signed diagram images. Fails closed with [CatalogLiveException] (never fixture data).
+     */
+    suspend fun catalogLive(action: String, params: Map<String, String> = emptyMap()): kotlinx.serialization.json.JsonObject =
+        throw CatalogLiveException(503, null, "live catalogue not available on this client")
+
+    /**
+     * Published vehicle-master id (full catalogue) for an exact chassis + engine; null when the
+     * vehicle is absent. The catalogue lists several build variants per chassis + engine with
+     * near-identical fitment, so the first (by id, for a stable choice) keys the R2 fitment shard.
+     */
+    suspend fun resolveVehicleMasterId(chassisCode: String, engineCode: String): String? =
+        listVehicleMaster()
+            .filter {
+                it.chassisCode.equals(chassisCode.trim(), ignoreCase = true) &&
+                    it.engineCode.orEmpty().equals(engineCode.trim(), ignoreCase = true)
+            }
+            .map { it.id }
+            .minOrNull()
+
+    /** Every published vehicle of the full catalogue (vehicle selector + EPC variants). */
+    suspend fun listVehicleMaster(): List<VehicleMasterEntry> = emptyList()
+
+    suspend fun listCatalogDiagrams(
+        makerSlug: String,
+        modelSlug: String,
+        variantSlug: String,
+        sectionSlug: String,
+    ): List<EpcDiagramSummary> = emptyList()
+    suspend fun getCatalogDiagramBySlug(
+        makerSlug: String,
+        modelSlug: String,
+        variantSlug: String,
+        sectionSlug: String,
+        diagramSlug: String,
+    ): EpcDiagramResponse = getCatalogDiagram(makerSlug, modelSlug, variantSlug, sectionSlug)
 
     /** Open cart lines (poll refresh for companion scans). */
     suspend fun listPosCartLines(cartId: String): List<PosCartLineSummary>
@@ -144,6 +197,9 @@ interface RpcClient {
 
     /** Load cart_id for a claimed/open session (companion after claim). */
     suspend fun getPosScanSessionCartId(sessionId: String): String?
+
+    /** Session status (`open` / `claimed` / `revoked` / `expired`) for the till showing the pairing. */
+    suspend fun getPosScanSessionStatus(sessionId: String): String? = null
 
     /** Hold open cart ([RpcNames.PARK_POS_CART]). */
     suspend fun parkPosCart(cartId: String): String
@@ -205,6 +261,47 @@ interface RpcClient {
         status: String? = null,
         limit: Int = 50,
     ): List<PosQuotationSummary>
+
+    /** Best-selling spares from posted invoices for the operator Home screen. */
+    suspend fun listPosPopularSpares(
+        days: Int = 90,
+        limit: Int = 8,
+    ): List<PopularPosSpare> = emptyList()
+
+    /** Per-operator explicit shortcuts merged with algorithmic popular spares in the Home row. */
+    suspend fun listPosPopularPins(): List<PosPopularPin> = emptyList()
+
+    suspend fun upsertPosPopularPin(pin: PosPopularPin): String = pin.stableKey
+
+    suspend fun deletePosPopularPin(kind: PosPopularItemKind, itemKey: String): Boolean = false
+
+    /** Posted sales history search for Orders / Returns. */
+    /** Stock id, base UOM, default price, saleable qty and image for OEM numbers (benchmark POS search). */
+    suspend fun hydratePosParts(oemPartNumbers: List<String>): List<PosPartMeta> = emptyList()
+
+    /** Owner decision D1: best sellers this operator removed from Popular Items. */
+    suspend fun listPosHiddenBestsellers(): List<String> = emptyList()
+
+    suspend fun hidePosBestseller(stockItemId: String): Boolean = false
+
+    suspend fun unhidePosBestseller(stockItemId: String): Boolean = false
+
+    /** Signed-in staff member's display name for the POS header. */
+    suspend fun currentStaffDisplayName(): String? = null
+
+    /** Parked POS sales, newest first. */
+    suspend fun listPosParkedCarts(limit: Int = 50): List<PosParkedCart> = emptyList()
+
+    /** Currency of a POS cart. */
+    suspend fun posCartCurrency(cartId: String): CurrencyCode? = null
+
+    /** Invoice number for a posted sale (receipt header). */
+    suspend fun salesInvoiceDocumentNumber(invoiceId: String): String? = null
+
+    suspend fun listPosRecentInvoices(
+        query: String? = null,
+        limit: Int = 50,
+    ): List<PosInvoiceSummary> = emptyList()
 
     /**
      * Pull retail catalog + warehouse qty for encrypted offline POS cache.
@@ -433,8 +530,46 @@ interface RpcClient {
 
     // --- Named customers (PostgREST + RLS — finance/POS/credit pattern) ---
 
-    /** Search by display_name ilike or exact UUID (≥2 chars). */
+    /** Search POS-visible customers by name/business/contact or exact UUID (≥2 chars). */
     suspend fun searchCustomers(query: String): List<CustomerOption>
+
+    /** Staff-safe customer create/update surface; finance/credit fields are deliberately excluded. */
+    suspend fun createPosCustomer(
+        kind: PosCustomerKind,
+        displayName: String,
+        businessName: String? = null,
+        email: String? = null,
+        phoneE164: String? = null,
+        whatsappE164: String? = null,
+    ): String
+
+    suspend fun updatePosCustomer(
+        customerId: String,
+        kind: PosCustomerKind,
+        displayName: String,
+        businessName: String? = null,
+        email: String? = null,
+        phoneE164: String? = null,
+        whatsappE164: String? = null,
+    )
+
+    suspend fun listPosCustomerGarage(customerId: String): List<CustomerGarageVehicle>
+
+    suspend fun upsertPosCustomerGarageVehicle(
+        customerId: String,
+        vehicleId: String? = null,
+        modelSlug: String,
+        make: String,
+        model: String,
+        generation: String,
+        chassisCode: String,
+        engine: String,
+        vin: String? = null,
+        isPrimary: Boolean = false,
+    ): String
+
+    /** Changes the customer on an already-open POS cart without recreating the sale. */
+    suspend fun setPosCartCustomer(cartId: String, customerId: String?)
 
     // --- Phase 8b blankets (procurement) ---
 
@@ -584,4 +719,305 @@ interface RpcClient {
      * Never returns the temp password.
      */
     suspend fun createHrOnboardingAuthUser(employeeId: String): HrOnboardingAuthResult
+
+    // --- POS till sessions (live `pos_operations_p0_p1`; see docs/plans/2026-10-03-pos-operations-backend-integration.md)
+
+    /** Open or variance-pending till of this operator or [deviceId]; null when none. */
+    suspend fun getMyOpenPosTillSession(deviceId: String?): PosTillSessionRow? = null
+
+    suspend fun openPosTillSession(warehouseId: String, deviceId: String, openingFloat: Double, currency: CurrencyCode): String =
+        throw UnsupportedOperationException("till sessions are not available")
+
+    /** Cart → till, so the invoice's cash counts towards the drawer. */
+    suspend fun attachPosCartTillSession(cartId: String, sessionId: String) {}
+
+    suspend fun listPosApprovalReasons(action: String): List<PosApprovalReason> = emptyList()
+
+    /** `kind` is `pos_till_cash_movement_kind`; anything but `cash_in` needs a manager session. */
+    suspend fun recordPosTillCashMovement(sessionId: String, kind: String, amount: Double, reasonCode: String, notes: String?): String =
+        throw UnsupportedOperationException("till sessions are not available")
+
+    suspend fun submitPosTillDenominatedClose(
+        sessionId: String,
+        lines: List<PosDenominationLine>,
+        varianceReasonCode: String?,
+        notes: String?,
+    ): PosTillCloseResult = throw UnsupportedOperationException("till sessions are not available")
+
+    /** Manager session only. */
+    suspend fun approvePosTillVariance(sessionId: String, reasonCode: String, notes: String?) {
+        throw UnsupportedOperationException("till sessions are not available")
+    }
+
+    suspend fun listPosHandoverOperators(): List<PosHandoverOperatorRow> = emptyList()
+
+    /** Manager session only. */
+    suspend fun handoverPosTillSession(sessionId: String, newOperatorUserId: String, notes: String?) {
+        throw UnsupportedOperationException("till sessions are not available")
+    }
+
+    suspend fun listPosTillSessions(limit: Int = 20): List<PosTillSessionRow> = emptyList()
+
+    // --- POS governance (`*_governed`: configured reason always; manager when the policy says so)
+
+    suspend fun applyPosCartDiscountGoverned(cartId: String, discountPercent: Double, reasonCode: String, notes: String?): String =
+        applyPosCartDiscount(cartId, discountPercent, listOfNotNull(reasonCode, notes).joinToString(" · "))
+
+    suspend fun applyPosLinePriceOverrideGoverned(lineId: String, unitPrice: Double, reasonCode: String, notes: String?): String =
+        applyPosLinePriceOverride(lineId, unitPrice, listOfNotNull(reasonCode, notes).joinToString(" · "))
+
+    suspend fun voidPosCartGoverned(cartId: String, reasonCode: String, notes: String?): String =
+        voidPosCart(cartId, listOfNotNull(reasonCode, notes).joinToString(" · "))
+
+    suspend fun postPosRefundGoverned(invoiceId: String, reasonCode: String, notes: String?): String =
+        postPosRefund(invoiceId, listOfNotNull(reasonCode, notes).joinToString(" · "))
+
+    /** `pos_action_requires_manager`; true (fail closed) when there is no policy backend. */
+    suspend fun posActionRequiresManager(action: String, value: Double): Boolean = true
+
+    suspend fun listPosApprovalPolicies(): List<PosApprovalPolicy> = emptyList()
+
+    /** Admin only (server-enforced). */
+    suspend fun setPosApprovalPolicy(action: String, thresholdValue: Double, alwaysRequireManager: Boolean, reasonRequired: Boolean) {
+        throw UnsupportedOperationException("approval policies are not available")
+    }
+
+    // --- POS manager badges (`pos_badge_approve`, `get_my_pos_approver_status`)
+
+    /** The signed-in user is a POS manager: approvals need no badge or password. */
+    suspend fun myPosApproverStatus(): Boolean = false
+
+    /**
+     * Run one governed action approved by a scanned manager badge. Returns the outcome object
+     * `{ok, manager_name, result | error}`; a refused badge is `ok=false`, not an exception.
+     */
+    suspend fun posBadgeApprove(badge: String, action: String, args: Map<String, Any?>, deviceId: String?): PosBadgeApproval =
+        PosBadgeApproval(false, null, "manager badges need the live backend")
+
+    // --- POS reserve-first checkout (Blueprint §10.6): reserve, then take money against the order
+
+    suspend fun preparePosCommerceCheckout(
+        cartId: String,
+        checkoutRequestId: String,
+        receiptEmail: String?,
+        receiptWhatsappE164: String?,
+    ): String = throw UnsupportedOperationException("reserve-first checkout needs the live backend")
+
+    suspend fun posPaymentStatus(orderId: String): PosPaymentStatus = throw UnsupportedOperationException("reserve-first checkout needs the live backend")
+
+    /** Cash, bank, store credit; returns the invoice id. Idempotent on [paymentRequestId]. */
+    suspend fun settlePosCommerceTenders(orderId: String, paymentRequestId: String, tenders: List<PosTenderLine>): String =
+        throw UnsupportedOperationException("reserve-first checkout needs the live backend")
+
+    /** Null when the provider can be offered, else why not (a provider without keys answers 503). */
+    suspend fun posProviderAvailability(provider: String): String? = "Not available"
+
+    suspend fun startPosProviderPayment(orderId: String, provider: String, msisdn: String?, method: String?, returnUrl: String): PosProviderStart =
+        throw UnsupportedOperationException("provider payments need the live backend")
+
+    suspend fun cancelPosCommerceCheckout(orderId: String, reason: String) {
+        throw UnsupportedOperationException("reserve-first checkout needs the live backend")
+    }
+
+    /** On account (server checks credit limit, hold and currency); returns the invoice id. */
+    suspend fun checkoutPosCartOnAccount(cartId: String, receiptEmail: String?, receiptWhatsappE164: String?): String =
+        throw UnsupportedOperationException("on-account checkout needs the live backend")
+
+    suspend fun listPosPaymentRecovery(): List<PosRecoveryRow> = emptyList()
+
+    /** Approver session only (manager, finance, or badge). */
+    suspend fun repairPosPaidOrder(orderId: String, notes: String?): String =
+        throw UnsupportedOperationException("payment recovery needs the live backend")
+
+    suspend fun listPosPickupOrders(query: String?): List<PosPickupRow> = emptyList()
+
+    suspend fun collectPosCommerceOrder(orderId: String, notes: String?) {
+        throw UnsupportedOperationException("pickup needs the live backend")
+    }
+
+    // --- POS part payments (staged split, Blueprint §10.5 / §10.8): money taken part by part on the reserved order
+
+    suspend fun findPosSplitPayment(orderId: String): PosSplitSession? = null
+
+    suspend fun startPosSplitPayment(orderId: String): PosSplitSession =
+        throw UnsupportedOperationException("part payments need the live backend")
+
+    suspend fun getPosSplitPayment(sessionId: String): PosSplitSession =
+        throw UnsupportedOperationException("part payments need the live backend")
+
+    /** Cash and bank are received at once (bank needs a reference); store credit is held. Idempotent on [requestId]. */
+    suspend fun addPosSplitPaymentLeg(sessionId: String, tender: String, amount: Double, requestId: String, externalReference: String?): PosSplitSession =
+        throw UnsupportedOperationException("part payments need the live backend")
+
+    /** The customer keeps only [items] (cart line id → qty); the server computes the total and posts. */
+    suspend fun acceptPosSplitAffordableItems(sessionId: String, items: List<Pair<String, Double>>, notes: String?): PosSplitSession =
+        throw UnsupportedOperationException("part payments need the live backend")
+
+    suspend fun requestPosSplitCancellation(sessionId: String, reason: String, feePolicy: String): PosSplitSession =
+        throw UnsupportedOperationException("part payments need the live backend")
+
+    suspend fun retryPosSplitFinalization(sessionId: String): PosSplitSession =
+        throw UnsupportedOperationException("part payments need the live backend")
+
+    suspend fun listPosSplitPaymentRecovery(): List<PosSplitRecoveryRow> = emptyList()
+
+    /** Manager or finance (or a badge grant). */
+    suspend fun approvePosSplitRefund(refundId: String, feePolicy: String, customerFee: Double, notes: String?): PosSplitSession =
+        throw UnsupportedOperationException("part payments need the live backend")
+
+    suspend fun completePosSplitRefund(refundId: String, providerRef: String, notes: String?): PosSplitSession =
+        throw UnsupportedOperationException("part payments need the live backend")
+
+    suspend fun failPosSplitRefund(refundId: String, reason: String): PosSplitSession =
+        throw UnsupportedOperationException("part payments need the live backend")
+
+    // --- POS card terminals (ECR, adapter android_intent_v1): money is taken on the acquirer's terminal app,
+    // its answer is signed by this paired device and recorded by the `card-terminal-result` function.
+
+    suspend fun listPosCardTerminals(warehouseId: String?, deviceId: String?): List<PosCardTerminalRow> = emptyList()
+
+    suspend fun beginPosCardTerminalPurchase(orderId: String, terminalId: String, requestId: String): PosTerminalAttempt =
+        throw UnsupportedOperationException("card terminals need the live backend")
+
+    /** A planned `card_terminal` part of a split payment. */
+    suspend fun beginPosSplitCardTerminalLeg(legId: String, terminalId: String, requestId: String): PosTerminalAttempt =
+        throw UnsupportedOperationException("card terminals need the live backend")
+
+    suspend fun getPosCardTerminalAttempt(attemptId: String): PosTerminalAttempt =
+        throw UnsupportedOperationException("card terminals need the live backend")
+
+    /** Posts signed evidence (`gtr-card-terminal-evidence-v1`); [payloadJson] is the canonical JSON that was signed. */
+    suspend fun submitCardTerminalEvidence(payloadJson: String, signatureBase64: String): PosTerminalAttempt =
+        throw UnsupportedOperationException("card terminals need the live backend")
+
+    /** Approved → posts the sale (or the split part). May answer status `recovery_required` with an error. */
+    suspend fun finalizePosCardTerminalPurchase(attemptId: String): PosTerminalAttempt =
+        throw UnsupportedOperationException("card terminals need the live backend")
+
+    /** Undo an approved purchase that could not be posted (operator who took it, or a manager). */
+    suspend fun beginPosCardTerminalReversal(purchaseAttemptId: String, requestId: String): PosTerminalAttempt =
+        throw UnsupportedOperationException("card terminals need the live backend")
+
+    suspend fun listPosCardTerminalRecovery(): List<PosTerminalRecoveryRow> = emptyList()
+
+    /** Admin: pair this device with a terminal by registering its evidence public key. */
+    suspend fun registerPosCardTerminalDeviceKey(terminalId: String, deviceId: String, publicKeySpkiBase64: String, keySha256: String): String =
+        throw UnsupportedOperationException("card terminals need the live backend")
+
+    /** Card refund of a whole sale paid in full on a card machine (manager or finance; badge `card_refund_begin`). */
+    suspend fun beginPosCardTerminalRefund(invoiceId: String, terminalId: String, requestId: String): PosTerminalAttempt =
+        throw UnsupportedOperationException("card terminals need the live backend")
+
+    /** Approved refund on the machine → posts the finance refund (manager or finance; badge `card_refund_finish`). */
+    suspend fun finalizePosCardTerminalRefund(attemptId: String, notes: String?): PosTerminalAttempt =
+        throw UnsupportedOperationException("card terminals need the live backend")
+
+    // --- POS returns, cores, warranty and stock by branch (Blueprint §10, phase 6). Sales staff prepare;
+    // posting and warranty decisions need an approver (own sign-in, password for one call, or badge).
+
+    suspend fun getPosInvoiceDetail(invoiceId: String): PosInvoiceDetail =
+        throw UnsupportedOperationException("returns need the live backend")
+
+    /** Draft return case; [resolution] credit_note | cash_refund | store_credit | replacement | warranty. */
+    suspend fun createPosReturnCase(
+        invoiceId: String,
+        resolution: String,
+        reasonCode: String,
+        lines: List<PosReturnLineInput>,
+        notes: String?,
+        replacementLines: List<PosReplacementLineInput>?,
+        tillSessionId: String?,
+    ): String = throw UnsupportedOperationException("returns need the live backend")
+
+    suspend fun postPosReturnCase(returnCaseId: String) {
+        throw UnsupportedOperationException("returns need the live backend")
+    }
+
+    /** [resolution] cash_refund | account_credit | store_credit. */
+    suspend fun postPosCoreReturn(invoiceId: String, coreLineId: String, qty: Double, resolution: String, reasonCode: String, tillSessionId: String?, notes: String?) {
+        throw UnsupportedOperationException("returns need the live backend")
+    }
+
+    suspend fun openPosWarrantyClaim(invoiceId: String, invoiceLineId: String, serialId: String?, notes: String?): String =
+        throw UnsupportedOperationException("warranty needs the live backend")
+
+    suspend fun findPosWarrantySerial(serialNumber: String): List<PosWarrantySerialRow> = emptyList()
+
+    suspend fun listPosWarrantyClaims(query: String?, status: String?): List<PosWarrantyClaimRow> = emptyList()
+
+    /** [resolution] replacement | credit_note | return_only; credit lines `{stock_item_id, qty}` are valued at the sold price. */
+    suspend fun approvePosWarrantyClaim(claimId: String, resolution: String, creditLines: List<Pair<String, Double>>?, replacementLines: List<PosReplacementLineInput>?) {
+        throw UnsupportedOperationException("warranty needs the live backend")
+    }
+
+    suspend fun rejectPosWarrantyClaim(claimId: String, reason: String) {
+        throw UnsupportedOperationException("warranty needs the live backend")
+    }
+
+    suspend fun closeWarrantyClaim(claimId: String) {
+        throw UnsupportedOperationException("warranty needs the live backend")
+    }
+
+    suspend fun listPosStockAvailability(stockItemId: String): List<PosStockAvailabilityRow> = emptyList()
+
+    // --- POS fulfilment (phase 7). Requests are in the part's stock unit; a hold with a cart becomes
+    // ready with its invoice when that sale posts, a transfer when the warehouse posts it.
+
+    suspend fun createPosFulfillmentRequest(
+        kind: String,
+        stockItemId: String,
+        qty: Double,
+        sourceWarehouseId: String?,
+        destinationWarehouseId: String?,
+        customerId: String?,
+        cartId: String?,
+        notes: String?,
+        holdMinutes: Int,
+    ): String = throw UnsupportedOperationException("fulfilment needs the live backend")
+
+    suspend fun listPosFulfillmentRequests(query: String?, status: String?): List<PosFulfillmentRow> = emptyList()
+
+    /** [step] approve (warehouse staff) | ready | collect | cancel. */
+    suspend fun posFulfillmentStep(requestId: String, step: String, notes: String?) {
+        throw UnsupportedOperationException("fulfilment needs the live backend")
+    }
+
+    /** An arrived back-order sold on [cartId]: it gets the sale's invoice when the sale posts. */
+    suspend fun attachPosFulfillmentToCart(requestId: String, cartId: String) {
+        throw UnsupportedOperationException("fulfilment needs the live backend")
+    }
+
+    // --- Approvals inbox (the same list as the web Approvals page)
+
+    suspend fun listMyApprovals(): List<WaitingApprovalRow> = emptyList()
+
+    // --- Payment resolution letters (manager / finance / admin, signed with the issuer's own signature)
+
+    suspend fun listPaymentLetters(sourceKind: String?, sourceId: String?): List<PaymentLetterRow> = emptyList()
+
+    suspend fun createPaymentLetter(sourceKind: String, sourceId: String, notes: String?): String =
+        throw UnsupportedOperationException("payment letters need the live backend")
+
+    suspend fun getPaymentLetter(letterId: String): PaymentLetterDocument =
+        throw UnsupportedOperationException("payment letters need the live backend")
+
+    suspend fun getMyManagerSignature(): ManagerSignatureRow =
+        throw UnsupportedOperationException("signatures need the live backend")
+
+    /** Uploads to the private `staff-signatures` bucket under the user's own folder, then registers it. */
+    suspend fun saveMyManagerSignature(png: ByteArray): ManagerSignatureRow =
+        throw UnsupportedOperationException("signatures need the live backend")
+
+    suspend fun getBusinessDocumentProfile(): BusinessProfileRow =
+        throw UnsupportedOperationException("business details need the live backend")
+
+    /** Admin only (server-enforced). */
+    suspend fun setBusinessDocumentProfile(profile: BusinessProfileRow): BusinessProfileRow =
+        throw UnsupportedOperationException("business details need the live backend")
 }
+
+/**
+ * Outcome of [RpcClient.posBadgeApprove]. [attemptId] is the card-machine attempt a badge started
+ * (`card_refund_begin`), when the action returns one.
+ */
+data class PosBadgeApproval(val ok: Boolean, val managerName: String?, val error: String?, val attemptId: String? = null)

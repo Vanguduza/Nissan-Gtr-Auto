@@ -48,24 +48,30 @@ function DiagramFrame({
   diagram: CatalogDiagram;
   className?: string;
 }) {
-  const boxed = diagram.hotspots.filter((h) => hotspotStyle(h));
+  const [natural, setNatural] = useState<{ src: string; w: number; h: number } | null>(null);
+  const size = natural?.src === diagram.publicUrl ? natural : null;
+  const boxed = diagram.hotspots
+    .map((h) => ({ h, style: hotspotStyle(h, size?.w, size?.h) }))
+    .filter((b): b is { h: (typeof diagram.hotspots)[number]; style: NonNullable<ReturnType<typeof hotspotStyle>> } => b.style != null);
   return (
     <div
       className={[styles.wrap, className].filter(Boolean).join(" ")}
       aria-label="Parts diagram canvas"
     >
       <div className={`${styles.frame} ${styles.frameLive}`}>
-        <CatalogStorageImage
-          className={styles.diagramImg}
-          src={diagram.publicUrl}
-          alt={`Catalog diagram ${diagram.path}`}
-          priority
-          variant="diagram"
-        />
-        {boxed.map((h, i) => {
-          const style = hotspotStyle(h);
-          if (!style) return null;
-          return (
+        <div
+          className={styles.stage}
+          style={size ? { width: `min(100%, calc(var(--stub-max-h) * ${(size.w / size.h).toFixed(4)}))` } : undefined}
+        >
+          <CatalogStorageImage
+            className={styles.diagramImg}
+            src={diagram.publicUrl}
+            alt={`Catalog diagram ${diagram.path}`}
+            priority
+            variant="diagram"
+            onNaturalSize={(w, h) => setNatural({ src: diagram.publicUrl, w, h })}
+          />
+          {boxed.map(({ h, style }, i) => (
             <Link
               key={h.id}
               href={`/parts/${encodeURIComponent(h.oem)}`}
@@ -77,8 +83,8 @@ function DiagramFrame({
                 {String(i + 1).padStart(2, "0")}
               </span>
             </Link>
-          );
-        })}
+          ))}
+        </div>
         <p className={styles.caption}>
           {boxed.length
             ? `${boxed.length} hotspot${boxed.length === 1 ? "" : "s"} · catalog-diagrams`

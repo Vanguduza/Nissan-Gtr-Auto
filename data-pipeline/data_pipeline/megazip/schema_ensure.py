@@ -83,7 +83,7 @@ def resolve_database_url(*, env: dict[str, str] | None = None) -> str | None:
         user = (e.get("SUPABASE_DB_USER") or "postgres").strip()
         return f"postgresql://{user}:{quote_plus(password)}@{host}:{port}/postgres"
 
-    m = re.match(r"^([a-z0-9-]+)\.supabase\.co$", host, re.I)
+    m = re.match(r"^([a-z0-9-]+)\.supabase\.co$", host, re.IGNORECASE)
     if not m:
         return None
     ref = m.group(1)

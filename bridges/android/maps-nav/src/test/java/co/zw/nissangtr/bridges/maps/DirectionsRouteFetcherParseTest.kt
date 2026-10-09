@@ -8,17 +8,16 @@ class DirectionsRouteFetcherParseTest {
 
     @Test
     fun parse_okRoute() {
-        val encoded = "_p~iF~ps|U_ulLnnqC_mqNvxq`@"
         val json = """
             {
-              "status": "OK",
+              "code": "Ok",
               "routes": [{
-                "summary": "I-80",
-                "overview_polyline": { "points": "$encoded" },
-                "legs": [{
-                  "distance": { "value": 1000 },
-                  "duration": { "value": 120 }
-                }]
+                "distance": 1000.4,
+                "duration": 120.8,
+                "geometry": {
+                  "type": "LineString",
+                  "coordinates": [[31.05,-17.83],[31.06,-17.84],[31.07,-17.85]]
+                }
               }]
             }
         """.trimIndent()
@@ -28,14 +27,14 @@ class DirectionsRouteFetcherParseTest {
         assertEquals(3, route.points.size)
         assertEquals(1000, route.distanceMeters)
         assertEquals(120, route.durationSeconds)
-        assertEquals("I-80", route.summary)
+        assertEquals("OSRM", route.summary)
     }
 
     @Test
-    fun parse_requestDenied() {
-        val json = """{"status":"REQUEST_DENIED","error_message":"bad key"}"""
+    fun parse_noRoute() {
+        val json = """{"code":"NoRoute","message":"No route found"}"""
         val result = DirectionsRouteFetcher.parseDirectionsJson(json)
         assertTrue(result is RouteFetchResult.Failed)
-        assertTrue((result as RouteFetchResult.Failed).message.contains("bad key"))
+        assertTrue((result as RouteFetchResult.Failed).message.contains("No route found"))
     }
 }

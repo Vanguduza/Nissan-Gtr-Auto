@@ -38,11 +38,47 @@ data class EpcVariant(
     val engineCode: String? = null,
 )
 
+/**
+ * One published vehicle of the full catalogue (`list_customer_vehicle_master`). [id] is the
+ * `catalog-live-r2` vehicle_id that keys its R2 shards; the cascade (model → generation → engine)
+ * and the EPC variants are built from these rows.
+ */
+data class VehicleMasterEntry(
+    val id: String,
+    val modelFamily: String,
+    val chassisCode: String,
+    val engineCode: String? = null,
+    val yearStart: Int? = null,
+    val yearEnd: Int? = null,
+    val salesRegion: String? = null,
+) {
+    /** Same family key as the catalogue gateway (`staff-families`). */
+    val familySlug: String get() = familySlugOf(modelFamily)
+
+    /** "1994–2012 · Japan", or null when neither is known. */
+    val yearLabel: String?
+        get() = listOfNotNull(
+            if (yearStart == null && yearEnd == null) null else "${yearStart ?: ""}–${yearEnd ?: ""}",
+            salesRegion?.takeIf(String::isNotBlank),
+        ).joinToString(" · ").ifEmpty { null }
+}
+
+fun familySlugOf(model: String): String =
+    model.trim().lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-')
+
 data class EpcSection(
     val slug: String,
     val name: String,
     val thumbnailUrl: String? = null,
     val sortOrder: Int = 0,
+)
+
+
+data class EpcDiagramSummary(
+    val slug: String,
+    val title: String,
+    val storagePath: String? = null,
+    val imageUrl: String? = null,
 )
 
 data class EpcHotspot(
@@ -61,6 +97,8 @@ data class EpcDiagramPart(
     val subcategoryName: String? = null,
     val stockItemId: String? = null,
     val stockDescription: String? = null,
+    val chassisCode: String? = null,
+    val engineCode: String? = null,
 )
 
 data class EpcDiagramResponse(
@@ -68,6 +106,11 @@ data class EpcDiagramResponse(
     val diagramTitle: String? = null,
     val storagePath: String? = null,
     val imageUrl: String? = null,
+    /** Source image size when `catalog_diagrams.image_width/height` are set (pixel hotspots). */
+    val imageWidth: Int? = null,
+    val imageHeight: Int? = null,
+    /** Optional encrypted local-catalog copy for fully offline EPC rendering. */
+    val imageBytes: ByteArray? = null,
     val hotspots: List<EpcHotspot> = emptyList(),
     val parts: List<EpcDiagramPart> = emptyList(),
 )
@@ -110,6 +153,18 @@ internal fun parseEpcVariantList(raw: JsonElement): List<EpcVariant> =
         )
     }
 
+
+internal fun parseEpcDiagramSummaryList(raw: JsonElement): List<EpcDiagramSummary> =
+    raw.asObjectList().mapNotNull { o ->
+        val slug = o.str("slug") ?: return@mapNotNull null
+        EpcDiagramSummary(
+            slug = slug,
+            title = o.str("title") ?: slug,
+            storagePath = o.str("storage_path"),
+            imageUrl = o.str("image_url"),
+        )
+    }
+
 internal fun parseEpcSectionList(raw: JsonElement): List<EpcSection> =
     raw.asObjectList().mapNotNull { o ->
         val slug = o.str("slug") ?: return@mapNotNull null
@@ -144,6 +199,8 @@ internal fun parseEpcDiagram(raw: JsonElement): EpcDiagramResponse {
             subcategoryName = o.str("subcategory_name"),
             stockItemId = o.str("stock_item_id"),
             stockDescription = o.str("stock_description"),
+            chassisCode = o.str("chassis_code"),
+            engineCode = o.str("engine_code"),
         )
     }
     return EpcDiagramResponse(
@@ -151,6 +208,8 @@ internal fun parseEpcDiagram(raw: JsonElement): EpcDiagramResponse {
         diagramTitle = diagram?.str("title"),
         storagePath = diagram?.str("storage_path"),
         imageUrl = diagram?.str("image_url"),
+        imageWidth = diagram?.int("width")?.takeIf { it > 0 },
+        imageHeight = diagram?.int("height")?.takeIf { it > 0 },
         hotspots = hotspots,
         parts = parts,
     )
@@ -173,3 +232,15 @@ private fun JsonObject.int(key: String): Int? =
 private fun JsonObject.double(key: String): Double? =
     this[key]?.jsonPrimitive?.doubleOrNull
         ?: this[key]?.jsonPrimitive?.contentOrNull?.toDoubleOrNull()
+
+/** A `catalog-live-r2` refusal: HTTP status plus the catalogue state (e.g. `CATALOG_REPUBLISH_REQUIRED`). */
+class CatalogLiveException(
+    val httpStatus: Int,
+    val catalogStatus: String?,
+    message: String,
+) : RuntimeException(message) {
+    val publishing: Boolean get() = catalogStatus == "CATALOG_REPUBLISH_REQUIRED"
+    val notConnected: Boolean get() = message?.contains("R2 is not configured", ignoreCase = true) == true ||
+        message?.contains("no current catalog release", ignoreCase = true) == true
+}
+

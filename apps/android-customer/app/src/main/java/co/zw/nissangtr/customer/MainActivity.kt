@@ -7,7 +7,6 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -67,8 +66,16 @@ import co.zw.nissangtr.customer.cart.CartModule
 import co.zw.nissangtr.customer.cart.CartScreen
 import co.zw.nissangtr.customer.catalog.CatalogModule
 import co.zw.nissangtr.customer.catalog.CatalogScreen
+import co.zw.nissangtr.customer.catalog.CatalogLanding
+import co.zw.nissangtr.customer.catalog.ExpressHomeActions
+import co.zw.nissangtr.customer.visual.ExpressBottomBar
+import co.zw.nissangtr.customer.visual.ExpressTab
+import androidx.compose.material.icons.outlined.Build
+import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.ShoppingBag
 import co.zw.nissangtr.customer.catalog.CategoriesGridScreen
-import co.zw.nissangtr.customer.catalog.EpcBrowseScreen
 import co.zw.nissangtr.customer.chat.ChatModule
 import co.zw.nissangtr.customer.chat.ChatScreen
 import co.zw.nissangtr.customer.compare.CompareModule
@@ -85,7 +92,9 @@ import co.zw.nissangtr.customer.pay.PayModule
 import co.zw.nissangtr.customer.profile.EditProfileScreen
 import co.zw.nissangtr.customer.returns.ReturnsScreen
 import co.zw.nissangtr.customer.prefs.CustomerPrefs
+import co.zw.nissangtr.customer.visual.CustomerStyle
 import co.zw.nissangtr.customer.prefs.ThemeMode
+import androidx.compose.foundation.isSystemInDarkTheme
 import co.zw.nissangtr.customer.rpc.FakeRpcClient
 import co.zw.nissangtr.customer.rpc.RpcClient
 import co.zw.nissangtr.customer.rpc.RpcClientFactory
@@ -100,6 +109,12 @@ import co.zw.nissangtr.customer.wishlist.WishlistModule
 import co.zw.nissangtr.customer.wishlist.WishlistScreen
 import co.zw.nissangtr.customer.wishlist.WishlistStore
 import co.zw.nissangtr.customer.ui.CustomerShopTheme
+import co.zw.nissangtr.customer.visual.ProductImageStorage
+import co.zw.nissangtr.customer.shell.CustomerPremiumBottomBar
+import co.zw.nissangtr.customer.ui.PremiumCouponsScreen
+import co.zw.nissangtr.customer.ui.PremiumNotificationsScreen
+import co.zw.nissangtr.customer.ui.CustomerPremiumSplash
+import co.zw.nissangtr.customer.ui.PremiumAccountTab
 import co.zw.nissangtr.ui.shop.ShopBottomBar
 import co.zw.nissangtr.ui.shop.ShopBottomTab
 import co.zw.nissangtr.ui.shop.ShopDefaultScreen
@@ -116,12 +131,15 @@ import kotlinx.coroutines.launch
  * Primary shell tabs — Home / Shop / Wishlist / My Garage / Settings.
  * Cart + Account / Sign-in live in the top strip; extras under My Account.
  */
+/** Express bottom-bar key for the bag; opens the cart overlay rather than a tab. */
+private const val EXPRESS_BAG_KEY = "Bag"
+
 private enum class ShellTab(val label: String, val icon: ImageVector) {
     Home("Home", Icons.Filled.Home),
     Shop("Shop", Icons.Filled.Storefront),
+    Garage("Garage", Icons.Filled.DirectionsCar),
     Wishlist("Wishlist", Icons.Filled.Favorite),
-    Garage("My Garage", Icons.Filled.DirectionsCar),
-    Settings("Settings", Icons.Filled.Settings),
+    Account("Account", Icons.Filled.AccountCircle),
 }
 
 /** Nested account destinations — Reviews / Wallet / Settings / Help removed from hub. */
@@ -148,7 +166,6 @@ private enum class ShellOverlay {
     Account,
     SignIn,
     Categories,
-    EpcBrowse,
     Pay,
     Orders,
 }
@@ -194,6 +211,7 @@ class MainActivity : ComponentActivity() {
             CatalogModule.id,
             AddressModule.id,
         )
+        ProductImageStorage.configure(BuildConfig.SUPABASE_URL)
         val live = RpcClientFactory.isLive(
             BuildConfig.SUPABASE_URL,
             BuildConfig.SUPABASE_ANON_KEY,
@@ -206,27 +224,27 @@ class MainActivity : ComponentActivity() {
         )
         val supabase = rpc as? SupabaseRpcClient
         liveSupabase = supabase
-        val mapsKeyPresent = BuildConfig.GOOGLE_MAPS_API_KEY.isNotBlank()
         val googleServerClientId = BuildConfig.GOOGLE_WEB_CLIENT_ID
         val prefs = CustomerPrefs(this)
         applyTrackIntent(intent)
         applyPartsIntent(intent)
         applyAuthIntent(intent)
         setContent {
+            var customerStyle by remember { mutableStateOf(prefs.customerStyle) }
             var themeMode by remember { mutableStateOf(prefs.themeMode) }
             val darkTheme = when (themeMode) {
                 ThemeMode.Light -> false
                 ThemeMode.Dark -> true
                 ThemeMode.System -> isSystemInDarkTheme()
             }
-            CustomerShopTheme(darkTheme = darkTheme) {
+            CustomerShopTheme(style = customerStyle, darkTheme = darkTheme) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,
                 ) {
                     var splashDone by remember { mutableStateOf(false) }
                     if (!splashDone) {
-                        ShopSplash(onFinished = { splashDone = true })
+                        CustomerPremiumSplash(onFinished = { splashDone = true })
                     } else {
                         AuthGate(
                             liveRpc = live,
@@ -255,8 +273,12 @@ class MainActivity : ComponentActivity() {
                                     themeMode = it
                                     prefs.themeMode = it
                                 },
+                                customerStyle = customerStyle,
+                                onCustomerStyleChange = {
+                                    customerStyle = it
+                                    prefs.customerStyle = it
+                                },
                                 whatsappE164 = BuildConfig.WHATSAPP_E164,
-                                mapsKeyPresent = mapsKeyPresent,
                                 trackLaunch = launch,
                                 partsLaunch = parts,
                                 camera = cameraBridge,
@@ -399,8 +421,9 @@ private fun CustomerApp(
     prefs: CustomerPrefs,
     themeMode: ThemeMode,
     onThemeModeChange: (ThemeMode) -> Unit,
+    customerStyle: CustomerStyle,
+    onCustomerStyleChange: (CustomerStyle) -> Unit,
     whatsappE164: String,
-    mapsKeyPresent: Boolean,
     trackLaunch: TrackLaunchArgs = TrackLaunchArgs(),
     partsLaunch: PartsLaunchArgs = PartsLaunchArgs(),
     camera: PodCameraBridge?,
@@ -421,6 +444,7 @@ private fun CustomerApp(
     var cartRefresh by remember { mutableIntStateOf(0) }
     var payInvoiceId by remember { mutableStateOf<String?>(null) }
     var lastBackExitAt by remember { mutableLongStateOf(0L) }
+    var accountSettingsOpen by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
     val wishlistStore: WishlistStore = viewModel(factory = WishlistStore.factory(rpc))
@@ -466,10 +490,6 @@ private fun CustomerApp(
             }
             ShellOverlay.Categories -> {
                 overlay = ShellOverlay.Menu
-                return true
-            }
-            ShellOverlay.EpcBrowse -> {
-                overlay = ShellOverlay.None
                 return true
             }
             ShellOverlay.Account -> {
@@ -555,7 +575,8 @@ private fun CustomerApp(
                             overlay = ShellOverlay.Categories
                         }
                         is HamburgerMenuAction.OpenEpcBrowse -> {
-                            overlay = ShellOverlay.EpcBrowse
+                            // Customer EPC browsing is retired; staff EPC remains independent.
+                            overlay = ShellOverlay.None
                         }
                         is HamburgerMenuAction.BrowseCategory -> {
                             openCatalog(seed = action.label)
@@ -574,16 +595,6 @@ private fun CustomerApp(
                 onBack = { overlay = ShellOverlay.None },
                 onCategoryClick = { label ->
                     openCatalog(seed = label)
-                    overlay = ShellOverlay.None
-                },
-            )
-        }
-        ShellOverlay.EpcBrowse -> {
-            EpcBrowseScreen(
-                rpc = rpc,
-                onBack = { overlay = ShellOverlay.None },
-                onOpenOem = { oem ->
-                    openCatalog(oem = oem)
                     overlay = ShellOverlay.None
                 },
             )
@@ -641,7 +652,6 @@ private fun CustomerApp(
                 onSignOut = onSignOut,
                 onSignIn = { overlay = ShellOverlay.SignIn },
                 whatsappE164 = whatsappE164,
-                mapsKeyPresent = mapsKeyPresent,
                 trackToken = trackToken,
                 trackJobId = trackJobId,
                 trackSession = trackSession,
@@ -682,24 +692,51 @@ private fun CustomerApp(
             )
         }
         ShellOverlay.None -> {
+            val express = customerStyle == CustomerStyle.Express
             Scaffold(
                 topBar = {
-                    CustomerShellTopBar(
-                        cartBadgeCount = cartBadge,
-                        onOpenMenu = { overlay = ShellOverlay.Menu },
-                        onOpenAccount = { openAccount() },
-                        onOpenCart = { overlay = ShellOverlay.Cart },
-                    )
+                    // Express Home draws its own brand header (logo, account, wishlist, settings).
+                    if (!(express && tab == ShellTab.Home)) {
+                        CustomerShellTopBar(
+                            cartBadgeCount = cartBadge,
+                            onOpenMenu = { overlay = ShellOverlay.Menu },
+                            onOpenAccount = { openAccount() },
+                            onOpenCart = { overlay = ShellOverlay.Cart },
+                        )
+                    }
                 },
                 bottomBar = {
-                    ShopBottomBar(
-                        tabs = bottomTabs,
-                        selectedKey = tab.name,
-                        onSelect = { key ->
-                            tab = ShellTab.valueOf(key)
-                            overlay = ShellOverlay.None
-                        },
-                    )
+                    if (express) {
+                        ExpressBottomBar(
+                            tabs = listOf(
+                                ExpressTab(ShellTab.Home.name, "Home", Icons.Outlined.Home),
+                                ExpressTab(ShellTab.Shop.name, "Explore", Icons.Outlined.Search),
+                                ExpressTab(ShellTab.Garage.name, "Garage", Icons.Outlined.Build),
+                                ExpressTab(ShellTab.Wishlist.name, "Wishlist", Icons.Outlined.FavoriteBorder),
+                                ExpressTab(EXPRESS_BAG_KEY, "Bag", Icons.Outlined.ShoppingBag, badge = cartBadge),
+                            ),
+                            selectedKey = tab.name,
+                            onSelect = { key ->
+                                if (key == EXPRESS_BAG_KEY) {
+                                    overlay = ShellOverlay.Cart
+                                } else {
+                                    tab = ShellTab.valueOf(key)
+                                    accountSettingsOpen = false
+                                    overlay = ShellOverlay.None
+                                }
+                            },
+                        )
+                    } else {
+                        CustomerPremiumBottomBar(
+                            tabs = bottomTabs,
+                            selectedKey = tab.name,
+                            onSelect = { key ->
+                                tab = ShellTab.valueOf(key)
+                                accountSettingsOpen = false
+                                overlay = ShellOverlay.None
+                            },
+                        )
+                    }
                 },
             ) { padding ->
                 // weight(1f) bounds tab height so scrollable children are not measured
@@ -719,11 +756,22 @@ private fun CustomerApp(
                                 onOpenCart = { overlay = ShellOverlay.Cart },
                                 onCartChanged = { refreshCartBadge() },
                                 onManageVehicle = { tab = ShellTab.Garage },
-                                onOpenEpcBrowse = { overlay = ShellOverlay.EpcBrowse },
+                                onTrackOrder = { openAccount(ProfileDest.Track) },
                                 initialOem = null,
                                 showShellChrome = true,
+                                landing = CatalogLanding.Home,
                                 viewModelKey = "home",
                                 camera = camera,
+                                expressActions = ExpressHomeActions(
+                                    onWishlist = { tab = ShellTab.Wishlist },
+                                    onAccount = { openAccount() },
+                                    onSettings = {
+                                        tab = ShellTab.Account
+                                        accountSettingsOpen = true
+                                    },
+                                    onSearch = { tab = ShellTab.Shop },
+                                    onServiceKits = { openAccount(ProfileDest.Kits) },
+                                ),
                                 modifier = tabMod,
                             )
                         }
@@ -735,11 +783,12 @@ private fun CustomerApp(
                                 onOpenCart = { overlay = ShellOverlay.Cart },
                                 onCartChanged = { refreshCartBadge() },
                                 onManageVehicle = { tab = ShellTab.Garage },
-                                onOpenEpcBrowse = { overlay = ShellOverlay.EpcBrowse },
+                                onTrackOrder = { openAccount(ProfileDest.Track) },
                                 initialOem = catalogOem,
                                 initialCategorySeed = catalogSeed,
                                 categorySeedSeq = catalogSeedSeq,
                                 showShellChrome = true,
+                                landing = CatalogLanding.Shop,
                                 viewModelKey = "shop",
                                 camera = camera,
                                 modifier = tabMod,
@@ -761,22 +810,54 @@ private fun CustomerApp(
                                 modifier = tabMod,
                             )
                         }
-                        ShellTab.Settings -> {
-                            SettingsHubScreen(
-                                prefs = prefs,
-                                themeMode = themeMode,
-                                onThemeModeChange = onThemeModeChange,
-                                signedInEmail = signedInEmail,
-                                onSignOut = if (signedInEmail != null) onSignOut else null,
-                                onSignIn = if (signedInEmail == null) {
-                                    { overlay = ShellOverlay.SignIn }
-                                } else {
-                                    null
-                                },
-                                onOpenAccount = { openAccount() },
-                                onEditProfile = { openAccount(ProfileDest.EditProfile) },
-                                rootModifier = tabMod,
-                            )
+                        ShellTab.Account -> {
+                            if (accountSettingsOpen) {
+                                SettingsHubScreen(
+                                    prefs = prefs,
+                                    style = customerStyle,
+                                    onStyleChange = onCustomerStyleChange,
+                                    themeMode = themeMode,
+                                    onThemeModeChange = onThemeModeChange,
+                                    signedInEmail = signedInEmail,
+                                    onSignOut = if (signedInEmail != null) onSignOut else null,
+                                    onSignIn = if (signedInEmail == null) {
+                                        { overlay = ShellOverlay.SignIn }
+                                    } else {
+                                        null
+                                    },
+                                    onOpenAccount = { accountSettingsOpen = false },
+                                    onEditProfile = {
+                                        accountSettingsOpen = false
+                                        openAccount(ProfileDest.EditProfile)
+                                    },
+                                    rootModifier = tabMod,
+                                )
+                            } else {
+                                PremiumAccountTab(
+                                    signedInEmail = signedInEmail,
+                                    liveRpc = liveRpc,
+                                    onSignIn = { overlay = ShellOverlay.SignIn },
+                                    onSignOut = onSignOut,
+                                    onEditProfile = { openAccount(ProfileDest.EditProfile) },
+                                    onOrders = { openAccount(ProfileDest.Orders) },
+                                    onReturns = { openAccount(ProfileDest.Returns) },
+                                    onLoyalty = { openAccount(ProfileDest.Loyalty) },
+                                    onKits = { openAccount(ProfileDest.Kits) },
+                                    onAddresses = { openAccount(ProfileDest.Addresses) },
+                                    onPay = { openAccount(ProfileDest.Pay) },
+                                    onGarage = {
+                                        accountSettingsOpen = false
+                                        tab = ShellTab.Garage
+                                    },
+                                    onCompare = { openAccount(ProfileDest.Compare) },
+                                    onTrack = { openAccount(ProfileDest.Track) },
+                                    onChat = { openAccount(ProfileDest.Chat) },
+                                    onNotifications = { openAccount(ProfileDest.Notifications) },
+                                    onCoupons = { openAccount(ProfileDest.Coupons) },
+                                    onSettings = { accountSettingsOpen = true },
+                                    modifier = tabMod,
+                                )
+                            }
                         }
                     }
                 }
@@ -797,7 +878,6 @@ private fun ProfileStack(
     onSignOut: () -> Unit,
     onSignIn: () -> Unit,
     whatsappE164: String,
-    mapsKeyPresent: Boolean,
     trackToken: String?,
     trackJobId: String?,
     trackSession: Int,
@@ -841,7 +921,6 @@ private fun ProfileStack(
         )
         ProfileDest.Addresses -> AddressScreen(
             rpc = rpc,
-            mapsKeyPresent = mapsKeyPresent,
             onBack = { onDest(ProfileDest.Hub) },
         )
         ProfileDest.Compare -> CompareScreen(
@@ -862,26 +941,12 @@ private fun ProfileStack(
             sessionKey = trackSession,
             onBack = { onDest(ProfileDest.Hub) },
         )
-        ProfileDest.Notifications -> ShopDefaultScreen(
-            title = "Notifications",
-            subtitle = null,
+        ProfileDest.Notifications -> PremiumNotificationsScreen(
             onBack = { onDest(ProfileDest.Hub) },
-        ) {
-            ShopHonestEmpty(
-                title = "No notifications yet",
-                body = "No notifications.",
-            )
-        }
-        ProfileDest.Coupons -> ShopDefaultScreen(
-            title = "Coupons",
-            subtitle = null,
+        )
+        ProfileDest.Coupons -> PremiumCouponsScreen(
             onBack = { onDest(ProfileDest.Hub) },
-        ) {
-            ShopHonestEmpty(
-                title = "No coupons yet",
-                body = "No coupons.",
-            )
-        }
+        )
     }
 }
 

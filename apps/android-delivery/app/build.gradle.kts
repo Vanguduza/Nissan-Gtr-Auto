@@ -25,23 +25,35 @@ android {
         applicationId = "co.zw.nissangtr.delivery"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0-scaffold"
+        versionCode = 2
+        versionName = "0.1.1"
         // Placeholders — set via local.properties / CI; never commit real keys.
         buildConfigField("String", "SUPABASE_URL", "\"${localProp("SUPABASE_URL")}\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"${localProp("SUPABASE_ANON_KEY")}\"")
         buildConfigField("String", "SUPPORT_PHONE", "\"${localProp("SUPPORT_PHONE")}\"")
+        // Keyless routing (OSRM-compatible). ROUTING_BASE_URL is the full `/route/v1/driving` root;
+        // OSRM_URL (host only, self-hosted satellite) is accepted too. Blank → public OSRM router.
+        val osrmHost = localProp("OSRM_URL").trim().trimEnd('/')
+        val routingBaseUrl = localProp("ROUTING_BASE_URL").trim().ifBlank {
+            when {
+                osrmHost.isBlank() -> "https://router.project-osrm.org/route/v1/driving"
+                osrmHost.contains("/route/") -> osrmHost
+                else -> "$osrmHost/route/v1/driving"
+            }
+        }
+        buildConfigField("String", "ROUTING_BASE_URL", "\"$routingBaseUrl\"")
+        // Optional self-hosted MapLibre style (infra/satellites/maptiles/, tileserver-gl).
+        // Blank → keyless OpenFreeMap styles from the maps-nav bridge. Never bundle MBTiles in the APK.
         buildConfigField(
             "String",
-            "GOOGLE_MAPS_API_KEY",
-            "\"${localProp("GOOGLE_MAPS_API_KEY")}\"",
+            "MAPLIBRE_STYLE_URL",
+            "\"${localProp("MAPLIBRE_STYLE_URL")}\"",
         )
         buildConfigField(
             "boolean",
             "RPC_FORCE_FAKE",
             localProp("rpc.forceFake").equals("true", ignoreCase = true).toString(),
         )
-        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = localProp("GOOGLE_MAPS_API_KEY")
     }
 
     buildTypes {
@@ -69,7 +81,7 @@ android {
 
 dependencies {
     implementation(project(":core:rpc"))
-    implementation(project(":android-ui"))
+    implementation(project(":core:design"))
     implementation(project(":feature:auth"))
     implementation(project(":feature:jobs"))
     implementation(project(":feature:tracking"))
@@ -78,6 +90,7 @@ dependencies {
     implementation(project(":pod-camera"))
     implementation(project(":pod-signature"))
     implementation(project(":maps-nav"))
+    implementation(project(":card-terminal"))
 
     val composeBom = platform("androidx.compose:compose-bom:2024.06.00")
     implementation(composeBom)

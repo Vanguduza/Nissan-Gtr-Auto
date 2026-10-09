@@ -36,16 +36,13 @@ android {
             "RPC_FORCE_FAKE",
             localProp("rpc.forceFake").equals("true", ignoreCase = true).toString(),
         )
-        // Digits only; mirrors web NEXT_PUBLIC_WHATSAPP_E164 default.
+        // Optional digits-only WhatsApp CTA. Blank disables the CTA; never invent a production number.
         buildConfigField(
             "String",
             "WHATSAPP_E164",
-            "\"${localProp("WHATSAPP_E164").ifBlank { "263770000000" }}\"",
+            "\"${localProp("WHATSAPP_E164")}\"",
         )
-        // Maps — never commit real keys; empty disables live map tiles.
-        val mapsKey = localProp("GOOGLE_MAPS_API_KEY")
-        buildConfigField("String", "GOOGLE_MAPS_API_KEY", "\"$mapsKey\"")
-        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = mapsKey
+        // Maps are keyless via the shared MapLibre + OpenFreeMap/OSM bridge.
         // Google Sign-In — Web OAuth client ID as Credential Manager serverClientId.
         // Prefer GOOGLE_WEB_CLIENT_ID; GOOGLE_SERVER_CLIENT_ID accepted as alias.
         // Android OAuth client (package + SHA-1) is required in Google Cloud but is NOT
@@ -84,7 +81,27 @@ android {
     }
 }
 
+val verifyCanonicalCustomerLineage by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Refuse customer APK/AAB builds from stale or unreconciled repository lineage."
+    val repoRoot = rootProject.projectDir.parentFile.parentFile
+    workingDir(repoRoot)
+    val isWindows = System.getProperty("os.name").lowercase().contains("windows")
+    if (isWindows) {
+        commandLine("py", "-3", "scripts/project_truth_guard.py", "release-check", "--app", "customer-android")
+    } else {
+        commandLine("python3", "scripts/project_truth_guard.py", "release-check", "--app", "customer-android")
+    }
+}
+
+tasks.configureEach {
+    if (name.startsWith("assemble", ignoreCase = true) || name.startsWith("bundle", ignoreCase = true)) {
+        dependsOn(verifyCanonicalCustomerLineage)
+    }
+}
+
 dependencies {
+    implementation(project(":core:visual"))
     implementation(project(":core:rpc"))
     implementation(project(":android-ui"))
     implementation(project(":feature:auth"))

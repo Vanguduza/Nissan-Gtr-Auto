@@ -67,7 +67,14 @@ function withTimeout<T>(
   });
 }
 
-export function StaffGate({ children }: { children: ReactNode }) {
+export function StaffGate({
+  children,
+  bare = false,
+}: {
+  children: ReactNode;
+  /** Full-screen surfaces (counter POS) render without the staff header bar. */
+  bare?: boolean;
+}) {
   const pathname = usePathname() || "/staff";
   const router = useRouter();
   const [state, setState] = useState<GateState>({ kind: "loading" });
@@ -200,7 +207,7 @@ export function StaffGate({ children }: { children: ReactNode }) {
   return (
     <StaffAuthProvider value={state.ctx}>
       <StaffIdleLock enabled={state.ctx.isStaff}>
-        <StaffChrome>{children}</StaffChrome>
+        {bare ? children : <StaffChrome>{children}</StaffChrome>}
       </StaffIdleLock>
     </StaffAuthProvider>
   );

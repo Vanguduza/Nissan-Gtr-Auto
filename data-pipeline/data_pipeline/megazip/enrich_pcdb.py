@@ -56,10 +56,9 @@ def resolve_pcdb_row(
     for key, row in mapping.items():
         if not key:
             continue
-        if key in stem or stem in key or key in cat or cat in key:
-            if len(key) > best_len:
-                best = row
-                best_len = len(key)
+        if (key in stem or stem in key or key in cat or cat in key) and len(key) > best_len:
+            best = row
+            best_len = len(key)
     return best
 
 

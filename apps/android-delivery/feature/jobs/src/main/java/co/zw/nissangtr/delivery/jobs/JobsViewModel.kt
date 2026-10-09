@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import co.zw.nissangtr.bridges.location.GpsBridge
 import co.zw.nissangtr.bridges.location.LocationPermissionStatus
 import co.zw.nissangtr.bridges.maps.DirectionsRouteFetcher
+import co.zw.nissangtr.bridges.maps.DrivingRoute
 import co.zw.nissangtr.bridges.maps.ExternalNavigation
 import co.zw.nissangtr.bridges.maps.MapLatLng
 import co.zw.nissangtr.bridges.maps.RouteFetchResult
@@ -17,13 +18,20 @@ import co.zw.nissangtr.delivery.rpc.DeliveryJobSummary
 import co.zw.nissangtr.delivery.rpc.DriverPresenceStatus
 import co.zw.nissangtr.delivery.rpc.GeofenceSuggestion
 import co.zw.nissangtr.delivery.rpc.OptimizedStop
+import co.zw.nissangtr.delivery.rpc.DriverCash
 import co.zw.nissangtr.delivery.rpc.RpcClient
-import co.zw.nissangtr.delivery.rpc.RpcNames
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+
+/** Distance/ETA provider for in-app route guidance (D-44 / Epic B). */
+enum class RouteEtaSource(val wire: String, val label: String) {
+    OSRM("osrm", "Driving"),
+    /** Haversine when the router is unreachable — no scary “unconfigured” UX. */
+    STRAIGHT_LINE("straight_line", "Approx."),
+}
 
 data class JobsUiState(
     val jobs: List<DeliveryJobSummary> = emptyList(),
@@ -35,41 +43,110 @@ data class JobsUiState(
     val failNotes: String = "",
     val createReattempt: Boolean = true,
     val supportPhone: String = "",
-    val mapsKeyPresent: Boolean = false,
+    /**
+     * Optional self-hosted MapLibre style (tileserver-gl, see infra/satellites/maptiles/).
+     * Blank → the keyless maps-nav default (OpenFreeMap).
+     */
+    val mapStyleUrl: String = "",
     val routePoints: List<MapLatLng> = emptyList(),
     val routeLabel: String? = null,
+    val routeEtaSource: RouteEtaSource? = null,
+    val routeDistanceMeters: Int? = null,
+    val routeDurationSeconds: Int? = null,
     val routeBusy: Boolean = false,
     val busy: Boolean = false,
     val message: String? = null,
     val error: String? = null,
+    /** Cash on delivery the driver still holds, and their recent hand-ins (null until loaded). */
+    val driverCash: DriverCash? = null,
+    val cashBusy: Boolean = false,
+    val cashError: String? = null,
 )
+
+/** Driver-facing presence label. */
+fun DriverPresenceStatus.displayLabel(): String = when (this) {
+    DriverPresenceStatus.AVAILABLE -> "Available"
+    DriverPresenceStatus.ON_DUTY -> "On duty"
+    DriverPresenceStatus.BREAK -> "On break"
+    DriverPresenceStatus.OFFLINE -> "Offline"
+}
+
+/** Resolve job detail from list state — used by shell so Compose tracks [JobsUiState.selectedJobId]. */
+fun resolveSelectedJob(state: JobsUiState): DeliveryJobSummary? {
+    val id = state.selectedJobId ?: return null
+    return state.jobs.find { it.id == id }
+}
+
+/** Pure label builder for route guidance — distance/ETA only (no scaffold nags). */
+internal fun formatRouteGuidanceLabel(
+    etaSource: RouteEtaSource,
+    summary: String?,
+    distanceMeters: Int?,
+    durationSeconds: Int?,
+): String {
+    val dist = distanceMeters?.let { d ->
+        if (d >= 1000) "%.1f km".format(d / 1000.0) else "${d}m"
+    }
+    val dur = durationSeconds?.let { s ->
+        val m = s / 60
+        if (m >= 60) "${m / 60}h ${m % 60}m" else "${m} min"
+    }
+    return listOfNotNull(
+        etaSource.label.takeIf { it.isNotBlank() },
+        summary?.takeIf { it.isNotBlank() && it != "OSRM" },
+        dist,
+        dur,
+    ).joinToString(" · ").ifBlank { etaSource.label }
+}
+
+/** Straight-line fallback when OSRM/Google is unset or unreachable. */
+internal fun straightLineRoute(origin: MapLatLng, destination: MapLatLng): DrivingRoute {
+    val meters = haversineMeters(origin, destination)
+    // ~30 km/h urban crawl estimate for a usable ETA chip.
+    val seconds = ((meters / 8.33).toInt()).coerceAtLeast(60)
+    return DrivingRoute(
+        points = listOf(origin, destination),
+        distanceMeters = meters.toInt(),
+        durationSeconds = seconds,
+        summary = null,
+    )
+}
+
+internal fun haversineMeters(a: MapLatLng, b: MapLatLng): Double {
+    val r = 6_371_000.0
+    val dLat = Math.toRadians(b.latitude - a.latitude)
+    val dLon = Math.toRadians(b.longitude - a.longitude)
+    val lat1 = Math.toRadians(a.latitude)
+    val lat2 = Math.toRadians(b.latitude)
+    val h = Math.sin(dLat / 2).let { it * it } +
+        Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2).let { it * it }
+    return 2 * r * Math.asin(Math.sqrt(h))
+}
 
 class JobsViewModel(
     private val rpc: RpcClient,
     private val gps: GpsBridge,
     private val appContext: Context,
     supportPhone: String,
-    private val mapsApiKey: String,
+    private val routingBaseUrl: String = DirectionsRouteFetcher.DEFAULT_ROUTING_BASE_URL,
+    mapStyleUrl: String = "",
 ) : ViewModel() {
     private val _state = MutableStateFlow(
         JobsUiState(
             supportPhone = supportPhone,
-            mapsKeyPresent = mapsApiKey.isNotBlank(),
+            mapStyleUrl = mapStyleUrl.trim(),
         ),
     )
     val state: StateFlow<JobsUiState> = _state.asStateFlow()
 
-    private val directions by lazy { DirectionsRouteFetcher(mapsApiKey) }
+    private val router by lazy { DirectionsRouteFetcher(routingBaseUrl) }
 
     init {
         refresh()
         loadPresence()
     }
 
-    fun selectedJob(): DeliveryJobSummary? {
-        val id = _state.value.selectedJobId ?: return null
-        return _state.value.jobs.find { it.id == id }
-    }
+    fun selectedJob(): DeliveryJobSummary? = resolveSelectedJob(_state.value)
 
     fun selectJob(id: String?) = _state.update {
         it.copy(
@@ -77,6 +154,9 @@ class JobsViewModel(
             geofence = null,
             routePoints = emptyList(),
             routeLabel = null,
+            routeEtaSource = null,
+            routeDistanceMeters = null,
+            routeDurationSeconds = null,
             error = null,
             message = null,
         )
@@ -95,6 +175,7 @@ class JobsViewModel(
             try {
                 val jobs = rpc.listMyDeliveryJobs()
                 _state.update { it.copy(busy = false, jobs = jobs) }
+                loadDriverCash()
             } catch (e: Exception) {
                 _state.update {
                     it.copy(busy = false, error = e.message ?: "refresh failed")
@@ -140,7 +221,7 @@ class JobsViewModel(
                     it.copy(
                         busy = false,
                         presence = status,
-                        message = "${RpcNames.SET_DRIVER_PRESENCE} → ${status.rpcValue}",
+                        message = "You are now ${status.displayLabel().lowercase()}",
                     )
                 }
             } catch (e: Exception) {
@@ -155,7 +236,7 @@ class JobsViewModel(
     fun markArrived() {
         _state.update {
             it.copy(
-                message = "Arrival confirmed (geofence suggestion accepted — status unchanged until POD)",
+                message = "Arrival confirmed — the job stays active until proof of delivery",
                 geofence = it.geofence?.copy(suggestArrive = false),
             )
         }
@@ -188,8 +269,9 @@ class JobsViewModel(
                     it.copy(
                         busy = false,
                         geofence = suggestion,
-                        message = "Geofence: ${suggestion.distanceM?.let { d -> "%.0fm".format(d) } ?: "n/a"} " +
-                            "arrive=${suggestion.suggestArrive} complete=${suggestion.suggestComplete}",
+                        message = suggestion.distanceM
+                            ?.let { d -> "%.0f m from the drop-off".format(d) }
+                            ?: "Distance to the drop-off unavailable",
                     )
                 }
             } catch (e: Exception) {
@@ -233,15 +315,6 @@ class JobsViewModel(
             _state.update { it.copy(error = "Dropoff coordinates missing", routePoints = emptyList()) }
             return
         }
-        if (mapsApiKey.isBlank()) {
-            _state.update {
-                it.copy(
-                    routeLabel = "Maps key missing — markers only; set GOOGLE_MAPS_API_KEY",
-                    routePoints = emptyList(),
-                )
-            }
-            return
-        }
         viewModelScope.launch {
             _state.update { it.copy(routeBusy = true, error = null) }
             var originLat = driverLat
@@ -263,16 +336,18 @@ class JobsViewModel(
                     it.copy(
                         routeBusy = false,
                         routePoints = emptyList(),
-                        routeLabel = "Waiting for GPS for route — destination marked",
+                        routeLabel = "Waiting for GPS",
+                        routeEtaSource = null,
                     )
                 }
                 return@launch
             }
+            val origin = MapLatLng(originLat!!, originLng!!)
+            val destination = MapLatLng(destLat, destLng)
             val otherWaypoints = _state.value.jobs
                 .filter {
                     it.id != job.id &&
-                        it.status != "completed" &&
-                        it.status != "failed" &&
+                        JobStatusGate.isActive(it.status) &&
                         it.dropoffLat != null &&
                         it.dropoffLng != null &&
                         (it.routeSequence ?: Int.MAX_VALUE) > (job.routeSequence ?: -1)
@@ -281,43 +356,41 @@ class JobsViewModel(
                 .take(3)
                 .map { MapLatLng(it.dropoffLat!!, it.dropoffLng!!) }
 
+            fun applyRoute(etaSource: RouteEtaSource, route: DrivingRoute) {
+                _state.update {
+                    it.copy(
+                        routeBusy = false,
+                        routePoints = route.points,
+                        routeEtaSource = etaSource,
+                        routeDistanceMeters = route.distanceMeters,
+                        routeDurationSeconds = route.durationSeconds,
+                        routeLabel = formatRouteGuidanceLabel(
+                            etaSource = etaSource,
+                            summary = route.summary,
+                            distanceMeters = route.distanceMeters,
+                            durationSeconds = route.durationSeconds,
+                        ),
+                    )
+                }
+            }
+
+            fun applyStraightLine() {
+                applyRoute(RouteEtaSource.STRAIGHT_LINE, straightLineRoute(origin, destination))
+            }
+
+            if (routingBaseUrl.isBlank()) {
+                applyStraightLine()
+                return@launch
+            }
             when (
-                val result = directions.fetchDrivingRoute(
-                    origin = MapLatLng(originLat!!, originLng!!),
-                    destination = MapLatLng(destLat, destLng),
+                val result = router.fetchDrivingRoute(
+                    origin = origin,
+                    destination = destination,
                     waypoints = otherWaypoints,
                 )
             ) {
-                is RouteFetchResult.Ok -> {
-                    val r = result.route
-                    val dist = r.distanceMeters?.let { d ->
-                        if (d >= 1000) "%.1f km".format(d / 1000.0) else "${d}m"
-                    }
-                    val dur = r.durationSeconds?.let { s ->
-                        val m = s / 60
-                        if (m >= 60) "${m / 60}h ${m % 60}m" else "${m} min"
-                    }
-                    _state.update {
-                        it.copy(
-                            routeBusy = false,
-                            routePoints = r.points,
-                            routeLabel = listOfNotNull(
-                                r.summary,
-                                dist,
-                                dur,
-                            ).joinToString(" · ").ifBlank { "Route ready" },
-                        )
-                    }
-                }
-                is RouteFetchResult.Failed -> {
-                    _state.update {
-                        it.copy(
-                            routeBusy = false,
-                            routePoints = emptyList(),
-                            routeLabel = result.message,
-                        )
-                    }
-                }
+                is RouteFetchResult.Ok -> applyRoute(RouteEtaSource.OSRM, result.route)
+                is RouteFetchResult.Failed -> applyStraightLine()
             }
         }
     }
@@ -330,7 +403,7 @@ class JobsViewModel(
         viewModelScope.launch {
             _state.update { it.copy(busy = true, error = null) }
             try {
-                val id = rpc.failDeliveryJob(
+                rpc.failDeliveryJob(
                     deliveryJobId = jobId,
                     reason = reason,
                     notes = notes,
@@ -339,8 +412,7 @@ class JobsViewModel(
                 _state.update {
                     it.copy(
                         busy = false,
-                        message = "${RpcNames.FAIL_DELIVERY_JOB} → $id" +
-                            if (reattempt) " (reattempt created)" else "",
+                        message = "Marked failed" + if (reattempt) " · reattempt created" else "",
                         selectedJobId = null,
                     )
                 }
@@ -349,6 +421,44 @@ class JobsViewModel(
                 _state.update {
                     it.copy(busy = false, error = e.message ?: "fail job failed")
                 }
+            }
+        }
+    }
+
+    /** Cash still held and recent hand-ins; a failure keeps what was shown. */
+    fun loadDriverCash() {
+        viewModelScope.launch {
+            try {
+                val cash = rpc.getMyDriverCash()
+                _state.update { it.copy(driverCash = cash, cashError = null) }
+            } catch (e: Exception) {
+                _state.update { it.copy(cashError = e.message ?: "Could not load your cash") }
+            }
+        }
+    }
+
+    /** Hands in all cash held in [currency]; [declaredText] is what the driver counted. */
+    fun handInCash(currency: String, declaredText: String, notes: String) {
+        if (_state.value.driverCash?.holding?.none { it.currency == currency } != false) return
+        val declared = DriverCashGate.parseDeclared(declaredText)
+        if (declared == null) {
+            _state.update { it.copy(cashError = "Enter the amount you counted") }
+            return
+        }
+        viewModelScope.launch {
+            _state.update { it.copy(cashBusy = true, cashError = null) }
+            try {
+                val h = rpc.submitDriverCashHandin(currency, declared, notes.trim().ifEmpty { null })
+                val cash = rpc.getMyDriverCash()
+                _state.update {
+                    it.copy(
+                        cashBusy = false,
+                        driverCash = cash,
+                        message = "Handed in ${DriverCashGate.money(h.declaredAmount, h.currency)} (${h.documentNumber ?: "hand-in"}). Wait for the cashier to count it.",
+                    )
+                }
+            } catch (e: Exception) {
+                _state.update { it.copy(cashBusy = false, cashError = e.message ?: "The hand-in was not recorded") }
             }
         }
     }
@@ -367,7 +477,7 @@ class JobsViewModel(
                     it.copy(
                         busy = false,
                         optimizedStops = stops,
-                        message = "${RpcNames.OPTIMIZE_DRIVER_STOPS} → ${stops.size} stops",
+                        message = "Route optimised · ${stops.size} stops",
                     )
                 }
                 refresh()
@@ -390,7 +500,7 @@ class JobsViewModel(
                     lat = coord.latitude
                     lng = coord.longitude
                 }
-                val id = rpc.raiseDeliveryPanic(
+                rpc.raiseDeliveryPanic(
                     deliveryJobId = _state.value.selectedJobId,
                     lat = lat,
                     lng = lng,
@@ -398,7 +508,7 @@ class JobsViewModel(
                 _state.update {
                     it.copy(
                         busy = false,
-                        message = "${RpcNames.RAISE_DELIVERY_PANIC} → $id",
+                        message = "Dispatch alerted",
                     )
                 }
                 dialSupport()
@@ -428,11 +538,11 @@ class JobsViewModel(
             }
     }
 
-    /** Confirm geofence complete suggestion — does not auto-complete; opens POD path. */
+    /** Confirm geofence complete suggestion — does not auto-complete; opens Complete → POD. */
     fun acknowledgeCompleteSuggestion() {
         _state.update {
             it.copy(
-                message = "Complete suggested — use POD section to finish (OTP required)",
+                message = "You are at the drop-off — collect proof of delivery to complete",
                 geofence = it.geofence?.copy(suggestComplete = false),
             )
         }
@@ -444,7 +554,8 @@ class JobsViewModel(
             gps: GpsBridge,
             appContext: Context,
             supportPhone: String,
-            mapsApiKey: String,
+            routingBaseUrl: String = DirectionsRouteFetcher.DEFAULT_ROUTING_BASE_URL,
+            mapStyleUrl: String = "",
         ): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
@@ -454,7 +565,8 @@ class JobsViewModel(
                         gps,
                         appContext.applicationContext,
                         supportPhone,
-                        mapsApiKey,
+                        routingBaseUrl,
+                        mapStyleUrl,
                     ) as T
             }
     }

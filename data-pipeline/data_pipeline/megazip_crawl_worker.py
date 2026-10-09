@@ -14,7 +14,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
-import sys
 from pathlib import Path
 
 from data_pipeline.megazip.config import DEFAULT_OUT_ROOT, MegazipConfig, build_maker_paths

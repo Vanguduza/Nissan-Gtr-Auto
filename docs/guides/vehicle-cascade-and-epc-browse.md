@@ -206,7 +206,7 @@ All `SECURITY INVOKER`, grant `authenticated` + `service_role`:
 
 - `diagram`: null if missing; else slug, title, storage_path, image_url, width/height, diagram_kind, hotspot_count  
   — first diagram for section (`ORDER BY slug LIMIT 1`)
-- `hotspots`: from `part_fitment` where `diagram_path = storage_path` AND `bbox_x IS NOT NULL` (normalized 0–1 boxes); may join companion `itemslist_id` / `callout_ref`
+- `hotspots`: from `part_fitment` where `diagram_path = storage_path` AND `bbox_x IS NOT NULL`. Boxes are either 0–1 fractions or pixels of the source image; clients resolve pixel boxes against `diagram.width/height` when set, else the loaded image's natural size, and drop boxes that fall outside the image (`apps/web/lib/epc-box.ts`, tablet `EpcHotspot.normalizedIn`); may join companion `itemslist_id` / `callout_ref`
 - `parts`: fitment rows for that `diagram_path` + PNC names + optional `stock_item_id` / description (limit 500)
 - `companion_parts`: `catalog_diagram_parts` for section (Megazip HTML table)
 - Empty miss: `{ diagram: null, hotspots: [], parts: [], companion_parts: [] }`
@@ -228,7 +228,7 @@ Maker → Models (A–Z) → Variants → Sections → Diagram + hotspots → Pa
 | Models A–Z | `sort_key` / `display_name` |
 | Variant (chassis/grade/years) | `catalog_variants` cards (chassis + grade + year_label + engine) |
 | Assembly / section groups | `catalog_sections` grid |
-| Exploded diagram canvas | `EpcDiagramCanvas` / Android Box overlays — **normalized bbox**, not camera/QR |
+| Exploded diagram canvas | `EpcDiagramCanvas` / Android Box overlays — bbox as fractions or source pixels (see `epc-box.ts`), not camera/QR |
 | Clickable callouts | Hotspots ↔ table row hover sync (`activeOem`) |
 | Parts list under diagram | Fitment `parts` + optional companion table; click → PDP `/parts/[oem]` |
 | Stock / price | Join `stock_items` in RPC; web adds RETAIL `price_list_items` overlay in `EpcDiagramHub` |
@@ -328,7 +328,7 @@ Clone checklist for display parity:
 ### EPC browse screens
 
 - [ ] Routes or stack: Maker → Model → Variant → Section → Diagram.
-- [ ] Diagram split: image + hotspot overlays (0–1 bbox) + parts table; hover sync; OEM → PDP.
+- [x] Diagram split: image + hotspot overlays (fraction or pixel bbox) + parts table; hover sync; OEM → PDP.
 - [ ] Breadcrumb / back; session EPC context for return-from-PDP.
 - [ ] Empty/error: no makers, no diagram image, parts-only section.
 
@@ -355,3 +355,14 @@ SELECT * FROM get_catalog_diagram('nissan','x-trail','t31-mr20','section-filters
 | Android | `VehicleCatalogModels.kt`, `EpcBrowseScreen.kt`, `CatalogRpcLive.kt` |
 | iOS | `VehicleCatalogModels.swift`, `EpcBrowseScreen.swift`, `LiveStorefrontApi.swift` |
 | Pipeline | `docs/guides/megazip-multivehicle-catalog.md`, `import_hierarchy_catalog.py`, `import_catalog` |
+
+## 2026-10-01 — every app on the full catalogue
+
+POS EPC (web and tablet) no longer reads `get_catalog_diagram*` / Supabase Storage fixture art. Diagram
+lists, parts and images go through `catalog-live-r2` (`staff-diagrams`, `staff-diagram-parts`,
+`diagram-image`); the lightweight hierarchy RPCs (`list_catalog_models/variants/sections`) still read the
+Supabase hierarchy. Vehicle-filtered POS search and iOS vehicle parts use the vehicle's R2 fitment shard
+via the published vehicle master. The fixture catalogue is retired by migration `20261001130000` wherever
+the full catalogue is present. Nothing here works until the R2 Edge secrets are set and the serving
+objects are published (`docs/CATALOG_R2_HARD_GATE_2026-09-02.md`).
+

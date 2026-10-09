@@ -3,7 +3,7 @@
 Monorepo root: GitHub `Vanguduza/Nissan-Gtr-Auto`.  
 Vercel **Root Directory** must be `apps/web` (see `apps/web/vercel.json`).
 
-## 1. Project settings (Dashboard or CLI)
+## 1. Project settings
 
 | Setting | Value |
 |---------|--------|
@@ -11,60 +11,80 @@ Vercel **Root Directory** must be `apps/web` (see `apps/web/vercel.json`).
 | Root Directory | `apps/web` |
 | Install | `cd ../.. && pnpm install` |
 | Build | `cd ../.. && pnpm --filter @gtr/web build` |
-| Node | `20.x` (repo `engines`) |
-| Production branch | `main` (auto-deploy on push) |
+| Node | `20.x` |
+| Production branch | `main` |
 | Preview | all other branches / PRs |
 
-## 2. Environment variables (Production + Preview)
+## 2. Environment variables
 
-From hosted Supabase (Dashboard → API) — **never** put service keys in Vercel:
+Use the active hosted project `bicyjghgdnzlnjqxzoud`. Never put service-role or Cloudflare R2 credentials in Vercel browser/public variables.
 
 | Name | Value |
 |------|--------|
-| `NEXT_PUBLIC_SUPABASE_URL` | `https://gylrgwqyuiwkyykardwc.supabase.co` |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | anon / publishable key |
-| `NEXT_PUBLIC_SITE_URL` | **Must be `https://…`** — `https://nissangtrauto.co.zw` or the `*.vercel.app` URL until DNS is cut over. Never `http://` for prod/preview. |
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://bicyjghgdnzlnjqxzoud.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | replacement project publishable/anon key |
+| `NEXT_PUBLIC_SITE_URL` | `https://nissangtrauto.co.zw` or the active `*.vercel.app` URL before DNS cutover |
 
-Optional (same as local web): `NEXT_PUBLIC_DEFAULT_WAREHOUSE_ID`, `NEXT_PUBLIC_ZIG_EXCHANGE_RATE`, `NEXT_PUBLIC_MAP_STYLE_URL`.
+Optional: `NEXT_PUBLIC_DEFAULT_WAREHOUSE_ID`, `NEXT_PUBLIC_ZIG_EXCHANGE_RATE`, `NEXT_PUBLIC_MAP_STYLE_URL`.
 
-After env changes: **Redeploy**.
+After changing Supabase public env values, **redeploy**. A URL change without the matching replacement-project publishable key will break Auth.
 
-## 2b. HTTPS / HSTS (defense-in-depth)
+## 2b. Catalog runtime
 
-Vercel already terminates TLS and redirects HTTP→HTTPS on custom domains once SSL is issued. The app adds:
+The web app does not receive R2 credentials. Staff/customer catalog requests go through the authenticated Supabase Edge function `catalog-live-r2`, which joins lightweight Supabase hierarchy/commerce data to R2 technical objects.
+
+Do not add the retired Supabase project's storage host as a catalog dependency. `apps/web/next.config.ts` permits normal app-owned public Supabase media without binding the app to a specific project ref; EPC diagram/part payloads use the gateway.
+
+## 3. HTTPS / HSTS
+
+Vercel terminates TLS and redirects HTTP→HTTPS on custom domains once SSL is issued. The app also provides:
 
 | Layer | Behavior |
 |-------|----------|
-| `apps/web/middleware.ts` | Non-local HTTP → **308** to HTTPS; sets `Strict-Transport-Security: max-age=31536000; includeSubDomains` on HTTPS responses |
-| `apps/web/vercel.json` `headers` | Same HSTS value on all routes (platform backup) |
-| `publicSiteUrl()` (`lib/site-url.ts`) | Coerces mis-set `http://` env origins to `https://` for non-local hosts (OAuth, metadata, PSP return URLs) |
+| `apps/web/middleware.ts` | Non-local HTTP → 308 HTTPS; HSTS on HTTPS responses |
+| `apps/web/vercel.json` | HSTS platform backup |
+| `publicSiteUrl()` | Coerces accidental non-local `http://` origins to HTTPS |
 
-**Local exempt:** `localhost`, `127.0.0.1`, and `::1` skip redirect and HSTS so `http://127.0.0.1:3000` keeps working. Use `NEXT_PUBLIC_SITE_URL=http://127.0.0.1:3000` only in `.env.local`.
+Local `localhost`, `127.0.0.1`, and `::1` remain exempt for development.
 
-`includeSubDomains` is intentional: apex + `www` are both on HTTPS ([company-domain decision](../decisions/2026-07-23-company-domain.md)). No HSTS `preload` flag (requires an explicit preload-list submission).
+## 4. Live updates
 
-## 3. Live updates
+1. Connect the GitHub repo in Vercel.
+2. Push to the configured production branch → production deploy.
+3. Push/open a PR → preview deploy when preview builds are enabled.
 
-1. Connect the GitHub repo in Vercel (Project → Settings → Git).
-2. Push to `main` → Production deploy.
-3. Push / open PR on other branches → Preview URL.
+Local `pnpm --filter @gtr/web dev` does not update production.
 
-Local `pnpm --filter @gtr/web dev` does **not** update production; only Git pushes (or `npx vercel --prod`) do.
+## 5. Supabase Auth URLs
 
-## 4. Supabase Auth URLs
-
-Add the Vercel URL(s) to Supabase **Authentication → URL configuration** redirect allow-list, e.g.:
+Configure the **replacement** Supabase project Authentication → URL configuration:
 
 - `https://<project>.vercel.app/auth/callback`
 - `https://nissangtrauto.co.zw/auth/callback`
-- `https://www.nissangtrauto.co.zw/auth/callback` (if www is live)
+- `https://www.nissangtrauto.co.zw/auth/callback`
 
-All Auth **Site URL** / redirect entries for hosted envs must use **`https://`**, not `http://`.
+If Google OAuth is enabled, the provider callback is:
 
-## 5. CLI (optional)
+`https://bicyjghgdnzlnjqxzoud.supabase.co/auth/v1/callback`
+
+All hosted Auth Site URL / redirects must use HTTPS.
+
+## 6. Production cutover gate
+
+Do not point production DNS/users at a build solely because it compiled. Confirm:
+
+- replacement Supabase URL + matching publishable key are present in Vercel;
+- intended Auth users/roles exist on the replacement project;
+- `catalog-live-r2` is active and its R2 secrets/manifests are configured;
+- staff and customer critical E2E paths pass;
+- no client bundle contains service-role or R2 credentials.
+
+The retired project `gylrgwqyuiwkyykardwc` must not be deleted until these gates are green.
+
+## 7. CLI (optional)
 
 ```bash
-npx vercel link          # root Directory: apps/web
-npx vercel env pull      # optional
-npx vercel --prod        # one-off prod deploy from local tree
+npx vercel link
+npx vercel env pull
+npx vercel --prod
 ```

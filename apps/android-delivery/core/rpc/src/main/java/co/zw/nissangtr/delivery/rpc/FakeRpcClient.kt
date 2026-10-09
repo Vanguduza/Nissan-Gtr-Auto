@@ -25,6 +25,37 @@ class FakeRpcClient : RpcClient {
             podPhotoPath = null,
             podSignaturePath = null,
             assigneeUserId = FAKE_DRIVER_USER_ID,
+            // H4 dual-read seed: divergent majors — display prefers *_minor (COD $45.50).
+            settlement = DeliveryJobSettlement(
+                currency = CurrencyCode.USD,
+                invoiceTotal = 1.0,
+                invoiceTotalMinor = 4550L,
+                amountPaid = 99.0,
+                amountPaidMinor = 0L,
+                amountDue = 1.0,
+                amountDueMinor = 4550L,
+            ),
+            dropoffAddressText = "12 Samora Machel Ave, Harare",
+            lineItems = listOf(
+                DeliveryJobLineItem(
+                    lineId = "line-seed-1a",
+                    qty = 2.0,
+                    oemPartNumber = "40206-EG000",
+                    description = "Front brake pad set",
+                    currency = CurrencyCode.USD,
+                    unitPriceMinor = 1500L,
+                    lineTotalMinor = 3000L,
+                ),
+                DeliveryJobLineItem(
+                    lineId = "line-seed-1b",
+                    qty = 1.0,
+                    oemPartNumber = "15208-65F0A",
+                    description = "Oil filter",
+                    currency = CurrencyCode.USD,
+                    unitPriceMinor = 1550L,
+                    lineTotalMinor = 1550L,
+                ),
+            ),
         ),
         DeliveryJobSummary(
             id = JOB_2,
@@ -42,6 +73,71 @@ class FakeRpcClient : RpcClient {
             podPhotoPath = null,
             podSignaturePath = null,
             assigneeUserId = FAKE_DRIVER_USER_ID,
+            settlement = null,
+            dropoffAddressText = "45 Borrowdale Rd, Harare",
+            lineItems = listOf(
+                DeliveryJobLineItem(
+                    lineId = "line-seed-2a",
+                    qty = 1.0,
+                    oemPartNumber = "16546-EA000",
+                    description = "Air filter element",
+                    currency = CurrencyCode.USD,
+                ),
+            ),
+        ),
+        DeliveryJobSummary(
+            id = JOB_DONE,
+            deliveryNoteId = "00000000-0000-4000-8000-0000000000d3",
+            documentNumber = "DJ-SEED-DONE",
+            status = "completed",
+            dropoffLat = -17.8200,
+            dropoffLng = 31.0400,
+            etaAt = null,
+            etaSeconds = null,
+            notes = "Left with reception",
+            routeSequence = 3,
+            reattemptOf = null,
+            failureReasonCode = null,
+            podPhotoPath = "$JOB_DONE/photo.jpg",
+            podSignaturePath = "$JOB_DONE/signature.png",
+            assigneeUserId = FAKE_DRIVER_USER_ID,
+            settlement = DeliveryJobSettlement(
+                currency = CurrencyCode.USD,
+                invoiceTotalMinor = 1200L,
+                amountPaidMinor = 1200L,
+                amountDueMinor = 0L,
+            ),
+            dropoffAddressText = "8 Leopold Takawira St, Harare",
+            lineItems = listOf(
+                DeliveryJobLineItem(
+                    lineId = "line-seed-done",
+                    qty = 4.0,
+                    oemPartNumber = "B4551-JD00A",
+                    description = "Wiper blade",
+                    currency = CurrencyCode.USD,
+                    lineTotalMinor = 1200L,
+                ),
+            ),
+        ),
+        DeliveryJobSummary(
+            id = JOB_FAILED,
+            deliveryNoteId = "00000000-0000-4000-8000-0000000000d4",
+            documentNumber = "DJ-SEED-FAIL",
+            status = "failed",
+            dropoffLat = -17.8400,
+            dropoffLng = 31.0700,
+            etaAt = null,
+            etaSeconds = null,
+            notes = "Customer absent",
+            routeSequence = 4,
+            reattemptOf = null,
+            failureReasonCode = DeliveryFailureReason.CUSTOMER_ABSENT.rpcValue,
+            podPhotoPath = null,
+            podSignaturePath = null,
+            assigneeUserId = FAKE_DRIVER_USER_ID,
+            settlement = null,
+            dropoffAddressText = "22 Enterprise Rd, Harare",
+            lineItems = emptyList(),
         ),
     )
 
@@ -118,6 +214,17 @@ class FakeRpcClient : RpcClient {
         val current = jobs[idx]
         require(current.status !in listOf("completed", "failed")) {
             "terminal delivery job cannot change status"
+        }
+        if (status == DeliveryJobStatus.COMPLETED) {
+            require(!current.podSignaturePath.isNullOrBlank()) {
+                "POD photo and signature required; use submit_delivery_pod"
+            }
+            require(!current.podPhotoPath.isNullOrBlank()) {
+                "POD photo and signature required; use submit_delivery_pod"
+            }
+        }
+        if (status == DeliveryJobStatus.FAILED) {
+            error("use fail_delivery_job for failed status (reason + optional reattempt)")
         }
         jobs[idx] = current.copy(status = status.rpcValue)
         return deliveryJobId
@@ -286,6 +393,8 @@ class FakeRpcClient : RpcClient {
         const val FAKE_DRIVER_USER_ID = "00000000-0000-4000-8000-0000000000d0"
         const val JOB_1 = "00000000-0000-4000-8000-0000000000j1"
         const val JOB_2 = "00000000-0000-4000-8000-0000000000j2"
+        const val JOB_DONE = "00000000-0000-4000-8000-0000000000j3"
+        const val JOB_FAILED = "00000000-0000-4000-8000-0000000000j4"
 
         /** Last generated OTP in Fake (always 123456). */
         const val FAKE_OTP = "123456"
@@ -301,5 +410,136 @@ class FakeRpcClient : RpcClient {
                 kotlin.math.sin(dl / 2) * kotlin.math.sin(dl / 2)
             return 2 * r * kotlin.math.asin(kotlin.math.sqrt(a))
         }
+    }
+
+    // --- Cash and card on delivery (in memory, same rules as the server)
+
+    private val fakePaid = mutableMapOf<String, Double>()
+    private val fakeCashKeys = mutableMapOf<String, DeliveryCashReceipt>()
+    private val fakeCardAttempts = linkedMapOf<String, DeliveryCardAttempt>()
+    private val fakeCardKeys = mutableMapOf<String, String>()
+    private val fakeCardJob = mutableMapOf<String, String>()
+    private val fakeTerminal = DeliveryCardTerminal(
+        "term-fake-1", "Demo swipe machine", "Demo bank", "android_intent_v1",
+        mapOf("package_name" to "zw.demo.pos", "purchase_action" to "zw.demo.pos.PURCHASE", "status_action" to "zw.demo.pos.STATUS"),
+        null,
+    )
+
+    override suspend fun getDeliveryPaymentContext(deliveryJobId: String): DeliveryPaymentContext? {
+        val job = jobs.firstOrNull { it.id == deliveryJobId } ?: return null
+        val s = job.settlement
+        val total = (s?.invoiceTotalMinor ?: 0L) / 100.0
+        val paid = (s?.amountPaidMinor ?: 0L) / 100.0 + (fakePaid[deliveryJobId] ?: 0.0)
+        val method = if (s != null && total > 0.0) "cash_or_card_on_delivery" else "prepay"
+        return DeliveryPaymentContext(
+            deliveryJobId, "inv-${job.deliveryNoteId.takeLast(4)}", job.documentNumber, "wh-main", s?.currency?.rpcValue ?: "USD",
+            total, paid, maxOf(0.0, Math.round((total - paid) * 100) / 100.0), method,
+            mayCollectCash = method != "prepay", mayCollectCard = method != "prepay",
+        )
+    }
+
+    override suspend fun collectDeliveryCash(deliveryJobId: String, amount: Double, requestId: String, notes: String?): DeliveryCashReceipt {
+        fakeCashKeys[requestId]?.let { return it }
+        val ctx = getDeliveryPaymentContext(deliveryJobId) ?: error("assigned dispatched driver job required")
+        check(ctx.mayCollectCash) { "this delivery is not authorized for cash collection" }
+        check(ctx.amountDue > 0) { "invoice has no balance due" }
+        check(amount > 0 && amount <= ctx.amountDue + 0.01) { "cash amount must be >0 and <= delivery balance ${ctx.amountDue}" }
+        fakePaid[deliveryJobId] = (fakePaid[deliveryJobId] ?: 0.0) + amount
+        val r = DeliveryCashReceipt("cash-${requestId.take(8)}", amount, ctx.currency, maxOf(0.0, ctx.amountDue - amount))
+        fakeCashKeys[requestId] = r
+        fakeCashHeld += DriverCashCollection(r.collectionId, amount, "2026-10-05T10:00:00Z", jobs.firstOrNull { it.id == deliveryJobId }?.documentNumber, ctx.documentNumber)
+        return r
+    }
+
+    override suspend fun listDeliveryCardTerminals(warehouseId: String?, deviceId: String) = listOf(fakeTerminal.copy(deviceId = deviceId))
+
+    override suspend fun registerDeliveryCardDeviceKey(terminalId: String, deviceId: String, publicKeySpkiBase64: String, keySha256: String) = "key-${keySha256.take(8)}"
+
+    override suspend fun beginDeliveryCardPayment(deliveryJobId: String, terminalId: String, deviceId: String, amount: Double, requestId: String): DeliveryCardAttempt {
+        fakeCardKeys[requestId]?.let { return fakeCardAttempts.getValue(it) }
+        val ctx = getDeliveryPaymentContext(deliveryJobId) ?: error("assigned dispatched driver job required")
+        check(ctx.mayCollectCard) { "this delivery is not authorized for card collection" }
+        check(amount > 0 && amount <= ctx.amountDue + 0.01) { "card amount must be >0 and <= delivery balance ${ctx.amountDue}" }
+        check(fakeCardAttempts.values.none { fakeCardJob[it.attemptId] == deliveryJobId && it.status in setOf("initiated", "approved", "unknown") }) {
+            "reconcile the unresolved delivery card payment before charging again"
+        }
+        val id = "datt-${requestId.take(8)}"
+        val a = DeliveryCardAttempt(id, "initiated", amount, ctx.currency, "GTR-DCT-${requestId.take(12)}", fakeTerminal.label, fakeTerminal.adapterConfig, null, null, null, null)
+        fakeCardAttempts[id] = a; fakeCardKeys[requestId] = id; fakeCardJob[id] = deliveryJobId
+        return a
+    }
+
+    override suspend fun getDeliveryCardAttempt(attemptId: String) = fakeCardAttempts[attemptId] ?: error("card terminal attempt not found")
+
+    /** The fake reads the outcome from the payload the bridge produced (simulated machine). */
+    override suspend fun submitCardTerminalEvidence(payloadJson: String, signatureBase64: String): DeliveryCardAttempt {
+        val id = Regex("\"attempt_id\":\"([^\"]+)\"").find(payloadJson)?.groupValues?.get(1) ?: error("attempt id missing")
+        val outcome = Regex("\"outcome\":\"([^\"]+)\"").find(payloadJson)?.groupValues?.get(1) ?: "unknown"
+        val txn = Regex("\"terminal_transaction_id\":\"([^\"]+)\"").find(payloadJson)?.groupValues?.get(1)
+        val last4 = Regex("\"card_last4\":\"([^\"]+)\"").find(payloadJson)?.groupValues?.get(1)
+        val a = getDeliveryCardAttempt(id).copy(status = outcome, transactionId = txn, cardLast4 = last4)
+        fakeCardAttempts[id] = a
+        return a
+    }
+
+    override suspend fun finalizeDeliveryCardPayment(attemptId: String): DeliveryCardAttempt {
+        val a = getDeliveryCardAttempt(attemptId)
+        if (a.status == "settled") return a
+        check(a.status == "approved") { "approved delivery card purchase required" }
+        val job = fakeCardJob.getValue(attemptId)
+        fakePaid[job] = (fakePaid[job] ?: 0.0) + a.amount
+        return a.copy(status = "settled").also { fakeCardAttempts[attemptId] = it }
+    }
+
+    private val fakeBalance = mutableMapOf<String, DeliveryBalanceApproval>()
+
+    /** Demo rule: up to USD 30 left on account is covered by the customer's credit; more waits for dispatch. */
+    override suspend fun requestDeliveryBalanceOnAccount(deliveryJobId: String, reason: String): DeliveryBalanceApproval {
+        check(reason.isNotBlank()) { "say why the customer cannot pay the rest" }
+        val ctx = getDeliveryPaymentContext(deliveryJobId) ?: error("assigned dispatched driver job required")
+        check(ctx.amountDue > 0.004) { "nothing is owed on this delivery" }
+        fakeBalance[deliveryJobId]?.takeIf { it.approved && ctx.amountDue <= it.amount + 0.01 }?.let { return it }
+        val auto = ctx.amountDue <= 30.0
+        return DeliveryBalanceApproval(
+            "bal-${deliveryJobId.takeLast(4)}", if (auto) "auto_approved" else "pending", if (auto) "credit_limit" else "back_office",
+            ctx.amountDue, ctx.currency, reason, null, null,
+        ).also { fakeBalance[deliveryJobId] = it }
+    }
+
+    /** A pending request is approved by "dispatch" the next time the driver checks. */
+    override suspend fun getDeliveryBalanceApproval(deliveryJobId: String): DeliveryBalanceApproval? {
+        val b = fakeBalance[deliveryJobId] ?: return null
+        return if (b.status == "pending") b.copy(status = "approved", decidedByName = "Dispatch (demo)").also { fakeBalance[deliveryJobId] = it } else b
+    }
+
+    override suspend fun getDeliveryCardRecovery(deliveryJobId: String): DeliveryCardAttempt? =
+        fakeCardAttempts.values.lastOrNull { fakeCardJob[it.attemptId] == deliveryJobId && (it.status in setOf("initiated", "approved", "unknown") || it.finalizationError != null) }
+
+    /** Demo: two earlier stops' cash is still with the driver. */
+    private val fakeCashHeld = mutableListOf(
+        DriverCashCollection("col-1", 80.0, "2026-10-05T08:12:00Z", "DJ-00041", "SINV-00310"),
+        DriverCashCollection("col-2", 45.5, "2026-10-05T09:40:00Z", "DJ-00044", "SINV-00316"),
+    )
+    private val fakeHandins = mutableListOf<DriverCashHandin>()
+
+    override suspend fun getMyDriverCash(): DriverCash = DriverCash(
+        holding = if (fakeCashHeld.isEmpty()) emptyList() else listOf(
+            DriverCashHolding("USD", Math.round(fakeCashHeld.sumOf { it.amount } * 100) / 100.0, fakeCashHeld.size, fakeCashHeld.first().collectedAt, fakeCashHeld.toList()),
+        ),
+        handins = fakeHandins.reversed(),
+    )
+
+    override suspend fun submitDriverCashHandin(currency: String, declaredAmount: Double, notes: String?): DriverCashHandin {
+        check(declaredAmount >= 0) { "declared amount must be >= 0" }
+        check(fakeHandins.none { it.currency == currency && it.status == "submitted" }) { "your last $currency hand-in is still waiting to be received" }
+        check(fakeCashHeld.isNotEmpty()) { "no $currency cash to hand in" }
+        val expected = Math.round(fakeCashHeld.sumOf { it.amount } * 100) / 100.0
+        val h = DriverCashHandin(
+            "dch-${fakeHandins.size + 1}", "DCH-%05d".format(fakeHandins.size + 1), "submitted", currency, expected, declaredAmount,
+            null, null, fakeCashHeld.size, "2026-10-05T12:00:00Z", null, null,
+        )
+        fakeCashHeld.clear()
+        fakeHandins += h
+        return h
     }
 }

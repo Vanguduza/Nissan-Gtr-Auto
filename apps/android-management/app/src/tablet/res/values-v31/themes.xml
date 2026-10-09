@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.GTRManagement.Kiosk" parent="Theme.GTRManagement">
+        <item name="android:windowBackground">#FFF4F5F7</item>
+        <item name="android:navigationBarColor">#FFF4F5F7</item>
+        <item name="android:statusBarColor">#FFF4F5F7</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowDisablePreview">false</item>
+        <item name="android:windowSplashScreenBackground">#FFF4F5F7</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/kiosk_start_transparent</item>
+        <item name="android:windowSplashScreenAnimationDuration">0</item>
+    </style>
+</resources>

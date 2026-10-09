@@ -11,3 +11,12 @@ SUPPORT_PHONE=+263771234567
 
 # Optional: force FakeRpcClient even when URL+key are set
 # rpc.forceFake=true
+
+# Maps are keyless: MapLibre + OpenFreeMap tiles, OSRM-compatible routing. No Google key.
+# Unreachable router → straight-line approx (no UI nag).
+# ROUTING_BASE_URL=https://your-router.example/route/v1/driving
+# Self-hosted OSRM host (route path added automatically), e.g. emulator or LAN PC:
+# OSRM_URL=http://10.0.2.2:5000
+# OSRM_URL=http://192.168.1.10:5000
+# Self-hosted tiles (infra/satellites/maptiles/); blank → OpenFreeMap:
+# MAPLIBRE_STYLE_URL=http://10.0.2.2:8081/styles/basic-preview/style.json

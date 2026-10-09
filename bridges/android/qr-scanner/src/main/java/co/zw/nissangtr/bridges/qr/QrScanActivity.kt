@@ -58,7 +58,7 @@ class QrScanActivity : AppCompatActivity() {
             )
         }
         val hint = TextView(this).apply {
-            text = getString(R.string.gtr_qr_scan_hint)
+            text = intent.getStringExtra(EXTRA_HINT) ?: getString(R.string.gtr_qr_scan_hint)
             setPadding(32, 48, 32, 16)
             setTextColor(0xFFFFFFFF.toInt())
             setBackgroundColor(0x66000000)
@@ -140,9 +140,15 @@ class QrScanActivity : AppCompatActivity() {
             }
 
         cameraProvider.unbindAll()
+        val wantFront = intent.getStringExtra(EXTRA_LENS) == CameraLens.FRONT.name
+        val wanted = if (wantFront) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
+        val fallback = if (wantFront) CameraSelector.DEFAULT_BACK_CAMERA else CameraSelector.DEFAULT_FRONT_CAMERA
+        // A device with one camera still scans: use whichever it has.
+        val selector = if (cameraProvider.hasCamera(wanted)) wanted else fallback
+        if (selector == CameraSelector.DEFAULT_FRONT_CAMERA) previewView.scaleX = -1f // mirror, like a selfie
         cameraProvider.bindToLifecycle(
             this,
-            CameraSelector.DEFAULT_BACK_CAMERA,
+            selector,
             preview,
             analysis,
         )
@@ -157,5 +163,7 @@ class QrScanActivity : AppCompatActivity() {
     companion object {
         const val EXTRA_RAW_VALUE: String = "co.zw.nissangtr.bridges.qr.RAW_VALUE"
         const val EXTRA_SCANNED_AT: String = "co.zw.nissangtr.bridges.qr.SCANNED_AT"
+        const val EXTRA_LENS: String = "co.zw.nissangtr.bridges.qr.LENS"
+        const val EXTRA_HINT: String = "co.zw.nissangtr.bridges.qr.HINT"
     }
 }

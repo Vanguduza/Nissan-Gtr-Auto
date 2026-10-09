@@ -1,0 +1,62 @@
+name: Catalog R2 inventory once
+
+on:
+  push:
+    branches:
+      - chatgpt/customer-ui-catalog-hardening-20260902
+    paths:
+      - .github/workflows/catalog-r2-inventory-once.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+env:
+  BROKER_URL: https://gylrgwqyuiwkyykardwc.supabase.co/functions/v1/catalog-r2-publish-broker
+  OIDC_AUDIENCE: nissan-gtr-catalog-publisher
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: chatgpt/customer-ui-catalog-hardening-20260902
+      - name: Mint GitHub OIDC token
+        id: oidc
+        shell: bash
+        run: |
+          set -euo pipefail
+          response=$(curl -fsS -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${OIDC_AUDIENCE}")
+          token=$(printf '%s' "$response" | jq -r '.value')
+          test -n "$token" && test "$token" != "null"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+      - name: Inventory R2 source candidates
+        env:
+          OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p docs/audits
+          curl -fsS \
+            -H "Authorization: Bearer ${OIDC_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d '{"action":"inventory"}' \
+            "$BROKER_URL" | jq . > docs/audits/catalog-r2-inventory.json
+          jq -e '.ok == true' docs/audits/catalog-r2-inventory.json >/dev/null
+          jq '{release:.release.version,bundle_reachable,bundle_bytes,serving_sample_count,diagram_prefix_reachable,candidates}' docs/audits/catalog-r2-inventory.json
+      - name: Persist inventory evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "nissan-gtr-catalog-gate"
+          git config user.email "catalog-gate@users.noreply.github.com"
+          git add docs/audits/catalog-r2-inventory.json
+          if git diff --cached --quiet; then
+            echo "Inventory unchanged"
+          else
+            git commit -m "audit: persist current R2 catalog inventory [skip ci]"
+            git push origin HEAD:chatgpt/customer-ui-catalog-hardening-20260902
+          fi

@@ -65,7 +65,7 @@ if (packs.length === 0) {
 const useDocker = process.argv.includes("--docker");
 const container =
   process.env.SUPABASE_STORAGE_CONTAINER ||
-  "supabase_storage_gylrgwqyuiwkyykardwc";
+  "supabase_storage_bicyjghgdnzlnjqxzoud";
 
 function assertFixtures() {
   for (const pack of packs) {

@@ -153,7 +153,7 @@ native “show pairing code as QR” helper is needed beyond CameraX scan, route
 
 ```properties
 sdk.dir=C\:\\Android\\sdk
-SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+SUPABASE_URL=https://bicyjghgdnzlnjqxzoud.supabase.co
 SUPABASE_ANON_KEY=your-anon-key
 # Optional panic dial target:
 # DELIVERY_SUPPORT_PHONE=+263771234567

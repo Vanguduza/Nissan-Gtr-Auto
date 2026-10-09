@@ -1,0 +1,369 @@
+{
+  "format": "gtr-counter-receipt",
+  "version": 1,
+  "thermalColumns": 42,
+  "labels": {
+    "brand": "NISSAN GTR AUTO",
+    "strap": "Genuine Parts · Real Performance",
+    "invoice": "Invoice {0}",
+    "servedBy": "Served by {0}",
+    "customer": "Customer: {0}",
+    "vehicle": "Vehicle: {0}",
+    "subtotal": "Subtotal",
+    "discount": "Discount",
+    "total": "TOTAL",
+    "cashGiven": "Cash handed over",
+    "change": "Change due",
+    "offline": "OFFLINE SALE · invoice no. issued on sync",
+    "thanks": "Thank you for your business.",
+    "tenders": {
+      "cash": "Cash",
+      "bank": "Card / bank",
+      "ecocash": "EcoCash",
+      "store_credit": "Store credit",
+      "paynow": "Paynow",
+      "contipay": "ContiPay",
+      "account": "On account"
+    }
+  },
+  "cases": [
+    {
+      "name": "online split tender, customer and vehicle, cash change",
+      "receipt": {
+        "invoiceId": "3524d2c3-2fca-4d7f-89b0-c6f2089f6256",
+        "documentNumber": "INV-000123",
+        "issuedAtLocal": "2026-10-01T14:05:00+02:00",
+        "operatorName": "Tendai Moyo",
+        "customerName": "Rudo Chikwanha",
+        "vehicleLabel": "GT-R R35 VR38DETT",
+        "currency": "USD",
+        "lines": [
+          {
+            "name": "Front Brake Pad Set",
+            "oemPartNumber": "D1060-JF00A",
+            "qty": 2,
+            "unitPriceMinor": 9600,
+            "lineTotalMinor": 19200
+          },
+          {
+            "name": "Front Brake Disc Rotor (pair)",
+            "oemPartNumber": "40206-JF00A",
+            "qty": 1,
+            "unitPriceMinor": 112500,
+            "lineTotalMinor": 112500
+          }
+        ],
+        "subtotalMinor": 131700,
+        "discountMinor": 6585,
+        "totalMinor": 125115,
+        "tenders": [
+          {
+            "tender": "cash",
+            "amountMinor": 25115
+          },
+          {
+            "tender": "ecocash",
+            "amountMinor": 100000
+          }
+        ],
+        "cashGivenMinor": 30000,
+        "changeMinor": 4885,
+        "offline": false
+      },
+      "rows": [
+        {
+          "left": "NISSAN GTR AUTO",
+          "right": "",
+          "strong": true
+        },
+        {
+          "left": "Genuine Parts · Real Performance",
+          "right": "",
+          "strong": false
+        },
+        {
+          "left": "",
+          "right": "",
+          "strong": false
+        },
+        {
+          "left": "Invoice INV-000123",
+          "right": "",
+          "strong": true
+        },
+        {
+          "left": "2026-10-01 14:05",
+          "right": "",
+          "strong": false
+        },
+        {
+          "left": "Served by Tendai Moyo",
+          "right": "",
+          "strong": false
+        },
+        {
+          "left": "Customer: Rudo Chikwanha",
+          "right": "",
+          "strong": false
+        },
+        {
+          "left": "Vehicle: GT-R R35 VR38DETT",
+          "right": "",
+          "strong": false
+        },
+        {
+          "left": "",
+          "right": "",
+          "strong": false
+        },
+        {
+          "left": "Front Brake Pad Set",
+          "right": "",
+          "strong": false
+        },
+        {
+          "left": "  D1060-JF00A",
+          "right": "",
+          "strong": false
+        },
+        {
+          "left": "  2 × US$ 96.00",
+          "right": "US$ 192.00",
+          "strong": false
+        },
+        {
+          "left": "Front Brake Disc Rotor (pair)",
+          "right": "",
+          "strong": false
+        },
+        {
+          "left": "  40206-JF00A",
+          "right": "",
+          "strong": false
+        },
+        {
+          "left": "  1 × US$ 1,125.00",
+          "right": "US$ 1,125.00",
+          "strong": false
+        },
+        {
+          "left": "",
+          "right": "",
+          "strong": false
+        },
+        {
+          "left": "Subtotal",
+          "right": "US$ 1,317.00",
+          "strong": false
+        },
+        {
+          "left": "Discount",
+          "right": "US$ 65.85",
+          "strong": false
+        },
+        {
+          "left": "TOTAL",
+          "right": "US$ 1,251.15",
+          "strong": true
+        },
+        {
+          "left": "Cash",
+          "right": "US$ 251.15",
+          "strong": false
+        },
+        {
+          "left": "EcoCash",
+          "right": "US$ 1,000.00",
+          "strong": false
+        },
+        {
+          "left": "Cash handed over",
+          "right": "US$ 300.00",
+          "strong": false
+        },
+        {
+          "left": "Change due",
+          "right": "US$ 48.85",
+          "strong": true
+        },
+        {
+          "left": "",
+          "right": "",
+          "strong": false
+        },
+        {
+          "left": "Thank you for your business.",
+          "right": "",
+          "strong": false
+        }
+      ],
+      "thermal42": [
+        "NISSAN GTR AUTO",
+        "Genuine Parts · Real Performance",
+        "",
+        "Invoice INV-000123",
+        "2026-10-01 14:05",
+        "Served by Tendai Moyo",
+        "Customer: Rudo Chikwanha",
+        "Vehicle: GT-R R35 VR38DETT",
+        "",
+        "Front Brake Pad Set",
+        "  D1060-JF00A",
+        "  2 × US$ 96.00                 US$ 192.00",
+        "Front Brake Disc Rotor (pair)",
+        "  40206-JF00A",
+        "  1 × US$ 1,125.00            US$ 1,125.00",
+        "",
+        "Subtotal                      US$ 1,317.00",
+        "Discount                         US$ 65.85",
+        "TOTAL                         US$ 1,251.15",
+        "Cash                            US$ 251.15",
+        "EcoCash                       US$ 1,000.00",
+        "Cash handed over                US$ 300.00",
+        "Change due                       US$ 48.85",
+        "",
+        "Thank you for your business."
+      ]
+    },
+    {
+      "name": "offline cash sale in ZiG, fractional qty, long name wraps",
+      "receipt": {
+        "invoiceId": "c0ffee00-1111-4222-8333-944455556666",
+        "documentNumber": "OFFLINE-C0FFEE00",
+        "issuedAtLocal": "2026-10-01T09:30",
+        "operatorName": null,
+        "customerName": null,
+        "vehicleLabel": null,
+        "currency": "ZIG",
+        "lines": [
+          {
+            "name": "Engine Oil 5W-30 Fully Synthetic, 4 litre can (Nissan Genuine)",
+            "oemPartNumber": "KE900-90042-SUPERLONG",
+            "qty": 1.5,
+            "unitPriceMinor": 34050,
+            "lineTotalMinor": 51075
+          }
+        ],
+        "subtotalMinor": 51075,
+        "discountMinor": 0,
+        "totalMinor": 51075,
+        "tenders": [
+          {
+            "tender": "cash",
+            "amountMinor": 51075
+          }
+        ],
+        "cashGivenMinor": null,
+        "changeMinor": null,
+        "offline": true
+      },
+      "rows": [
+        {
+          "left": "NISSAN GTR AUTO",
+          "right": "",
+          "strong": true
+        },
+        {
+          "left": "Genuine Parts · Real Performance",
+          "right": "",
+          "strong": false
+        },
+        {
+          "left": "",
+          "right": "",
+          "strong": false
+        },
+        {
+          "left": "Invoice OFFLINE-C0FFEE00",
+          "right": "",
+          "strong": true
+        },
+        {
+          "left": "2026-10-01 09:30",
+          "right": "",
+          "strong": false
+        },
+        {
+          "left": "",
+          "right": "",
+          "strong": false
+        },
+        {
+          "left": "Engine Oil 5W-30 Fully Synthetic, 4 litre can (Nissan Genuine)",
+          "right": "",
+          "strong": false
+        },
+        {
+          "left": "  KE900-90042-SUPERLONG",
+          "right": "",
+          "strong": false
+        },
+        {
+          "left": "  1.5 × ZiG 340.50",
+          "right": "ZiG 510.75",
+          "strong": false
+        },
+        {
+          "left": "",
+          "right": "",
+          "strong": false
+        },
+        {
+          "left": "Subtotal",
+          "right": "ZiG 510.75",
+          "strong": false
+        },
+        {
+          "left": "Discount",
+          "right": "ZiG 0.00",
+          "strong": false
+        },
+        {
+          "left": "TOTAL",
+          "right": "ZiG 510.75",
+          "strong": true
+        },
+        {
+          "left": "Cash",
+          "right": "ZiG 510.75",
+          "strong": false
+        },
+        {
+          "left": "",
+          "right": "",
+          "strong": false
+        },
+        {
+          "left": "OFFLINE SALE · invoice no. issued on sync",
+          "right": "",
+          "strong": true
+        },
+        {
+          "left": "Thank you for your business.",
+          "right": "",
+          "strong": false
+        }
+      ],
+      "thermal42": [
+        "NISSAN GTR AUTO",
+        "Genuine Parts · Real Performance",
+        "",
+        "Invoice OFFLINE-C0FFEE00",
+        "2026-10-01 09:30",
+        "",
+        "Engine Oil 5W-30 Fully Synthetic, 4 litre",
+        "can (Nissan Genuine)",
+        "  KE900-90042-SUPERLONG",
+        "  1.5 × ZiG 340.50              ZiG 510.75",
+        "",
+        "Subtotal                        ZiG 510.75",
+        "Discount                          ZiG 0.00",
+        "TOTAL                           ZiG 510.75",
+        "Cash                            ZiG 510.75",
+        "",
+        "OFFLINE SALE · invoice no. issued on sync",
+        "Thank you for your business."
+      ]
+    }
+  ]
+}

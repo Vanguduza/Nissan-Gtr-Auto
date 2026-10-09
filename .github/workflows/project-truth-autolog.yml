@@ -26,7 +26,10 @@ jobs:
           if not d.get('policy',{}).get('default_branch_is_not_authority'): sys.exit('BLOCKED: authority policy missing')
           PY
       - name: Automatically record pushed commits
-        if: github.event_name == 'push' && github.actor != 'github-actions[bot]'
+        # Only the default branch is autologged: a bot commit on a PR branch becomes the PR head,
+        # which no workflow runs on (GITHUB_TOKEN pushes), so required checks could never pass.
+        # Merging logs every commit of the PR, since the range covers the whole push.
+        if: github.event_name == 'push' && github.actor != 'github-actions[bot]' && github.ref_name == github.event.repository.default_branch
         env:
           BEFORE: ${{ github.event.before }}
           AFTER: ${{ github.sha }}

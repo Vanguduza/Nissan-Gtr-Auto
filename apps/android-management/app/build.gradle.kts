@@ -83,12 +83,36 @@ android {
     }
 }
 
+val verifyCanonicalPosLineage by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Refuse POS APK/AAB builds from stale or superseded repository lineage."
+    val repoRoot = rootProject.projectDir.parentFile.parentFile
+    workingDir(repoRoot)
+    val isWindows = System.getProperty("os.name").lowercase().contains("windows")
+    if (isWindows) {
+        commandLine("py", "-3", "scripts/project_truth_guard.py", "release-check", "--app", "pos-android")
+    } else {
+        commandLine("python3", "scripts/project_truth_guard.py", "release-check", "--app", "pos-android")
+    }
+}
+
+tasks.configureEach {
+    if (name.startsWith("assemble", ignoreCase = true) || name.startsWith("bundle", ignoreCase = true)) {
+        dependsOn(verifyCanonicalPosLineage)
+    }
+}
+
 dependencies {
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
     implementation(project(":core:rpc"))
     implementation(project(":android-ui"))
     implementation(project(":feature:auth"))
     implementation(project(":feature:kiosk"))
     implementation(project(":feature:pos"))
+    implementation(project(":feature:pos-domain"))
+    implementation(project(":feature:pos-data"))
+    implementation(project(":feature:pos-ui"))
+    implementation(project(":pos-design"))
     implementation(project(":feature:warehouse"))
     implementation(project(":feature:dispatch"))
     implementation(project(":feature:hr"))
@@ -97,6 +121,7 @@ dependencies {
     implementation(project(":feature:credit"))
     implementation(project(":feature:fleet"))
     implementation(project(":qr-scanner"))
+    implementation(project(":card-terminal"))
     implementation(project(":escpos-printer"))
     implementation(project(":biometric-photo"))
 

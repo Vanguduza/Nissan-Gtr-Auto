@@ -30,8 +30,7 @@ import asyncio
 import hashlib
 import json
 import logging
-import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -40,7 +39,8 @@ from data_pipeline.import_catalog import load_env_files, resolve_supabase_creden
 from data_pipeline.import_hierarchy_catalog import (
     import_hierarchy_bundle_dir,
     prepare_hierarchy_for_supabase_import,
-)from data_pipeline.megazip.config import (
+)
+from data_pipeline.megazip.config import (
     DEFAULT_CHASSIS_MAP_FILE,
     DEFAULT_MAKERS_FILE,
     DEFAULT_OUT_ROOT,
@@ -48,16 +48,19 @@ from data_pipeline.import_hierarchy_catalog import (
     MegazipConfig,
     build_maker_paths,
     load_megazip_chassis_map,
-    load_priority_chassis_codes,
     load_merged_priority_model_seeds,
-    load_priority_model_seeds,
+    load_priority_chassis_codes,
     megazip_chassis_available,
     megazip_chassis_entry,
     megazip_model_seeds_for_chassis,
 )
 from data_pipeline.megazip.crawl import crawl_maker, parse_cached_pages
 from data_pipeline.megazip.enrich_pcdb import enrich_pcdb
-from data_pipeline.megazip.quality import assert_publishable, bundle_quality_report, variant_quality_breakdown
+from data_pipeline.megazip.quality import (
+    assert_publishable,
+    bundle_quality_report,
+    variant_quality_breakdown,
+)
 from data_pipeline.megazip.transform import transform_maker, write_bundle
 from data_pipeline.storage_diagrams import (
     DIAGRAMS_BUCKET,
@@ -218,7 +221,7 @@ def _write_meta(paths, payload: dict[str, Any]) -> None:
     if paths.meta_json.is_file():
         existing = json.loads(paths.meta_json.read_text(encoding="utf-8"))
     existing.update(payload)
-    existing["updated_at"] = datetime.now(timezone.utc).isoformat()
+    existing["updated_at"] = datetime.now(UTC).isoformat()
     paths.meta_json.write_text(json.dumps(existing, indent=2) + "\n", encoding="utf-8")
 
 
@@ -282,7 +285,7 @@ def run_maker_pipeline(
 
     if bundle and "filter" in phases:
         if complete_only:
-            bundle, filter_meta = filter_complete_bundle(bundle, completed_only=True)
+            bundle, _filter_meta = filter_complete_bundle(bundle, completed_only=True)
             bundle = prepare_hierarchy_for_supabase_import(bundle)
             write_bundle(bundle, paths.bundle_dir)
         else:

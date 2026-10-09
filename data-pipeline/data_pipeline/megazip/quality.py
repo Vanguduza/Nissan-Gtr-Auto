@@ -53,9 +53,7 @@ def megazip_complete_fitments(bundle: dict[str, Any]) -> list[dict[str, Any]]:
             table_rows = [
                 r for r in companions.get(path, []) if r.get("oem_part_number")
             ]
-            if table_rows and oem:
-                complete.append(f)
-            elif f.get("bbox_x") is not None and oem:
+            if table_rows and oem or f.get("bbox_x") is not None and oem:
                 complete.append(f)
             continue
         if f.get("bbox_x") is not None and oem:
@@ -99,9 +97,7 @@ def _passing_diagram_paths(bundle: dict[str, Any]) -> set[str]:
                 passing.add(path)
         else:
             # ambiguous: table required, hotspots optional
-            if len(table_rows) >= MIN_RASTER_TABLE_ROWS:
-                passing.add(path)
-            elif (
+            if len(table_rows) >= MIN_RASTER_TABLE_ROWS or (
                 len(bbox_parts) >= MIN_EXPLODED_PARTS_OEM
                 and oem_parts
             ):
@@ -188,17 +184,12 @@ def variant_quality_breakdown(bundle: dict[str, Any]) -> list[dict[str, Any]]:
 
 def _diagram_gate_stats(bundle: dict[str, Any]) -> dict[str, Any]:
     kinds = _diagram_kind_by_path(bundle)
-    companions = _companion_rows_by_path(bundle)
     fitments = bundle.get("part_fitment") or []
     by_path: dict[str, list[dict[str, Any]]] = {}
     for f in fitments:
         path = f.get("diagram_path") or ""
         if path:
             by_path.setdefault(path, []).append(f)
-
-    diagram_meta = {
-        d.get("storage_path"): d for d in (bundle.get("catalog_diagrams") or []) if d.get("storage_path")
-    }
 
     exploded_ok = 0
     raster_ok = 0

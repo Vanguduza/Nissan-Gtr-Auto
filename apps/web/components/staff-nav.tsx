@@ -10,6 +10,10 @@ import {
   Bell,
   ChevronDown,
   ClipboardList,
+  Inbox,
+  LayoutDashboard,
+  PackagePlus,
+  ShieldAlert,
   iconSizeSm,
   iconStroke,
   LayoutGrid,
@@ -28,6 +32,7 @@ import {
   type LucideIcon,
 } from "@/components/icons";
 import { useStaffAuth } from "@/components/staff-auth-context";
+import { useApprovalsCount } from "@/lib/use-approvals-count";
 import {
   filterNavTreeForModuleAccess,
   isStaffNavLeafActive,
@@ -62,6 +67,12 @@ const staffNavIcons: Record<string, LucideIcon> = {
   "/staff/logistics/prep": PackageCheck,
   "/staff/logistics/tracking": MapPinned,
   "/staff/logistics/panic": Siren,
+  "/staff/logistics/balances": Banknote,
+  "/staff/logistics/driver-cash": Banknote,
+  "/staff/approvals": Inbox,
+  "/staff/dashboard": LayoutDashboard,
+  "/staff/exceptions": ShieldAlert,
+  "/staff/restock": PackagePlus,
   "/staff/fleet": Car,
   "/staff/hr": Users,
   "/staff/warranty": ShieldCheck,
@@ -102,7 +113,7 @@ function StaffNavInner({ current }: { current: string }) {
   const searchTab = searchParams?.get("tab") ?? null;
 
   const entries: StaffNavEntry[] = useMemo(() => {
-    if (ctx) return filterNavTreeForModuleAccess(ctx.roles, ctx.moduleAccess);
+    if (ctx) return filterNavTreeForModuleAccess(ctx.roles, ctx.moduleAccess, ctx.isApprover);
     return STAFF_NAV_TREE.filter(
       (e) => e.kind === "link" && e.roles === "any",
     );
@@ -122,6 +133,7 @@ function StaffNavInner({ current }: { current: string }) {
   }, [entries, pathname, searchTab]);
 
   const [openIds, setOpenIds] = useState<Set<string>>(initiallyOpen);
+  const approvals = useApprovalsCount(Boolean(ctx));
 
   useEffect(() => {
     setOpenIds((prev) => {
@@ -141,7 +153,7 @@ function StaffNavInner({ current }: { current: string }) {
   }
 
   return (
-    <nav className={styles.nav} aria-label="Staff">
+    <nav className={styles.nav} aria-label="Staff" data-noprint>
       <p className={styles.navTitle}>Staff</p>
       <ul className={styles.navList}>
         {entries.map((entry) => {
@@ -162,6 +174,24 @@ function StaffNavInner({ current }: { current: string }) {
                     />
                   ) : null}
                   {entry.label}
+                  {entry.href === "/staff/approvals" && approvals.total > 0 ? (
+                    <span
+                      aria-label={`${approvals.total} waiting${approvals.urgent ? `, ${approvals.urgent} urgent` : ""}`}
+                      style={{
+                        marginLeft: "auto",
+                        minWidth: 20,
+                        padding: "0 6px",
+                        borderRadius: 999,
+                        fontSize: 12,
+                        fontWeight: 700,
+                        textAlign: "center",
+                        color: "var(--gtr-white)",
+                        background: approvals.urgent ? "var(--gtr-red)" : "var(--gtr-steel)",
+                      }}
+                    >
+                      {approvals.total}
+                    </span>
+                  ) : null}
                 </Link>
               </li>
             );
@@ -271,11 +301,11 @@ function StaffNavStatic({ current }: { current: string }) {
   const ctx = useStaffAuth();
   const pathname = navHrefParts(current).pathname;
   const entries = ctx
-    ? filterNavTreeForModuleAccess(ctx.roles, ctx.moduleAccess)
+    ? filterNavTreeForModuleAccess(ctx.roles, ctx.moduleAccess, ctx.isApprover)
     : STAFF_NAV_TREE.filter((e) => e.kind === "link" && e.roles === "any");
 
   return (
-    <nav className={styles.nav} aria-label="Staff">
+    <nav className={styles.nav} aria-label="Staff" data-noprint>
       <p className={styles.navTitle}>Staff</p>
       <ul className={styles.navList}>
         {entries.map((entry) => {

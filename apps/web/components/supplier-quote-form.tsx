@@ -107,8 +107,13 @@ export function SupplierQuoteForm({ rfqId }: { rfqId: string }) {
 
   function onCurrencyChange(next: CurrencyCode) {
     setCurrency(next);
-    if (next === "USD") setExchangeRate("1");
-    else setExchangeRate(String(zigExchangeRate()));
+    if (next === "USD") {
+      setExchangeRate("1");
+      return;
+    }
+    const rate = zigExchangeRate();
+    setExchangeRate(rate == null ? "" : String(rate));
+    if (rate == null) setMessage("ZiG exchange rate is not configured. Finance must publish a verified rate before ZiG transactions are enabled.");
   }
 
   async function onSave(e: FormEvent) {

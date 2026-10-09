@@ -6,6 +6,12 @@ const extensionAlias = {
   ".mjs": [".mts", ".mjs"],
 } as const;
 
+// The POS preview data source is development-only (lib/pos/preview-gateway.ts). Refuse to build
+// a production bundle with it switched on.
+if (process.env.NODE_ENV === "production" && process.env.NEXT_PUBLIC_POS_PREVIEW === "1") {
+  throw new Error("NEXT_PUBLIC_POS_PREVIEW=1 is not allowed in production builds.");
+}
+
 const nextConfig: NextConfig = {
   transpilePackages: [
     "@gtr/ui",
@@ -13,17 +19,12 @@ const nextConfig: NextConfig = {
     "@gtr/supabase-client",
     "@gtr/documents",
   ],
-  // Catalog diagrams live on Supabase Storage public URLs. next/image then
-  // serves AVIF/WebP + sized variants from the Vercel edge (Supabase Image
-  // Transformation is not enabled on this project today).
+  // App-owned public media may come from the currently configured Supabase
+  // project. EPC catalog parts/diagram payloads are served through the R2
+  // gateway and are intentionally not tied to a Supabase project hostname.
   images: {
     formats: ["image/avif", "image/webp"],
     remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "gylrgwqyuiwkyykardwc.supabase.co",
-        pathname: "/storage/v1/object/public/**",
-      },
       {
         protocol: "https",
         hostname: "*.supabase.co",

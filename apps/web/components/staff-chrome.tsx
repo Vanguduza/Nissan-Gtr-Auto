@@ -25,7 +25,7 @@ export function StaffChrome({ children }: { children: ReactNode }) {
 
   return (
     <div className={styles.shell}>
-      <header className={styles.bar}>
+      <header className={styles.bar} data-noprint>
         <div className={styles.barInner}>
           <Link href="/staff" className={styles.brand} aria-label="Staff hub">
             <Image

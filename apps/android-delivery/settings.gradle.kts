@@ -17,15 +17,13 @@ dependencyResolutionManagement {
 rootProject.name = "gtr-android-delivery"
 include(":app")
 include(":core:rpc")
+include(":core:design")
 include(":feature:auth")
 include(":feature:jobs")
 include(":feature:tracking")
 include(":feature:pod")
 
-// Shared GTR Material3 theme (packages/ui brand-tokens.json)
-include(":android-ui")
-project(":android-ui").projectDir =
-    file("../../packages/android-ui")
+// Driver visual system (Slopes-style, light + dark) lives in :core:design.
 
 // Bridge-First — consume only; impl lives under bridges/
 include(":location-tracker")
@@ -40,3 +38,6 @@ project(":pod-signature").projectDir =
 include(":maps-nav")
 project(":maps-nav").projectDir =
     file("../../bridges/android/maps-nav")
+include(":card-terminal")
+project(":card-terminal").projectDir =
+    file("../../bridges/android/card-terminal")

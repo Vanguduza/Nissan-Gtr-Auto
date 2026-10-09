@@ -26,13 +26,18 @@ interface CatalogRepository {
 
     suspend fun addToCompare(stockItemId: String, oem: String)
 
-    /** Live vehicle_master rows for cascading Select vehicle. */
+    /** Published catalog_v2 rows for cascading Select vehicle. */
     suspend fun listVehicleMaster(): List<VehicleMasterRow>
 
-    /** Parts for chassis (+ optional engine) via part_fitment. */
+    /**
+     * Saleable stock referenced against hosted EPC fitment for the canonical selected vehicle.
+     * Technical EPC identifiers remain internal to the transport.
+     */
     suspend fun listCatalogForVehicle(
+        vehicleMasterId: String?,
         chassisCode: String,
         engineCode: String?,
+        category: String? = null,
         limit: Int = 50,
     ): CatalogBrowseResult
 

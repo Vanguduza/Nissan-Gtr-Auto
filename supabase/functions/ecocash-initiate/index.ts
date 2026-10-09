@@ -1,6 +1,6 @@
 /**
  * EcoCash direct C2B initiate — cross-platform (web / POS / iOS / Android / WhatsApp adapter).
- * Customer JWT + sales_invoice_id → create_customer_ecocash_intent.
+ * Customer JWT + commerce_order_id (legacy sales_invoice_id also accepted) → create_customer_ecocash_intent.
  * Staff JWT → create_ecocash_intent.
  * Then push C2B PIN request when ECOCASH_API_KEY is set (stub otherwise).
  */
@@ -55,6 +55,7 @@ Deno.serve(async (req) => {
       currency = "USD",
       exchange_rate = 1,
       customer_id,
+      commerce_order_id,
       sales_invoice_id,
       whatsapp_flow_order_id,
       settlement_currency,
@@ -62,6 +63,7 @@ Deno.serve(async (req) => {
       settlement_exchange_rate,
       metadata,
     } = body ?? {};
+    const customerOrderRef = commerce_order_id ?? sales_invoice_id ?? null;
 
     const msisdn = normalizeEcocashMsisdn(String(payer_msisdn || ""));
     if (!msisdn) {
@@ -75,11 +77,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!sales_invoice_id && (external_ref == null || amount == null)) {
+    if (!customerOrderRef && (external_ref == null || amount == null)) {
       return jsonResponse(
         {
           error:
-            "sales_invoice_id (customer) or external_ref + amount (staff) required",
+            "commerce_order_id (customer) or external_ref + amount (staff) required",
         },
         400,
         cors,
@@ -97,9 +99,9 @@ Deno.serve(async (req) => {
       channel,
     };
 
-    const { data: intentIdRaw, error } = sales_invoice_id
+    const { data: intentIdRaw, error } = customerOrderRef
       ? await supabase.rpc("create_customer_ecocash_intent", {
-          p_sales_invoice_id: sales_invoice_id,
+          p_sales_invoice_id: customerOrderRef,
           p_payer_msisdn: msisdn,
           p_payer_mode: payer_mode,
           p_external_ref: external_ref ?? null,

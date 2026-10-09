@@ -1,6 +1,6 @@
 /**
  * Paynow initiate — real provider when PAYNOW_INTEGRATION_ID + KEY set.
- * Staff JWT → create_paynow_intent; customer JWT + sales_invoice_id →
+ * Staff JWT → create_paynow_intent; customer JWT + commerce_order_id (legacy sales_invoice_id also accepted) →
  * create_customer_paynow_intent. Settle stays webhook.
  * Local stub without secrets: PAYNOW_ALLOW_UNVERIFIED_LOCAL=1
  */
@@ -62,6 +62,7 @@ Deno.serve(async (req) => {
       currency = "USD",
       exchange_rate = 1,
       customer_id,
+      commerce_order_id,
       sales_invoice_id,
       settlement_currency,
       settlement_amount,
@@ -75,15 +76,16 @@ Deno.serve(async (req) => {
       authphone,
       authname,
     } = body ?? {};
+    const customerOrderRef = commerce_order_id ?? sales_invoice_id ?? null;
 
     if (!method) {
       return jsonResponse({ error: "method required" }, 400, cors);
     }
-    if (!sales_invoice_id && (!external_ref || !amount)) {
+    if (!customerOrderRef && (!external_ref || !amount)) {
       return jsonResponse(
         {
           error:
-            "external_ref, method, amount required (or sales_invoice_id for customer self-pay)",
+            "external_ref, method, amount required (or commerce_order_id for customer self-pay)",
         },
         400,
         cors,
@@ -103,9 +105,9 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } },
     );
 
-    const { data, error } = sales_invoice_id
+    const { data, error } = customerOrderRef
       ? await supabase.rpc("create_customer_paynow_intent", {
-          p_sales_invoice_id: sales_invoice_id,
+          p_sales_invoice_id: customerOrderRef,
           p_method: method,
           p_external_ref: external_ref ?? null,
           p_amount: amount ?? null,

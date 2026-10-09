@@ -4,6 +4,8 @@
 
 This specification defines the required functionality for transforming the Android tablet used at the Nissan GTR Auto shop counter into a fully branded, secure, dedicated POS terminal.
 
+> **Current implementation authority (2026-09-08):** Later locked decisions in `docs/decisions/2026-09-07-pos-operator-screen-design-lock.md` and `docs/decisions/2026-09-08-pos-customer-garage-popular-items.md` supersede conflicting legacy examples in this original specification. In particular, the production app has **no application startup splash/audio**; its starting window transitions directly to fresh staff login, while optional firmware/Magisk boot animation is an operations concern. The salesperson rail uses **EPC Browse** instead of Reports, the top vehicle control is **Model → Generation → Engine**, and the benchmark row is now **Popular Items**.
+
 The tablet must not behave like a normal consumer Android device during ordinary business use. It must operate as a controlled Nissan GTR Auto business terminal with the following experience:
 
 ```text
@@ -962,6 +964,18 @@ The routing implementation must:
 - Handle disabled or inactive roles.
 - Handle missing role configuration safely.
 
+# 20A. Locked POS Operator Extensions — 2026-09-08
+
+The Customer button opens a complete POS-safe customer workspace. Operators may search/select customers, create or edit individual/business accounts, and maintain garage vehicles. Only non-sensitive commercial/contact fields needed for the sale and receipt are exposed.
+
+Customer garage selection drives parts fitment without inventing a parallel vehicle source: no vehicles leaves manual selection active; one vehicle auto-selects; multiple vehicles require a chooser. The operator can switch garage vehicles mid-sale or choose **Shop for another vehicle** to use the manual Nissan `Model → Generation → Engine` cascade. Every distinct vehicle used in the transaction is preserved in multi-vehicle sale context for quotations, invoices, receipts and offline replay.
+
+The Home benchmark's former Popular Spares strip is now **Popular Items**. It combines server-ranked popular spare products with explicit, per-operator EPC shortcuts. From EPC Browse, long-pressing a model, variant, section/category or part exposes **Pin to Popular** / **Unpin**. Part metadata may also expose category and subcategory pin choices. Pinned part/model/category/subcategory cards remain horizontally scrollable in both directions; direct left/right controls are also provided. Operator pins are encrypted locally for offline use and synchronize to `pos_operator_popular_pins` when connectivity returns.
+
+Popular Items are convenience/navigation state only. They do not duplicate stock, pricing, product, fitment or EPC authority. A pinned part adds by OEM through the canonical cart path; a pinned model/category/subcategory resolves through canonical catalog search.
+
+Recent searches are bounded and device-local with Clear All. Full offline EPC browsing/filtering uses the encrypted SQLCipher catalog, and indexed search terms avoid unbounded description scans.
+
 # 21. Acceptance Criteria
 
 The implementation is complete only when all of the following are functional.
@@ -1005,6 +1019,18 @@ The implementation is complete only when all of the following are functional.
 - [ ] Data-scope restrictions are applied.
 - [ ] Backend authorization is enforced where applicable.
 - [ ] Permission checks are not limited to user interface visibility.
+
+## POS Customer / Garage / Popular Items
+
+- [ ] Customer page can search/select and create/edit individual or business accounts.
+- [ ] Garage vehicles use canonical Nissan EPC model/chassis/engine identifiers.
+- [ ] One saved vehicle auto-filters, multiple saved vehicles open a chooser, and Shop for another vehicle restores manual cascade selection.
+- [ ] Switching vehicles mid-sale preserves every distinct vehicle context through invoice/offline replay.
+- [ ] Popular Items combines algorithmic best sellers and per-operator pins without duplicate pinned OEM cards.
+- [ ] EPC long press supports Pin to Popular and Unpin for the supported model/category/subcategory/part contexts.
+- [ ] Popular Items scrolls left/right by touch and explicit controls.
+- [ ] Recent searches persist locally and support Clear All.
+- [ ] Safe customer/business/contact and vehicle context appears on supported receipt outputs; sensitive fields do not.
 
 ## Kiosk
 

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Express category glyph (drawn for Nissan GTR Auto; mirrors Figma "Glyph/*"). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="48dp" android:height="48dp" android:viewportWidth="48" android:viewportHeight="48">
+    <path android:pathData="M5,27a16,16 0 1,0 32,0a16,16 0 1,0 -32,0z" android:fillColor="#C8102E" />
+    <path android:pathData="M14.8,27a6.2,6.2 0 1,0 12.4,0a6.2,6.2 0 1,0 -12.4,0z" android:fillColor="#FFFFFF" />
+    <path android:pathData="M18.4,27a2.6,2.6 0 1,0 5.2,0a2.6,2.6 0 1,0 -5.2,0z" android:fillColor="#C8102E" />
+    <path android:pathData="M30.5,27a1.5,1.5 0 1,0 3,0a1.5,1.5 0 1,0 -3,0z" android:fillColor="#FFFFFF" />
+    <path android:pathData="M25,36.5a1.5,1.5 0 1,0 3,0a1.5,1.5 0 1,0 -3,0z" android:fillColor="#FFFFFF" />
+    <path android:pathData="M14,36.5a1.5,1.5 0 1,0 3,0a1.5,1.5 0 1,0 -3,0z" android:fillColor="#FFFFFF" />
+    <path android:pathData="M8.5,27a1.5,1.5 0 1,0 3,0a1.5,1.5 0 1,0 -3,0z" android:fillColor="#FFFFFF" />
+    <path android:pathData="M14,17.5a1.5,1.5 0 1,0 3,0a1.5,1.5 0 1,0 -3,0z" android:fillColor="#FFFFFF" />
+    <path android:pathData="M25,17.5a1.5,1.5 0 1,0 3,0a1.5,1.5 0 1,0 -3,0z" android:fillColor="#FFFFFF" />
+    <path android:pathData="M25.2 3.6A23.6 23.6 0 0 1 45.6 22.4L35.2 25.6A13.2 13.2 0 0 0 24 14.2z" android:fillColor="#FFFFFF" />
+    <path android:pathData="M26.6 6A21 21 0 0 1 43 21.4L36.4 23.6A13.6 13.6 0 0 0 25.6 15z" android:fillColor="#C8102E" />
+</vector>

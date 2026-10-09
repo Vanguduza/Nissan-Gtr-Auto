@@ -8,7 +8,7 @@
  * Physical sizes match `@gtr/documents` DOCUMENT_PAGE_MM:
  * ID CR80 85.6×54 mm · business 90×50 mm · A4 statements/payslips.
  */
-import { PDFDocument, StandardFonts, rgb, type PDFPage, type PDFFont } from "npm:pdf-lib@1.17.1";
+import { PDFDocument, StandardFonts, rgb, type Color, type PDFPage, type PDFFont } from "npm:pdf-lib@1.17.1";
 
 export type DocCurrency = "USD" | "ZIG" | string;
 
@@ -588,5 +588,281 @@ export async function buildBusinessCardPdf(
     color: Brand.silver,
   });
 
+  return doc.save();
+}
+
+export type PaymentResolutionLetterPdfInput = {
+  documentNumber: string;
+  issuedAt: string;
+  business: {
+    legalName: string;
+    tradingName: string;
+    domain: string;
+    addressLine1: string | null;
+    addressLine2: string | null;
+    city: string | null;
+    country: string | null;
+    phone: string | null;
+    email: string | null;
+    registrationNumber: string | null;
+  };
+  customerName: string | null;
+  invoiceDocumentNumber: string | null;
+  provider: string;
+  observedStatus: string;
+  amount: number;
+  currency: string;
+  externalReference: string | null;
+  providerReference: string | null;
+  terminalTransactionId: string | null;
+  rrn: string | null;
+  authorizationCode: string | null;
+  cardLast4: string | null;
+  cardScheme: string | null;
+  failureDetail: string | null;
+  issueNotes: string | null;
+  managerName: string;
+  managerTitle: string | null;
+  managerEmployeeCode: string;
+  signatureBytes: Uint8Array;
+  signatureMimeType: string;
+};
+
+// Recovered from the deployed bundle (render-payment-resolution-letter v1): this builder was deployed
+// but never committed.
+/** A4 provider-resolution letter. Facts are server-derived; signature is a verified private asset. */
+export async function buildPaymentResolutionLetterPdf(input: PaymentResolutionLetterPdfInput): Promise<Uint8Array> {
+  const doc = await PDFDocument.create();
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
+  const w = PAGE_PT.a4.width;
+  const h = PAGE_PT.a4.height;
+  const margin = 48;
+  const page = doc.addPage([
+    w,
+    h
+  ]);
+  page.drawRectangle({
+    x: 0,
+    y: 0,
+    width: w,
+    height: h,
+    color: Brand.white
+  });
+  page.drawRectangle({
+    x: 0,
+    y: h - 92,
+    width: w,
+    height: 92,
+    color: Brand.steel
+  });
+  page.drawRectangle({
+    x: 0,
+    y: h - 5,
+    width: w,
+    height: 5,
+    color: Brand.primary
+  });
+  const trading = input.business.tradingName || input.business.legalName || "Nissan GTR Auto";
+  page.drawText(trading.slice(0, 48), {
+    x: margin,
+    y: h - 32,
+    size: 18,
+    font: fontBold,
+    color: Brand.white
+  });
+  page.drawText("PAYMENT RESOLUTION SUPPORT", {
+    x: margin,
+    y: h - 49,
+    size: 8,
+    font: fontBold,
+    color: Brand.silver
+  });
+  const companyBits = [
+    input.business.legalName !== trading ? input.business.legalName : null,
+    input.business.addressLine1,
+    input.business.addressLine2,
+    [
+      input.business.city,
+      input.business.country
+    ].filter(Boolean).join(", ") || null
+  ].filter(Boolean).join(" | ");
+  page.drawText(companyBits.slice(0, 96), {
+    x: margin,
+    y: h - 65,
+    size: 7.5,
+    font,
+    color: Brand.silver
+  });
+  const contactBits = [
+    input.business.phone,
+    input.business.email,
+    input.business.domain
+  ].filter(Boolean).join(" | ");
+  page.drawText(contactBits.slice(0, 96), {
+    x: margin,
+    y: h - 78,
+    size: 7.5,
+    font,
+    color: Brand.silver
+  });
+  if (input.business.registrationNumber) {
+    page.drawText(`Registration: ${input.business.registrationNumber}`.slice(0, 54), {
+      x: w - 220,
+      y: h - 49,
+      size: 7,
+      font,
+      color: Brand.silver
+    });
+  }
+  let y = h - 122;
+  const drawLine = (text: string, size = 9, bold = false, color: Color = Brand.ink, x = margin) => {
+    page.drawText(text.slice(0, 105), {
+      x,
+      y,
+      size,
+      font: bold ? fontBold : font,
+      color
+    });
+    y -= size + 5;
+  };
+  const drawWrapped = (text: string, maxChars = 92, size = 9, color: Color = Brand.ink) => {
+    const words = text.replace(/\s+/g, " ").trim().split(" ");
+    let line = "";
+    for (const word of words){
+      const next = line ? `${line} ${word}` : word;
+      if (next.length > maxChars && line) {
+        drawLine(line, size, false, color);
+        line = word;
+      } else {
+        line = next;
+      }
+    }
+    if (line) drawLine(line, size, false, color);
+  };
+  drawLine("PAYMENT TRANSACTION RESOLUTION LETTER", 14, true, Brand.steel);
+  drawLine(`Reference: ${input.documentNumber}`, 9, true);
+  drawLine(`Issued: ${input.issuedAt}`, 8, false, Brand.muted);
+  y -= 5;
+  drawLine("To: Payment Provider / Acquiring Bank - Dispute Resolution Department", 9, true);
+  if (input.customerName) drawLine(`Customer: ${input.customerName}`, 9);
+  if (input.invoiceDocumentNumber) drawLine(`Nissan GTR Auto invoice: ${input.invoiceDocumentNumber}`, 9);
+  y -= 6;
+  drawWrapped("This letter records Nissan GTR Auto's observed payment state and transaction identifiers to support provider-side investigation. " + "It is not evidence that a refund, reversal or settlement has cleared unless the transaction status below expressly says so.");
+  y -= 8;
+  const boxTop = y + 8;
+  const details: [string, string | null][] = [
+    [
+      "Provider",
+      input.provider
+    ],
+    [
+      "Observed status",
+      input.observedStatus
+    ],
+    [
+      "Amount",
+      `${input.currency} ${Number(input.amount).toFixed(2)}`
+    ],
+    [
+      "Nissan GTR reference",
+      input.externalReference
+    ],
+    [
+      "Provider reference",
+      input.providerReference
+    ],
+    [
+      "Terminal transaction ID",
+      input.terminalTransactionId
+    ],
+    [
+      "RRN",
+      input.rrn
+    ],
+    [
+      "Authorization code",
+      input.authorizationCode
+    ],
+    [
+      "Card",
+      input.cardLast4 ? `${input.cardScheme || "Card"} ending ${input.cardLast4}` : null
+    ]
+  ];
+  const visible = details.filter(([, value])=>value != null && String(value).trim() !== "");
+  const boxHeight = visible.length * 17 + 18;
+  page.drawRectangle({
+    x: margin,
+    y: boxTop - boxHeight,
+    width: w - margin * 2,
+    height: boxHeight,
+    color: Brand.mist
+  });
+  y -= 5;
+  for (const [label, value] of visible){
+    page.drawText(`${label}:`, {
+      x: margin + 10,
+      y,
+      size: 8.5,
+      font: fontBold,
+      color: Brand.steel
+    });
+    page.drawText(String(value).slice(0, 62), {
+      x: margin + 145,
+      y,
+      size: 8.5,
+      font,
+      color: Brand.ink
+    });
+    y -= 17;
+  }
+  y -= 12;
+  if (input.failureDetail) {
+    drawLine("Recorded issue", 9, true, Brand.primary);
+    drawWrapped(input.failureDetail, 92, 8.5, Brand.ink);
+    y -= 4;
+  }
+  if (input.issueNotes) {
+    drawLine("Manager notes", 9, true, Brand.steel);
+    drawWrapped(input.issueNotes, 92, 8.5, Brand.ink);
+    y -= 4;
+  }
+  drawWrapped("Please investigate the provider-side transaction using the identifiers above and advise the customer of the final provider outcome, " + "including whether funds were captured, reversed, refunded, declined, or remain pending. Provider processing times and charges are outside Nissan GTR Auto's control.", 92, 9);
+  y -= 12;
+  drawLine("Issued by", 9, true, Brand.steel);
+  const sig = input.signatureMimeType === "image/png" ? await doc.embedPng(input.signatureBytes) : await doc.embedJpg(input.signatureBytes);
+  const targetW = 150;
+  const targetH = Math.min(56, targetW * sig.height / sig.width);
+  page.drawImage(sig, {
+    x: margin,
+    y: y - targetH + 8,
+    width: targetW,
+    height: targetH
+  });
+  y -= targetH + 2;
+  drawLine(input.managerName, 10, true);
+  if (input.managerTitle) drawLine(input.managerTitle, 8.5, false, Brand.muted);
+  drawLine(`Employee: ${input.managerEmployeeCode}`, 8, false, Brand.muted);
+  page.drawRectangle({
+    x: 0,
+    y: 0,
+    width: w,
+    height: 34,
+    color: Brand.steel
+  });
+  page.drawText(`${trading} | ${input.business.domain}`.slice(0, 74), {
+    x: margin,
+    y: 13,
+    size: 7.5,
+    font,
+    color: Brand.silver
+  });
+  page.drawText(input.documentNumber.slice(0, 28), {
+    x: w - margin - 115,
+    y: 13,
+    size: 7.5,
+    font: fontBold,
+    color: Brand.white
+  });
   return doc.save();
 }

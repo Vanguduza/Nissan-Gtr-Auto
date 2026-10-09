@@ -1,0 +1,66 @@
+name: Android POS
+
+on:
+  pull_request:
+    paths:
+      - "apps/android-management/**"
+      - "bridges/android/**"
+      - "packages/android-ui/**"
+      - "packages/pos-design/**"
+      - "scripts/design-lint.py"
+      - ".github/workflows/android-pos.yml"
+  push:
+    paths:
+      - "apps/android-management/**"
+      - "bridges/android/**"
+      - "packages/android-ui/**"
+      - "packages/pos-design/**"
+      - "scripts/design-lint.py"
+      - ".github/workflows/android-pos.yml"
+
+concurrency:
+  group: android-pos-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tablet-pos:
+    name: Tablet POS build + unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # assemble* runs the release-check lineage gate, which needs the canonical ancestor
+          # in history; a shallow checkout always fails it.
+          fetch-depth: 0
+      - name: POS design lint (benchmark-only UI)
+        run: python3 scripts/design-lint.py
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      # The hosted Ubuntu image ships an Android SDK at $ANDROID_HOME; use it directly
+      # (android-actions/setup-android@v3 fails during setup on the current runners).
+      - name: Use the runner's Android SDK
+        run: |
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Install Android SDK 34
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "platforms;android-34" "build-tools;34.0.0"
+      - name: POS unit tests
+        working-directory: apps/android-management
+        run: bash ./gradlew :feature:pos:testDebugUnitTest :feature:pos-domain:test :feature:pos-ui:testDebugUnitTest --no-daemon
+      - name: Build tablet kiosk APK
+        working-directory: apps/android-management
+        run: bash ./gradlew :app:assembleTabletDebug --no-daemon
+      - name: Upload tablet APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gtr-pos-tablet-debug
+          path: apps/android-management/app/build/outputs/apk/tablet/debug/*.apk
+          if-no-files-found: error

@@ -23,6 +23,7 @@ android {
 }
 
 dependencies {
+    implementation(project(":core:visual"))
     implementation(project(":core:rpc"))
     implementation(project(":android-ui"))
     implementation(project(":pod-camera"))
@@ -31,6 +32,7 @@ dependencies {
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.activity:activity-compose:1.9.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.3")

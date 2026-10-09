@@ -286,6 +286,8 @@ enum class CatalogSearchMode(val rpcValue: String) {
 /** Part hit from [RpcNames.SEARCH_CATALOG] (type=part or nested fitment). */
 data class CatalogPartHit(
     val oemPartNumber: String,
+    /** Stock master description; populated by POS description/OEM discovery where available. */
+    val description: String? = null,
     val pncCode: String? = null,
     val categoryName: String? = null,
     val subcategoryName: String? = null,
@@ -301,6 +303,82 @@ data class CatalogSearchResult(
     val parts: List<CatalogPartHit>,
 )
 
+/** Immutable Nissan fitment context attached to a POS cart and snapshotted to invoice. */
+data class PosSaleVehicleSelection(
+    val modelSlug: String,
+    val modelName: String,
+    val generation: String,
+    val chassisCode: String,
+    val engineCode: String,
+) {
+    val displayLabel: String
+        get() = "$modelName · $generation · $engineCode"
+}
+
+/** Ranked from real posted POS invoice lines; never a merchandising placeholder. */
+data class PopularPosSpare(
+    val stockItemId: String,
+    val oemPartNumber: String,
+    val description: String? = null,
+    val unitsSold: Double,
+    val saleableQty: Double,
+    val unitPrice: Double? = null,
+    val currency: CurrencyCode? = null,
+    val imageUrl: String? = null,
+)
+
+/** Explicit operator shortcut shown alongside algorithmic best sellers on the Popular Items row. */
+enum class PosPopularItemKind(val rpcValue: String) {
+    PART("part"),
+    MODEL("model"),
+    CATEGORY("category"),
+    SUBCATEGORY("subcategory"),
+    ;
+
+    companion object {
+        fun fromRpc(value: String?): PosPopularItemKind =
+            entries.firstOrNull { it.rpcValue.equals(value, ignoreCase = true) } ?: PART
+    }
+}
+
+data class PosPopularPin(
+    val kind: PosPopularItemKind,
+    val itemKey: String,
+    val label: String,
+    val subtitle: String? = null,
+    val searchQuery: String = label,
+    val makerSlug: String? = null,
+    val modelSlug: String? = null,
+    val categoryName: String? = null,
+    val subcategoryName: String? = null,
+    val oemPartNumber: String? = null,
+    val imageUrl: String? = null,
+    val updatedAt: String? = null,
+) {
+    val stableKey: String get() = "${kind.rpcValue}:$itemKey"
+}
+
+/** Posted invoice read model used by POS Orders and Returns. */
+data class PosInvoiceSummary(
+    val id: String,
+    val documentNumber: String? = null,
+    val customerId: String? = null,
+    val customerName: String? = null,
+    val total: Double,
+    val currency: CurrencyCode,
+    val postedAt: String? = null,
+    val vehicleModelName: String? = null,
+    val vehicleGeneration: String? = null,
+    val vehicleChassisCode: String? = null,
+    val vehicleEngineCode: String? = null,
+) {
+    val vehicleLabel: String?
+        get() = vehicleModelName?.let { model ->
+            listOfNotNull(model, vehicleGeneration ?: vehicleChassisCode, vehicleEngineCode)
+                .joinToString(" · ")
+        }
+}
+
 data class WarehouseRef(
     val id: String,
     val code: String,
@@ -315,6 +393,8 @@ data class PosCartLineSummary(
     val unitPrice: Double,
     val lineTotal: Double,
     val isCoreCharge: Boolean = false,
+    val description: String? = null,
+    val imageUrl: String? = null,
 )
 
 /** Row from [RpcNames.LIST_POS_QUOTATIONS]. */
@@ -398,6 +478,8 @@ data class OfflineSaleReplayPayload(
     val receiptWhatsappE164: String? = null,
     val receiptPhoneE164: String? = null,
     val soldAt: String? = null,
+    val vehicle: PosSaleVehicleSelection? = null,
+    val vehicleContexts: List<PosSaleVehicleSelection> = emptyList(),
 )
 
 data class OfflineSaleLine(
@@ -428,11 +510,48 @@ data class ChatMessageSummary(
     val createdAt: String,
 )
 
-/** Named-customer hit from PostgREST `customers` (POS / credit / consignment). */
+/** POS customer type. Only non-sensitive commercial/contact profile fields are exposed here. */
+enum class PosCustomerKind(val rpcValue: String) {
+    INDIVIDUAL("individual"),
+    BUSINESS("business"),
+    ;
+
+    companion object {
+        fun fromRpc(value: String?): PosCustomerKind =
+            entries.find { it.rpcValue == value } ?: INDIVIDUAL
+    }
+}
+
+/** Named-customer read model used by the operator POS customer workspace. */
 data class CustomerOption(
     val id: String,
     val displayName: String,
-)
+    val kind: PosCustomerKind = PosCustomerKind.INDIVIDUAL,
+    val businessName: String? = null,
+    val email: String? = null,
+    val phoneE164: String? = null,
+    val whatsappE164: String? = null,
+) {
+    val receiptDisplayName: String
+        get() = businessName?.takeIf { it.isNotBlank() } ?: displayName
+}
+
+/** Canonical customer-garage vehicle fitment available to the POS. */
+data class CustomerGarageVehicle(
+    val id: String,
+    val customerId: String,
+    val make: String? = null,
+    val modelSlug: String? = null,
+    val model: String? = null,
+    val generation: String? = null,
+    val chassisCode: String? = null,
+    val engine: String? = null,
+    val vin: String? = null,
+    val isPrimary: Boolean = false,
+) {
+    val displayLabel: String
+        get() = listOfNotNull(model, generation ?: chassisCode, engine).filter { it.isNotBlank() }.joinToString(" · ")
+}
 
 data class SupplierRef(
     val id: String,
@@ -718,4 +837,373 @@ data class HrOnboardingAuthResult(
     val created: Boolean,
     val mustChangePassword: Boolean,
     val channels: List<HrOnboardingAuthChannel> = emptyList(),
+)
+
+/** Stock master, default-list price, saleable quantity and primary image for one OEM (POS search hydration). */
+data class PosPartMeta(
+    val stockItemId: String,
+    val uomId: String?,
+    val oemPartNumber: String,
+    val description: String?,
+    val unitPrice: Double?,
+    val currency: CurrencyCode?,
+    val saleableQty: Double,
+    val imageUrl: String?,
+)
+
+/** A parked POS sale, as listed on the Orders destination. */
+data class PosParkedCart(
+    val id: String,
+    val documentNumber: String?,
+    val updatedAt: String?,
+    val currency: CurrencyCode,
+    val total: Double,
+    val lineCount: Int,
+)
+
+/** `pos_till_sessions` row as the till RPCs return it (amounts in major units of [currency]). */
+data class PosTillSessionRow(
+    val id: String,
+    val warehouseId: String,
+    val deviceId: String,
+    val currency: CurrencyCode,
+    val operatorUserId: String,
+    val openingFloat: Double,
+    /** `open`, `variance_pending` or `closed`. */
+    val status: String,
+    val expectedCash: Double?,
+    val countedCash: Double?,
+    val variance: Double?,
+    val varianceReasonCode: String?,
+    val openedAt: String,
+    val closedAt: String?,
+)
+
+/** `close_pos_till_session` result: the server's expected cash and variance for a blind count. */
+data class PosTillCloseResult(
+    val sessionId: String,
+    val expectedCash: Double,
+    val countedCash: Double,
+    val variance: Double,
+    val status: String,
+)
+
+/** `list_pos_approval_reasons` row. */
+data class PosApprovalReason(val code: String, val label: String, val requiresNotes: Boolean)
+
+/** `list_pos_handover_operators` row. */
+data class PosHandoverOperatorRow(val userId: String, val employeeCode: String, val fullName: String)
+
+/** One blind-count line for `submit_pos_till_denominated_close`. */
+data class PosDenominationLine(val denomination: Double, val quantity: Int)
+
+/** `pos_approval_policies` row; [thresholdValue] is in the action's own unit (percent for discount/override). */
+data class PosApprovalPolicy(
+    val action: String,
+    val thresholdValue: Double,
+    val alwaysRequireManager: Boolean,
+    val reasonRequired: Boolean,
+    val updatedAt: String?,
+)
+
+/** `get_pos_payment_status`: the server's view of a reserved checkout (`commerce_orders`). */
+data class PosPaymentStatus(
+    val orderId: String,
+    val cartId: String?,
+    val state: String,
+    val total: Double,
+    val currency: CurrencyCode,
+    val reservationExpiresAt: String?,
+    val activeProvider: String?,
+    val activeIntentId: String?,
+    val providerStatus: String?,
+    val providerFailure: String?,
+    val settledProvider: String?,
+    val settledProviderRef: String?,
+    val salesInvoiceId: String?,
+    val paymentException: String?,
+    val exceptions: List<PosPaymentExceptionRow>,
+)
+
+data class PosPaymentExceptionRow(val code: String, val detail: String?, val resolvedAt: String?, val resolution: String?, val createdAt: String)
+
+/** A started provider attempt; [checkoutUrl] is the hosted page the customer opens (Paynow / ContiPay). */
+data class PosProviderStart(val intentId: String, val checkoutUrl: String?, val message: String?)
+
+/** `list_pos_payment_recovery` row. */
+data class PosRecoveryRow(
+    val orderId: String,
+    val state: String,
+    val total: Double,
+    val currency: CurrencyCode,
+    val activeProvider: String?,
+    val settledProvider: String?,
+    val salesInvoiceId: String?,
+    val paymentException: String?,
+    val updatedAt: String,
+    val openExceptions: Int,
+)
+
+/** `list_pos_pickup_orders` row. */
+data class PosPickupRow(
+    val orderId: String,
+    val documentNumber: String?,
+    val customerName: String?,
+    val state: String,
+    val total: Double,
+    val currency: CurrencyCode,
+    val salesInvoiceId: String?,
+    val settledProvider: String?,
+    val updatedAt: String,
+)
+
+/** `pos_split_payment_payload` leg. */
+data class PosSplitLegRow(
+    val id: String,
+    val sequenceNo: Int,
+    val tender: String,
+    val amount: Double,
+    val status: String,
+    val externalReference: String?,
+    val providerRef: String?,
+    val statusDetail: String?,
+    val appliedAmount: Double?,
+    val refundRequired: Double?,
+)
+
+/** `pos_split_payment_payload` refund request. */
+data class PosSplitRefundRow(
+    val id: String,
+    val legId: String,
+    val status: String,
+    val grossAmount: Double,
+    val feePolicy: String,
+    val netCustomerRefund: Double?,
+    val providerRef: String?,
+    val failureReason: String?,
+    val notes: String?,
+)
+
+/** `pos_split_payment_payload`: every amount is the server's. */
+data class PosSplitSession(
+    val sessionId: String,
+    val orderId: String,
+    val status: String,
+    val total: Double,
+    val currency: CurrencyCode,
+    val captured: Double,
+    val held: Double,
+    val pending: Double,
+    val locked: Double,
+    val balanceDue: Double,
+    val availableToAllocate: Double,
+    val finalInvoiceId: String?,
+    val finalizationError: String?,
+    val legs: List<PosSplitLegRow>,
+    val refunds: List<PosSplitRefundRow>,
+)
+
+/** `list_pos_split_payment_recovery` row. */
+data class PosSplitRecoveryRow(
+    val documentNumber: String?,
+    val customerName: String?,
+    val updatedAt: String,
+    val session: PosSplitSession,
+)
+
+/** `list_pos_card_terminals` row. [adapterConfig] holds only intent/extra names (no secrets). */
+data class PosCardTerminalRow(
+    val id: String,
+    val code: String,
+    val label: String,
+    val acquirerName: String?,
+    val adapterKey: String,
+    val adapterConfig: Map<String, String?>,
+    val warehouseId: String?,
+    val deviceId: String?,
+)
+
+/** `pos_card_terminal_attempt_payload` (or the finalize "recovery_required" answer). */
+data class PosTerminalAttempt(
+    val attemptId: String,
+    val operation: String,
+    /** initiated, approved, declined, cancelled, unknown, failed, settled, reversed — or recovery_required. */
+    val status: String,
+    val terminalId: String?,
+    val terminalLabel: String?,
+    val adapterKey: String?,
+    val adapterConfig: Map<String, String?>,
+    val amount: Double,
+    val currency: CurrencyCode,
+    val externalRef: String?,
+    val transactionId: String?,
+    val rrn: String?,
+    val authorizationCode: String?,
+    val cardLast4: String?,
+    val cardScheme: String?,
+    val responseMessage: String?,
+    val orderId: String?,
+    val splitLegId: String?,
+    val invoiceId: String?,
+    val finalizationError: String?,
+)
+
+/** `list_pos_card_terminal_recovery` row. */
+data class PosTerminalRecoveryRow(
+    val attemptId: String,
+    val operation: String,
+    val status: String,
+    val terminalLabel: String?,
+    val orderId: String?,
+    val amount: Double,
+    val currency: CurrencyCode,
+    val externalRef: String?,
+    val transactionId: String?,
+    val cardLast4: String?,
+    val responseMessage: String?,
+    val finalizationError: String?,
+    val updatedAt: String,
+)
+
+// --- POS returns, cores, warranty and stock by branch (Blueprint §10, phase 6)
+
+/** A posted sale with what can still come back per line (`get_pos_invoice_detail`); core charges flagged. */
+data class PosInvoiceDetail(
+    val id: String,
+    val documentNumber: String?,
+    val customerId: String?,
+    val currency: CurrencyCode,
+    val total: Double,
+    val amountPaid: Double,
+    val postedAt: String?,
+    val tillSessionId: String?,
+    val lines: List<PosInvoiceDetailLine>,
+)
+
+data class PosInvoiceDetailLine(
+    val id: String,
+    val stockItemId: String,
+    val oemPartNumber: String,
+    val description: String?,
+    val uomId: String,
+    val qty: Double,
+    val unitPrice: Double,
+    val lineTotal: Double,
+    val isCoreCharge: Boolean,
+    val returnableQty: Double,
+)
+
+/** `{invoice_line_id, qty, condition}` for `create_pos_return_case`. */
+data class PosReturnLineInput(val invoiceLineId: String, val qty: Double, val condition: String)
+
+/** `{stock_item_id, uom_id, qty, replacement_serial_id?}`: replacement stock handed over. */
+data class PosReplacementLineInput(val stockItemId: String, val uomId: String, val qty: Double, val serialId: String? = null)
+
+data class PosWarrantyClaimRow(
+    val id: String,
+    val documentNumber: String?,
+    val status: String,
+    val resolution: String?,
+    val salesInvoiceId: String?,
+    val invoiceNumber: String?,
+    val stockItemId: String?,
+    val oemPartNumber: String?,
+    val serialNumber: String?,
+    val notes: String?,
+    val rejectReason: String?,
+    val creditNoteId: String?,
+    val createdAt: String,
+    val decidedAt: String?,
+    val closedAt: String?,
+)
+
+data class PosWarrantySerialRow(val id: String, val serialNumber: String, val stockItemId: String, val oemPartNumber: String?, val status: String)
+
+data class PosStockAvailabilityRow(
+    val warehouseId: String,
+    val warehouseCode: String,
+    val warehouseName: String,
+    val onHand: Double,
+    val reserved: Double,
+    val available: Double,
+    val transferIncoming: Double,
+)
+
+// --- POS fulfilment (phase 7): holds, other-branch pickup, branch transfers, back-orders
+
+data class PosFulfillmentRow(
+    val id: String,
+    val documentNumber: String?,
+    /** customer_collection | alternate_pickup | branch_transfer | backorder */
+    val kind: String,
+    /** requested | reserved | awaiting_transfer_approval | ready | collected | cancelled | rejected */
+    val status: String,
+    val stockItemId: String,
+    val oemPartNumber: String,
+    val description: String?,
+    val qty: Double,
+    val sourceWarehouseId: String?,
+    val sourceWarehouseName: String?,
+    val destinationWarehouseId: String?,
+    val destinationWarehouseName: String?,
+    val customerId: String?,
+    val cartId: String?,
+    val invoiceId: String?,
+    val expiresAt: String?,
+    val readyAt: String?,
+    val collectedAt: String?,
+    val createdAt: String,
+)
+
+// --- Payment resolution letters, manager signature, business document profile (phase 8)
+
+data class PaymentLetterRow(
+    val id: String,
+    val documentNumber: String?,
+    val sourceKind: String,
+    val provider: String?,
+    val observedStatus: String?,
+    val amount: Double,
+    val currency: CurrencyCode,
+    val customerName: String?,
+    val invoiceNumber: String?,
+    val managerName: String?,
+    val managerTitle: String?,
+    val issuedAt: String,
+)
+
+/** A letter as printed: its frozen fields, the business header and the signature image bytes (if readable). */
+data class PaymentLetterDocument(
+    val row: PaymentLetterRow,
+    val fields: Map<String, String?>,
+    val business: BusinessProfileRow?,
+    val signature: ByteArray?,
+    val signatureSha256: String?,
+)
+
+data class BusinessProfileRow(
+    val legalName: String,
+    val tradingName: String,
+    val domain: String,
+    val city: String?,
+    val country: String?,
+    val addressLine1: String?,
+    val addressLine2: String?,
+    val phoneE164: String?,
+    val email: String?,
+    val registrationNumber: String?,
+)
+
+data class ManagerSignatureRow(val fullName: String, val employeeCode: String?, val hasSignature: Boolean, val capturedAt: String?, val image: ByteArray?)
+
+/** One decision waiting for the signed-in person (`list_my_approvals` → items). */
+data class WaitingApprovalRow(
+    val kind: String,
+    val ref: String,
+    val title: String,
+    val detail: String?,
+    val urgent: Boolean,
+    val waitingSince: String?,
+    val amount: Double?,
+    val currency: String?,
 )

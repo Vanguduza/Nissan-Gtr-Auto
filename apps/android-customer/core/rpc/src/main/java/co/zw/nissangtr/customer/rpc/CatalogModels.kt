@@ -57,11 +57,14 @@ data class SearchCatalogResponse(
 
 data class CatalogListItem(
     val stockItemId: String,
+    /** Internal identity only. Customer composables must never render this value. */
     val oem: String,
     val name: String,
     val stock: StockState,
     val usd: Double?,
     val category: String? = null,
+    /** Path relative to the existing public `product-images` Storage bucket. */
+    val imagePath: String? = null,
 )
 
 data class CatalogBrowseResult(

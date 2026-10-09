@@ -515,7 +515,8 @@
 }
 
 .muted {
-  color: rgba(18, 21, 28, 0.55);
+  /* 0.68: at least 4.5:1 on white and on the striped table rows (WCAG AA). */
+  color: rgba(18, 21, 28, 0.68);
   font-size: 0.92rem;
 }
 
@@ -907,7 +908,7 @@
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: rgba(18, 21, 28, 0.58);
+  color: rgba(18, 21, 28, 0.7);
   background: color-mix(in srgb, var(--gtr-steel) 5%, white);
   border-bottom: 1px solid rgba(18, 21, 28, 0.1);
   white-space: nowrap;
@@ -1017,4 +1018,109 @@
   flex-wrap: wrap;
   gap: 0.4rem;
   margin-top: 0.45rem;
+}
+
+/* Section heading inside a staff panel (Driver cash, Approvals). */
+.sectionTitle {
+  margin: 1.25rem 0 0.5rem;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--gtr-steel);
+}
+
+.urgentTag {
+  display: inline-block;
+  margin-right: 0.4rem;
+  padding: 0 0.45rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--gtr-white);
+  background: var(--gtr-red);
+}
+
+/* Daily dashboard: headline numbers as tiles, sections as a responsive grid. */
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.75rem;
+  margin: 0.75rem 0 0.5rem;
+}
+
+.tile {
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--staff-border);
+  border-radius: var(--staff-radius-sm);
+  background: var(--gtr-white);
+  box-shadow: var(--staff-shadow-sm);
+}
+
+.tileLabel {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--gtr-steel);
+  opacity: 0.7;
+}
+
+.tileValue {
+  margin-top: 0.2rem;
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: var(--gtr-steel);
+  font-variant-numeric: tabular-nums;
+}
+
+.tileSub {
+  margin-top: 0.15rem;
+  font-size: 0.8rem;
+  color: var(--gtr-steel);
+  opacity: 0.65;
+}
+
+.tileAlert {
+  border-color: var(--gtr-red);
+}
+
+.dashGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 0 1.5rem;
+}
+
+.num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A button that reads as a link (filters inside tables). */
+.linkButton {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: var(--gtr-steel);
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+/* Printing a staff report: the page content at full width, no card chrome (nav and filters are data-noprint). */
+@media print {
+  .shell {
+    display: block !important;
+  }
+  .panel {
+    width: auto !important;
+    max-width: none !important;
+    box-shadow: none !important;
+    border: 0 !important;
+    background: #fff !important;
+  }
 }

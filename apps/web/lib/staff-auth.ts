@@ -15,7 +15,28 @@ export type StaffContext = {
   moduleAccess: string[] | null;
   /** Force password change before staff surfaces (Batch 1 §2.5). */
   mustChangePassword: boolean;
+  /** POS manager (approver, `is_pos_approver`). Unset = treated as approver (older callers). */
+  isApprover?: boolean;
 };
+
+/**
+ * Pages where these roles also need to be a POS manager (approver): the server refuses them otherwise,
+ * so a plain cashier is not shown a link that only leads to "manager required".
+ */
+export const APPROVER_ONLY_FOR: Record<string, StaffRole[]> = {
+  "/staff/dashboard": ["sales"],
+  "/staff/exceptions": ["sales"],
+  "/staff/restock": ["sales"],
+};
+
+/** False when the only roles that open [path] are ones that need approver status the user lacks. */
+export function approverAllows(roles: readonly StaffRole[], isApprover: boolean | undefined, path: string): boolean {
+  const limited = APPROVER_ONLY_FOR[path.split("?")[0] || path];
+  if (!limited || isApprover !== false || roles.includes("admin")) return true;
+  const access = pathAccessFor(path);
+  if (access.kind !== "roles") return true;
+  return access.roles.some((r) => roles.includes(r) && !limited.includes(r));
+}
 
 /** Nav + gate matrix — mirrors plan `2026-07-25-web-management-parity-rbac`. */
 export type StaffNavItem = {
@@ -57,24 +78,45 @@ export type StaffNavEntry =
 export const STAFF_NAV_TREE: StaffNavEntry[] = [
   { kind: "link", href: "/staff", label: "Hub", exact: true, roles: "any" },
   {
+    kind: "link",
+    href: "/staff/dashboard",
+    label: "Today",
+    roles: ["admin", "finance", "sales"],
+  },
+  {
+    kind: "link",
+    href: "/staff/exceptions",
+    label: "Exceptions",
+    roles: ["admin", "finance", "sales"],
+  },
+  {
+    kind: "link",
+    href: "/staff/restock",
+    label: "Restock",
+    roles: ["admin", "finance", "warehouse", "sales"],
+  },
+  {
+    kind: "link",
+    href: "/staff/approvals",
+    label: "Approvals",
+    roles: ["admin", "finance", "sales", "dispatcher", "warehouse"],
+  },
+  {
     kind: "module",
     id: "pos",
     label: "POS",
     href: "/staff/pos",
-    defaultTab: "cart",
     roles: ["admin", "warehouse", "sales"],
     children: [
       {
-        href: "/staff/pos?tab=cart",
-        label: "Cart",
-        tab: "cart",
+        href: "/staff/pos",
+        label: "Counter POS",
         exact: true,
         roles: ["admin", "warehouse", "sales"],
       },
       {
-        href: "/staff/pos?tab=prep",
+        href: "/staff/pos/prep",
         label: "Online prep",
-        tab: "prep",
         exact: true,
         roles: ["admin", "warehouse", "sales"],
       },
@@ -286,6 +328,16 @@ export const STAFF_NAV_TREE: StaffNavEntry[] = [
         href: "/staff/logistics/panic",
         label: "Panic inbox",
         roles: ["admin", "warehouse", "dispatcher"],
+      },
+      {
+        href: "/staff/logistics/balances",
+        label: "Balances on account",
+        roles: ["admin", "dispatcher"],
+      },
+      {
+        href: "/staff/logistics/driver-cash",
+        label: "Driver cash",
+        roles: ["admin", "finance", "sales", "dispatcher"],
       },
     ],
   },
@@ -502,6 +554,19 @@ export function pathAccessFor(pathname: string): PathAccess {
   if (path === "/staff/forbidden") return { kind: "forbidden_page" };
   if (path === "/staff") return { kind: "any" };
   if (path === "/staff/change-password") return { kind: "any" };
+  if (path === "/staff/dashboard") {
+    // The server also requires a POS manager (approver) for sales staff.
+    return { kind: "roles", roles: ["admin", "finance", "sales"] };
+  }
+  if (path === "/staff/exceptions") {
+    return { kind: "roles", roles: ["admin", "finance", "sales"] };
+  }
+  if (path === "/staff/restock") {
+    return { kind: "roles", roles: ["admin", "finance", "warehouse", "sales"] };
+  }
+  if (path === "/staff/approvals") {
+    return { kind: "roles", roles: ["admin", "finance", "sales", "dispatcher", "warehouse"] };
+  }
 
   if (path === "/staff/pos" || path.startsWith("/staff/pos/")) {
     return { kind: "roles", roles: ["admin", "warehouse", "sales"] };
@@ -526,6 +591,18 @@ export function pathAccessFor(pathname: string): PathAccess {
     path.startsWith("/staff/crm/reviews/")
   ) {
     return { kind: "roles", roles: ["admin", "sales"] };
+  }
+  if (
+    path === "/staff/logistics/driver-cash" ||
+    path.startsWith("/staff/logistics/driver-cash/")
+  ) {
+    return { kind: "roles", roles: ["admin", "finance", "sales", "dispatcher"] };
+  }
+  if (
+    path === "/staff/logistics/balances" ||
+    path.startsWith("/staff/logistics/balances/")
+  ) {
+    return { kind: "roles", roles: ["admin", "dispatcher"] };
   }
   if (
     path === "/staff/logistics/tracking" ||
@@ -598,14 +675,14 @@ export function hasAnyStaffRole(
 }
 
 export function canAccessPath(
-  ctx: Pick<StaffContext, "isStaff" | "roles">,
+  ctx: Pick<StaffContext, "isStaff" | "roles" | "isApprover">,
   pathname: string,
 ): boolean {
   if (!ctx.isStaff) return false;
   const access = pathAccessFor(pathname);
   if (access.kind === "forbidden_page") return true;
   if (access.kind === "any") return true;
-  return rolesAllow(ctx.roles, access.roles);
+  return rolesAllow(ctx.roles, access.roles) && approverAllows(ctx.roles, ctx.isApprover, pathname);
 }
 
 export function filterNavForRoles(roles: StaffRole[]): StaffNavItem[] {
@@ -613,11 +690,11 @@ export function filterNavForRoles(roles: StaffRole[]): StaffNavItem[] {
 }
 
 /** Role-filtered hierarchical nav for the staff sidebar / hub. */
-export function filterNavTreeForRoles(roles: StaffRole[]): StaffNavEntry[] {
+export function filterNavTreeForRoles(roles: StaffRole[], isApprover?: boolean): StaffNavEntry[] {
   const out: StaffNavEntry[] = [];
   for (const entry of STAFF_NAV_TREE) {
     if (entry.kind === "link") {
-      if (rolesAllow(roles, entry.roles)) out.push(entry);
+      if (rolesAllow(roles, entry.roles) && approverAllows(roles, isApprover, entry.href)) out.push(entry);
       continue;
     }
     const children = entry.children.filter((c) => rolesAllow(roles, c.roles));
@@ -636,8 +713,9 @@ export function filterNavTreeForRoles(roles: StaffRole[]): StaffNavEntry[] {
 export function filterNavTreeForModuleAccess(
   roles: StaffRole[],
   moduleAccess: string[] | null | undefined,
+  isApprover?: boolean,
 ): StaffNavEntry[] {
-  const roleFiltered = filterNavTreeForRoles(roles);
+  const roleFiltered = filterNavTreeForRoles(roles, isApprover);
   if (roles.includes("admin")) return roleFiltered;
   const allowed = (moduleAccess ?? []).map((m) => m.trim().toLowerCase()).filter(Boolean);
   if (allowed.length === 0) return roleFiltered;
@@ -763,7 +841,7 @@ export async function loadStaffContext(
   const roles = (rolesRes.data ?? []).map((row) => row.role as StaffRole);
 
   let moduleAccess: string[] | null = null;
-  const modRes = await client.rpc("my_module_access");
+  const [modRes, approverRes] = await Promise.all([client.rpc("my_module_access"), client.rpc("is_pos_approver")]);
   if (!modRes.error) {
     const parsed = parseModuleAccess(modRes.data);
     moduleAccess = parsed.length > 0 ? parsed : null;
@@ -777,6 +855,8 @@ export async function loadStaffContext(
       roles,
       moduleAccess,
       mustChangePassword: Boolean(profile?.must_change_password),
+      // A failed check leaves it unset (shown as before) rather than hiding pages from a real manager.
+      isApprover: approverRes.error ? undefined : Boolean(approverRes.data),
     },
   };
 }

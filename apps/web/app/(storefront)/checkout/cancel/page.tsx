@@ -5,28 +5,28 @@ export const metadata = { title: "Payment cancelled" };
 
 /**
  * ContiPay / Paynow cancel / abort landing.
- * Invoice remains open until paid; webhook will not settle a cancelled attempt.
+ * The reserved commerce order remains unpaid until it expires or a later attempt settles.
  */
 export default async function CheckoutCancelPage({
   searchParams,
 }: {
-  searchParams: Promise<{ invoice?: string }>;
+  searchParams: Promise<{ order?: string; invoice?: string }>;
 }) {
   const sp = await searchParams;
-  const invoiceId = sp.invoice?.trim() || null;
+  const orderRef = sp.order?.trim() || sp.invoice?.trim() || null;
 
   return (
     <div className={styles.page}>
       <h1 className={styles.title}>Payment cancelled</h1>
       <p className={styles.lede}>
-        Checkout was cancelled before the provider confirmed payment. Your
-        invoice is still open — you can try ContiPay or Paynow again from the
-        order page.
+        Checkout was cancelled before the provider confirmed payment. The
+        order remains unpaid while its stock reservation is valid — you can
+        retry payment from the order page.
       </p>
       <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
-        {invoiceId ? (
+        {orderRef ? (
           <Link
-            href={`/account/orders/${encodeURIComponent(invoiceId)}`}
+            href={`/account/orders/${encodeURIComponent(orderRef)}`}
             className={styles.button}
           >
             Return to order

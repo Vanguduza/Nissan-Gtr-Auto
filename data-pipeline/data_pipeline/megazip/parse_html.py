@@ -14,83 +14,83 @@ from data_pipeline.parse_partsouq_html import normalize_chassis_code
 
 _MAKER_HUB_MODEL = re.compile(
     r'href="(/parts/[^"]+|/zapchasti-dlya-avtomobilej/[^"]+)"[^>]*>([^<]{2,120})',
-    re.I,
+    re.IGNORECASE,
 )
 _VARIANT_ITEM = re.compile(
     r'<li[^>]*class="[^"]*s-catalog__body-variants-item[^"]*"[^>]*data-id="(\d+)"[^>]*>(.*?)</li>',
-    re.I | re.S,
+    re.IGNORECASE | re.DOTALL,
 )
 _VARIANT_LINK = re.compile(
     r'<a[^>]*class="[^"]*s-catalog__body-variants-name[^"]*"[^>]*href="([^"]+)"',
-    re.I | re.S,
+    re.IGNORECASE | re.DOTALL,
 )
 _VARIANT_LINK_ALT = re.compile(
     r'href="([^"]+)"[^>]*class="[^"]*s-catalog__body-variants-name',
-    re.I,
+    re.IGNORECASE,
 )
 _VARIANT_FRAME = re.compile(
     r'class="[^"]*search_value[^"]*"[^>]*>\s*([^<]+?)\s*<',
-    re.I,
+    re.IGNORECASE,
 )
 _MODEL_CATALOG_VARIANT = re.compile(
     r'<li[^>]*class="[^"]*filtred_item[^"]*"[^>]*data-id="(\d+)"[^>]*>\s*'
     r'<a[^>]*class="[^"]*s-catalog__model-link[^"]*"[^>]*href="([^"]+)"[^>]*>([^<]+)</a>',
-    re.I | re.S,
+    re.IGNORECASE | re.DOTALL,
 )
 _ATTR_TERM = re.compile(
     r'<dt[^>]*class="[^"]*s-catalog__attrs-term[^"]*"[^>]*>([^<]+)</dt>\s*'
     r'<dd[^>]*class="[^"]*s-catalog__attrs-data[^"]*"[^>]*>(.*?)</dd>',
-    re.I | re.S,
+    re.IGNORECASE | re.DOTALL,
 )
 _SECTION_ITEM = re.compile(
     r'<li[^>]*class="[^"]*part-group__item[^"]*"[^>]*id="part-group-(\d+)"[^>]*>(.*?)</li>',
-    re.I | re.S,
+    re.IGNORECASE | re.DOTALL,
 )
-_SECTION_LINK = re.compile(r'href="([^"]+)"[^>]*class="[^"]*part-group__(?:image-link|name)', re.I)
-_SECTION_NAME = re.compile(r'class="[^"]*part-group__name[^"]*"[^>]*>([^<]+)<', re.I)
-_SECTION_IMG = re.compile(r'src="(https://storage\.megazip\.net/catalog/[^"]+)"', re.I)
+_SECTION_LINK = re.compile(r'href="([^"]+)"[^>]*class="[^"]*part-group__(?:image-link|name)', re.IGNORECASE)
+_SECTION_NAME = re.compile(r'class="[^"]*part-group__name[^"]*"[^>]*>([^<]+)<', re.IGNORECASE)
+_SECTION_IMG = re.compile(r'src="(https://storage\.megazip\.net/catalog/[^"]+)"', re.IGNORECASE)
 _DIAGRAM_IMG = re.compile(
     r'id="items_list_image"[^>]*src="(https://storage\.megazip\.net/catalog/[^"]+)"',
-    re.I,
+    re.IGNORECASE,
 )
 _MAP_AREA = re.compile(
     r'<area[^>]*shape="rect"[^>]*coords="([\d,\s]+)"[^>]*data-items-list-id="(\d+)"',
-    re.I,
+    re.IGNORECASE,
 )
 _PART_ROW = re.compile(
     r'data-items-list-id="(\d+)"[^>]*>.*?'
     r'(?:<td[^>]*>.*?</td>\s*){0,6}'
     r'.*?items-list__cell_type_number[^"]*"[^>]*>([^<]*)</td>',
-    re.I | re.S,
+    re.IGNORECASE | re.DOTALL,
 )
 _OEM_IN_ROW = re.compile(
     r'data-items-list-id="(\d+)"[\s\S]{0,2500}?'
     r'items-list__cell_type_number[^"]*"[^>]*>\s*(?:<p[^>]*>\s*)?([^<]+?)\s*(?:</p>)?\s*</td>',
-    re.I,
+    re.IGNORECASE,
 )
 _DATA_ITEM = re.compile(
     r'data-item="(\{&quot;[^"]+&quot;[^"]*\})"',
-    re.I,
+    re.IGNORECASE,
 )
 _ITEMS_LIST_ROW = re.compile(
     r'<tr[^>]*data-items-list-id="(\d+)"[^>]*>(.*?)</tr>',
-    re.I | re.S,
+    re.IGNORECASE | re.DOTALL,
 )
 _ITEMS_LIST_NUMBER = re.compile(
     r'class="[^"]*items-list__cell_type_number[^"]*"[^>]*>\s*(?:<p[^>]*class="[^"]*items-list__number[^"]*"[^>]*>\s*)?([^<]+?)\s*(?:</p>)?\s*</td>',
-    re.I,
+    re.IGNORECASE,
 )
 _ITEMS_LIST_REF = re.compile(
     r'class="[^"]*items-list__cell_type_ref[^"]*"[^>]*>\s*([^<]+?)\s*</td>',
-    re.I,
+    re.IGNORECASE,
 )
 _ITEMS_LIST_QTY = re.compile(
     r'class="[^"]*items-list__cell_type_quantity[^"]*"[^>]*>\s*([^<]+?)\s*</td>',
-    re.I,
+    re.IGNORECASE,
 )
 _DIAGRAM_IMG_DIMS = re.compile(
     r'id="items_list_image"[^>]*?(?:width="(\d+)"[^>]*height="(\d+)"|height="(\d+)"[^>]*width="(\d+)")',
-    re.I,
+    re.IGNORECASE,
 )
 _SLUG_TAIL = re.compile(r"-(\d+)$")
 
@@ -121,11 +121,13 @@ def classify_megazip_url(url: str) -> str:
     path = urlparse(url).path.lower()
     if "/parts/" in path and path.count("/") <= 3:
         return "maker_hub" if path.rstrip("/").count("/") == 2 else "model_hub"
-    if "items_list_image" in path or re.search(r"/[^/]+-\d+$", path):
-        if "part-group" in path or re.search(r"/[a-z0-9-]+-\d+$", path):
-            parts = path.rstrip("/").split("/")
-            if len(parts) >= 7:
-                return "diagram"
+    if (
+        ("items_list_image" in path or re.search(r"/[^/]+-\d+$", path))
+        and ("part-group" in path or re.search(r"/[a-z0-9-]+-\d+$", path))
+    ):
+        parts = path.rstrip("/").split("/")
+        if len(parts) >= 7:
+            return "diagram"
     if "part-group" in path:
         return "section_list"
     if "s-catalog__body-variants" in path:
@@ -163,9 +165,7 @@ def _is_maker_model_catalog_href(href: str, maker_slug: str) -> bool:
             return False
         return bool(re.search(r"-\d+$", slug))
     if parts and parts[0] == "parts":
-        if len(parts) < 3 or parts[1].lower() != maker_slug.lower():
-            return False
-        return True
+        return len(parts) >= 3 and parts[1].lower() == maker_slug.lower()
     return False
 
 
@@ -195,7 +195,7 @@ def parse_maker_hub(html: str, url: str, maker_slug: str) -> ParsedPage:
     for m in re.finditer(
         r'<a\s+([^>]*?\shref="(/(?:parts|zapchasti-dlya-avtomobilej)/[^"]+)"[^>]*)>',
         html,
-        re.I | re.S,
+        re.IGNORECASE | re.DOTALL,
     ):
         attrs = m.group(1)
         href = m.group(2)
@@ -203,18 +203,18 @@ def parse_maker_hub(html: str, url: str, maker_slug: str) -> ParsedPage:
             continue
         if "sil-card" not in attrs and "s-catalog__model-link" not in attrs:
             continue
-        name_m = re.search(r'data-name="([^"]+)"', attrs, re.I)
+        name_m = re.search(r'data-name="([^"]+)"', attrs, re.IGNORECASE)
         name = name_m.group(1) if name_m else ""
         if not name:
             chunk = html[m.end() : m.end() + 800]
-            h3 = re.search(r"<h3[^>]*>([^<]+)</h3>", chunk, re.I)
+            h3 = re.search(r"<h3[^>]*>([^<]+)</h3>", chunk, re.IGNORECASE)
             name = h3.group(1) if h3 else ""
         add(href, name)
 
     for block in re.finditer(
         r'<script type="application/ld\+json">(.*?)</script>',
         html,
-        re.I | re.S,
+        re.IGNORECASE | re.DOTALL,
     ):
         try:
             data = json.loads(block.group(1))
@@ -537,7 +537,7 @@ def parse_diagram_page(
 ) -> ParsedPage:
     img_m = _DIAGRAM_IMG.search(html)
     image_url = img_m.group(1) if img_m else ""
-    title_m = re.search(r"<title>([^<]+)</title>", html, re.I)
+    title_m = re.search(r"<title>([^<]+)</title>", html, re.IGNORECASE)
     title = _clean(title_m.group(1)) if title_m else section_slug.replace("-", " ").title()
     page_attrs = _parse_attrs(html)
     engine_code = _engine_from_attrs(page_attrs) or (

@@ -1,0 +1,16 @@
+{
+  "actor": "unknown",
+  "branch_at_record": "ccr-8c44a0d0-msyynq",
+  "change_id": "0a191d2e35e01cb25ebb",
+  "changed_files": [
+    ".github/workflows/project-truth-autolog.yml"
+  ],
+  "diff_sha256": "0a191d2e35e01cb25ebb7a780f6fb8b27d4214ad88ecd679439c231f5098e6f8",
+  "domains": [
+    "ci"
+  ],
+  "intent": "automatic-file-level-record",
+  "recorded_at_utc": "2026-10-09T08:15:54.429107+00:00",
+  "schema_version": 1,
+  "source_parent": "a57f4d6bee53d6620e19d4931678bbecc564fad9"
+}

@@ -19,6 +19,29 @@ export type PaymentTender = Database["public"]["Enums"]["payment_tender"];
 
 type FinanceClient = SupabaseClient<Database>;
 
+async function financeRpc(
+  client: FinanceClient,
+  fn: string,
+  args?: Record<string, unknown>,
+): Promise<{ data: unknown; error: { message: string } | null }> {
+  return (
+    client as unknown as {
+      rpc: (
+        name: string,
+        params?: Record<string, unknown>,
+      ) => PromiseLike<{ data: unknown; error: { message: string } | null }>;
+    }
+  ).rpc(fn, args);
+}
+
+function financeFrom(client: FinanceClient, table: string) {
+  return (
+    client as unknown as {
+      from: (t: string) => ReturnType<FinanceClient["from"]>;
+    }
+  ).from(table);
+}
+
 export type JournalEntryOption = {
   id: string;
   document_number: string | null;
@@ -93,6 +116,20 @@ export type PaymentEntryOption = {
 export type CustomerOption = {
   id: string;
   display_name: string;
+};
+
+export type ManualCommerceOrderOption = {
+  id: string;
+  cart_id: string;
+  customer_id: string;
+  document_number: string | null;
+  customer_name: string;
+  state: string;
+  total: number;
+  currency: CurrencyCode;
+  fulfillment_mode: Database["public"]["Enums"]["fulfillment_mode"];
+  reservation_expires_at: string;
+  created_at: string;
 };
 
 export type AccountOption = {
@@ -272,6 +309,86 @@ export async function listDraftPayments(
   return { ok: true, data: rows };
 }
 
+export async function listPendingManualCommerceOrders(
+  client: FinanceClient,
+  limit = 50,
+): Promise<StorefrontResult<ManualCommerceOrderOption[]>> {
+  const { data, error } = await financeFrom(client, "commerce_orders")
+    .select(
+      "id, cart_id, customer_id, state, total, currency, fulfillment_mode, reservation_expires_at, created_at, customers ( display_name ), pos_carts ( document_number )",
+    )
+    .in("state", ["awaiting_payment", "payment_failed"])
+    .is("settled_payment_entry_id", null)
+    .gt("reservation_expires_at", new Date().toISOString())
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) return { ok: false, error: error.message };
+
+  const rows = (data ?? []).map((row) => {
+    const r = row as unknown as {
+      id: string;
+      cart_id: string;
+      customer_id: string;
+      state: string;
+      total: number;
+      currency: CurrencyCode;
+      fulfillment_mode: Database["public"]["Enums"]["fulfillment_mode"];
+      reservation_expires_at: string;
+      created_at: string;
+      customers?: { display_name: string } | { display_name: string }[] | null;
+      pos_carts?: { document_number: string | null } | { document_number: string | null }[] | null;
+    };
+    const customer = Array.isArray(r.customers) ? r.customers[0] : r.customers;
+    const cart = Array.isArray(r.pos_carts) ? r.pos_carts[0] : r.pos_carts;
+    return {
+      id: r.id,
+      cart_id: r.cart_id,
+      customer_id: r.customer_id,
+      document_number: cart?.document_number ?? null,
+      customer_name: customer?.display_name ?? "Customer",
+      state: r.state,
+      total: Number(r.total),
+      currency: r.currency,
+      fulfillment_mode: r.fulfillment_mode,
+      reservation_expires_at: r.reservation_expires_at,
+      created_at: r.created_at,
+    } satisfies ManualCommerceOrderOption;
+  });
+  return { ok: true, data: rows };
+}
+
+export async function settleManualCommercePayment(
+  client: FinanceClient,
+  args: {
+    orderId: string;
+    requestId: string;
+    tender: "cash" | "bank";
+    reference?: string;
+    settlementCurrency?: CurrencyCode;
+    settlementAmount?: number;
+    settlementExchangeRate?: number;
+  },
+): Promise<StorefrontResult<string>> {
+  const { data, error } = await financeRpc(
+    client,
+    "settle_commerce_manual_payment",
+    {
+      p_order_id: args.orderId,
+      p_payment_request_id: args.requestId,
+      p_tender: args.tender,
+      p_reference: args.reference?.trim() || null,
+      p_settlement_currency: args.settlementCurrency ?? null,
+      p_settlement_amount: args.settlementAmount ?? null,
+      p_settlement_exchange_rate: args.settlementExchangeRate ?? null,
+    },
+  );
+  if (error) return { ok: false, error: error.message };
+  if (typeof data !== "string" || !data) {
+    return { ok: false, error: "settle_commerce_manual_payment returned no payment id." };
+  }
+  return { ok: true, data };
+}
+
 export async function searchCustomers(
   client: FinanceClient,
   query: string,
@@ -309,9 +426,13 @@ export async function createJournalDraft(
     lines: JournalLineInput[];
   },
 ): Promise<StorefrontResult<string>> {
+  const configuredZigRate = zigExchangeRate();
+  if (args.currency === "ZIG" && args.exchangeRate == null && configuredZigRate == null) {
+    return { ok: false, error: "ZiG exchange rate is not configured. Finance must publish a verified rate before ZiG transactions are enabled." };
+  }
   const exchangeRate =
     args.currency === "ZIG"
-      ? (args.exchangeRate ?? zigExchangeRate())
+      ? (args.exchangeRate ?? configuredZigRate!)
       : (args.exchangeRate ?? 1);
 
   const { data, error } = await client.rpc("create_journal_draft", {
@@ -473,9 +594,13 @@ export async function createPaymentEntry(
     notes?: string;
   },
 ): Promise<StorefrontResult<string>> {
+  const configuredZigRate = zigExchangeRate();
+  if (args.currency === "ZIG" && args.exchangeRate == null && configuredZigRate == null) {
+    return { ok: false, error: "ZiG exchange rate is not configured. Finance must publish a verified rate before ZiG transactions are enabled." };
+  }
   const exchangeRate =
     args.currency === "ZIG"
-      ? (args.exchangeRate ?? zigExchangeRate())
+      ? (args.exchangeRate ?? configuredZigRate!)
       : (args.exchangeRate ?? 1);
 
   const { data, error } = await client.rpc("create_payment_entry", {
@@ -1089,9 +1214,13 @@ export async function createFinanceRequisition(
     lines?: FinanceRequisitionLineInput[];
   },
 ): Promise<StorefrontResult<string>> {
+  const configuredZigRate = zigExchangeRate();
+  if (args.currency === "ZIG" && args.exchangeRate == null && configuredZigRate == null) {
+    return { ok: false, error: "ZiG exchange rate is not configured. Finance must publish a verified rate before ZiG transactions are enabled." };
+  }
   const exchangeRate =
     args.currency === "ZIG"
-      ? (args.exchangeRate ?? zigExchangeRate())
+      ? (args.exchangeRate ?? configuredZigRate!)
       : (args.exchangeRate ?? 1);
 
   const seedAmount =

@@ -9,8 +9,8 @@ from data_pipeline.cache_parse_worker import (
     apply_identity_to_payloads,
     backfill_scraped_for_vid,
     enqueue_new_from_cache,
-    init_parse_db,
     identity_hints,
+    init_parse_db,
     refresh_bundle,
     upsert_vehicle_identity,
 )

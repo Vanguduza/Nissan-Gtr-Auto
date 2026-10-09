@@ -2,6 +2,7 @@ plugins {
     id("com.android.library")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("app.cash.paparazzi")
 }
 
 android {
@@ -23,6 +24,7 @@ android {
 }
 
 dependencies {
+    implementation(project(":core:visual"))
     implementation(project(":core:rpc"))
     implementation(project(":feature:wishlist"))
     implementation(project(":feature:reviews"))

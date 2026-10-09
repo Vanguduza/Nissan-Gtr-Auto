@@ -6,7 +6,6 @@ import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.handleDeeplinks
 import io.github.jan.supabase.auth.providers.Google
-import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.auth.providers.builtin.IDToken
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.auth.user.UserSession
@@ -50,18 +49,14 @@ class SupabaseRpcClient(
     val sessionStatus: Flow<SessionStatus> get() = auth.sessionStatus
 
     /**
-     * Email/password sign-in via GoTrue. Session is stored by the SDK session manager —
-     * never put passwords or JWTs in BuildConfig.
+     * Email/password sign-in through the hardened Auth Edge. Supabase Auth still
+     * validates the password and owns the resulting session.
      */
     suspend fun signInWithEmail(email: String, password: String) {
         require(email.isNotBlank()) { "email required" }
         require(password.isNotBlank()) { "password required" }
-        auth.signInWith(Email) {
-            this.email = email.trim()
-            this.password = password
-        }
-        // Email/password users are not minted by handle_new_user (OAuth/OTP only) —
-        // ensure storefront AuthZ before cart / wishlist RPCs.
+        val session = AuthEdgeClient.login(client, email = email.trim(), password = password)
+        importAccessToken(session.accessToken, session.refreshToken, session.expiresIn)
         ensureOwnCustomerIfNeeded()
     }
 
@@ -96,26 +91,18 @@ class SupabaseRpcClient(
     }
 
     /**
-     * Email/password register via GoTrue (mirrors web signup).
-     * May require email confirmation depending on project Auth settings.
-     * Confirm links must open the app — pass [AUTH_EMAIL_REDIRECT] (must be on Dashboard redirect allow-list).
-     * Hosted **Site URL** must not stay on localhost or confirm emails default there.
+     * Direct one-shot signup is intentionally disabled. Registration is a
+     * request → verify → complete Auth Edge flow; callers must use [AuthEdgeClient].
      */
-    suspend fun signUpWithEmail(email: String, password: String) {
-        require(email.isNotBlank()) { "email required" }
-        require(password.length >= 6) { "password must be at least 6 characters" }
-        auth.signUpWith(Email, redirectUrl = AUTH_EMAIL_REDIRECT) {
-            this.email = email.trim()
-            this.password = password
-        }
-        // When Confirm email is off, session exists immediately — mint customers now.
-        if (isSignedIn()) ensureOwnCustomerIfNeeded()
+    @Deprecated("Use AuthEdgeClient requestSignupOtp/verifySignupOtp/completeSignup")
+    suspend fun signUpWithEmail(email: String, password: String): Nothing {
+        error("Direct signup disabled; use the Supabase Auth Edge signup flow")
     }
 
-    /** Sends a password-recovery email via GoTrue (no fake stub in production). */
+    /** Request non-enumerating password recovery through the hardened Auth Edge. */
     suspend fun resetPasswordForEmail(email: String) {
         require(email.isNotBlank()) { "email required" }
-        auth.resetPasswordForEmail(email.trim(), redirectUrl = AUTH_EMAIL_REDIRECT)
+        AuthEdgeClient.requestPasswordReset(client, email.trim())
     }
 
     /** Clears the persisted GoTrue session. */
@@ -311,11 +298,60 @@ class SupabaseRpcClient(
         ).decodeAs<String>()
     }
 
+    // Reserve-first, keyed on the cart id: a retry returns the same order (same as the
+    // one-argument `checkout_customer_cart`).
     override suspend fun checkoutCustomerCart(cartId: String): String =
         client.postgrest.rpc(
-            RpcNames.CHECKOUT_CUSTOMER_CART,
-            buildJsonObject { put("p_cart_id", cartId) },
+            RpcNames.PREPARE_CUSTOMER_CHECKOUT,
+            buildJsonObject {
+                put("p_cart_id", cartId)
+                put("p_checkout_request_id", cartId)
+                put("p_reservation_ttl", "20 minutes")
+            },
         ).decodeAs<String>()
+
+    override suspend fun getMyAccountSuspension(): AccountSuspension? {
+        val e = client.postgrest.rpc("get_my_account_suspension").decodeAs<kotlinx.serialization.json.JsonElement>()
+        val o = e as? kotlinx.serialization.json.JsonObject ?: return null
+        val p = { k: String -> (o[k] as? kotlinx.serialization.json.JsonPrimitive)?.content }
+        val owed = (o["owing_by_currency"] as? kotlinx.serialization.json.JsonArray).orEmpty().mapNotNull { x ->
+            val r = x as? kotlinx.serialization.json.JsonObject ?: return@mapNotNull null
+            val currency = (r["currency"] as? kotlinx.serialization.json.JsonPrimitive)?.content ?: return@mapNotNull null
+            val amount = (r["amount"] as? kotlinx.serialization.json.JsonPrimitive)?.content?.toDoubleOrNull() ?: return@mapNotNull null
+            OwedAmount(currency, amount)
+        }
+        return AccountSuspension(p("reason").orEmpty(), owed)
+    }
+
+    override suspend fun getMyDeliveryCodes(): List<DeliveryCode> {
+        val e = client.postgrest.rpc("get_my_delivery_codes").decodeAs<kotlinx.serialization.json.JsonElement>()
+        return (e as? kotlinx.serialization.json.JsonArray).orEmpty().mapNotNull { x ->
+            val o = x as? kotlinx.serialization.json.JsonObject ?: return@mapNotNull null
+            val p = { k: String -> (o[k] as? kotlinx.serialization.json.JsonPrimitive)?.content }
+            DeliveryCode(p("delivery_job_id") ?: return@mapNotNull null, p("sales_invoice_id").orEmpty(), p("code") ?: return@mapNotNull null, p("expires_at").orEmpty())
+        }
+    }
+
+    override suspend fun setCustomerCartDeliveryPaymentMethod(cartId: String, method: DeliveryPaymentMethod): String =
+        client.postgrest.rpc(
+            RpcNames.SET_CUSTOMER_CART_DELIVERY_PAYMENT_METHOD,
+            buildJsonObject {
+                put("p_cart_id", cartId)
+                put("p_method", method.rpcValue)
+            },
+        ).decodeAs<String>()
+
+    override suspend fun checkoutCustomerCartOnDelivery(cartId: String, method: DeliveryPaymentMethod): String {
+        require(method != DeliveryPaymentMethod.PREPAY) { "choose cash or card on delivery" }
+        setCustomerCartDeliveryPaymentMethod(cartId, method)
+        return client.postgrest.rpc(
+            RpcNames.CHECKOUT_CUSTOMER_CART_V2,
+            buildJsonObject {
+                put("p_cart_id", cartId)
+                put("p_delivery_payment_method", method.rpcValue)
+            },
+        ).decodeAs<String>()
+    }
 
     override suspend fun getOpenCart(): CartSummary? {
         val cart = client.from("pos_carts")

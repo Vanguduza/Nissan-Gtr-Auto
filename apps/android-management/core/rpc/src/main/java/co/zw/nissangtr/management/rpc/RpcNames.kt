@@ -36,6 +36,8 @@ object RpcNames {
     const val LIST_CATALOG_VARIANTS = "list_catalog_variants"
     const val LIST_CATALOG_SECTIONS = "list_catalog_sections"
     const val GET_CATALOG_DIAGRAM = "get_catalog_diagram"
+    const val LIST_CATALOG_DIAGRAMS = "list_catalog_diagrams"
+    const val GET_CATALOG_DIAGRAM_BY_SLUG = "get_catalog_diagram_by_slug"
     /** Organogram module_access for signed-in employee (Batch 1 §1.6). */
     const val MY_MODULE_ACCESS = "my_module_access"
     /** Optional hr_roles.default_landing (pos|hub). */
@@ -64,6 +66,21 @@ object RpcNames {
     const val SEND_POS_QUOTATION = "send_pos_quotation"
     const val CONVERT_POS_QUOTATION_TO_CART = "convert_pos_quotation_to_cart"
     const val LIST_POS_QUOTATIONS = "list_pos_quotations"
+    /** Locked operator POS discovery/history read models. */
+    const val LIST_POS_POPULAR_SPARES = "list_pos_popular_spares"
+    const val LIST_POS_POPULAR_PINS = "list_pos_popular_pins"
+    const val UPSERT_POS_POPULAR_PIN = "upsert_pos_popular_pin"
+    const val DELETE_POS_POPULAR_PIN = "delete_pos_popular_pin"
+    const val LIST_POS_RECENT_INVOICES = "list_pos_recent_invoices"
+    const val SET_POS_CART_VEHICLE = "set_pos_cart_vehicle"
+    const val SEARCH_POS_VEHICLE_SPARES = "search_pos_vehicle_spares"
+    const val SEARCH_POS_STOCK_ITEMS = "search_pos_stock_items"
+    const val LIST_POS_CUSTOMERS = "list_pos_customers"
+    const val CREATE_POS_CUSTOMER = "create_pos_customer"
+    const val UPDATE_POS_CUSTOMER = "update_pos_customer"
+    const val LIST_POS_CUSTOMER_GARAGE = "list_pos_customer_garage"
+    const val UPSERT_POS_CUSTOMER_GARAGE_VEHICLE = "upsert_pos_customer_garage_vehicle"
+    const val SET_POS_CART_CUSTOMER = "set_pos_cart_customer"
 
     /** Pre-auth staff identifier → GoTrue email (emp#|email|phone). */
     const val RESOLVE_STAFF_LOGIN_EMAIL = "resolve_staff_login_email"
@@ -154,4 +171,7 @@ object RpcNames {
     const val LIST_FLEET_VEHICLES = "list_fleet_vehicles"
     const val UPSERT_FLEET_VEHICLE = "upsert_fleet_vehicle"
     const val SET_FLEET_VEHICLE_STATUS = "set_fleet_vehicle_status"
+    const val LIST_POS_HIDDEN_BESTSELLERS = "list_pos_hidden_bestsellers"
+    const val HIDE_POS_BESTSELLER = "hide_pos_bestseller"
+    const val UNHIDE_POS_BESTSELLER = "unhide_pos_bestseller"
 }

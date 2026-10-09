@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 import sqlite3
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -163,7 +162,7 @@ def load_priority_chassis_file(path: Path | str) -> dict[str, Any]:
         raise FileNotFoundError(f"Priority chassis file not found: {p}")
     data = json.loads(p.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
-        raise ValueError(f"Priority chassis file must be a JSON object: {p}")
+        raise TypeError(f"Priority chassis file must be a JSON object: {p}")
     return data
 
 
@@ -406,8 +405,8 @@ def chassis_coverage_report(
                         continue
                     norm = normalize_chassis_code(str(ch)) or str(ch).upper()
                     by_chassis[norm] = by_chassis.get(norm, 0) + 1
-                for code in report:
-                    report[code]["fitment_rows"] = by_chassis.get(code, 0)
+                for code, value in report.items():
+                    value["fitment_rows"] = by_chassis.get(code, 0)
         except (OSError, json.JSONDecodeError) as exc:
             logger.warning("Could not read fitments from %s: %s", fitment_path, exc)
 

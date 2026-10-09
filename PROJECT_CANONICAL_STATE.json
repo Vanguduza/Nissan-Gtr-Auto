@@ -3,23 +3,42 @@
   "repository": "Vanguduza/Nissan-Gtr-Auto",
   "policy": {
     "default_branch_is_not_authority": true,
-    "newest_commit_is_not_authority": true,
-    "every_pushed_commit_is_auto_logged": true,
-    "canonical_lineage_must_be_verified_before_release": true,
+    "build_requires_verified_lineage": true,
+    "every_change_requires_ledger_entry": true,
     "silent_feature_thinning_forbidden": true,
     "release_requires_provenance": true
   },
-  "canonical_state": {
-    "status": "SPECIALIZED_RECONCILIATION_REQUIRED",
-    "release_blocked": true,
-    "default_branch_at_bootstrap": "cursor/erp-cursor-setup-ad25",
-    "required_ancestors": [],
-    "notes": "The default branch is explicitly NOT canonical. Stronger app-specific customer/POS guardrails exist on the active reconciliation lineage and must be reconciled before this repo can clear its release block."
-  },
-  "tracking": {
-    "ledger": "docs/project-state/CHANGE_LEDGER.jsonl",
-    "current_snapshot": "docs/project-state/CURRENT_STATE.json",
-    "protocol": "PROJECT_TRUTH_PROTOCOL.md",
-    "workflow": ".github/workflows/project-truth-autolog.yml"
+  "applications": {
+    "customer-android": {
+      "module": "apps/android-customer",
+      "status": "RECONCILED_LOCKED_LINEAGE",
+      "canonical_visual_branch": "cursor/android-customer-preview-locked-078e",
+      "required_ancestor": "27bc0a54794bc2a60d21bb24b80be4c3c10bb694",
+      "release_blocked_until_reconciled": false,
+      "notes": "The illustrated/premium customer implementation is mandatory and remains the default (Illustrated, dark). Owner decision 2026-10-02: the app also offers the POS style; each style has light and dark modes (Settings > Appearance / Mode), all four rendering the same locked screens and components with a different palette. Reconciled 2026-10-02 on ccr-8c44a0d0-msyynq by merging the locked branch head (required_ancestor) with the later backend/auth/catalog work. The previously recorded ancestor 56797ca3 does not exist on the remote and was replaced by the locked branch head. Owner decision 2026-10-02: a third style, Express (Figma 'GTR Customer \u2014 Home'), adds its own Home (brand header, category buttons, product panels, service-kit banner) and a floating tab bar; Illustrated's locked screens are unchanged (verifyPaparazzi passes). Owner decision 2026-10-02 (later): Express in light mode is the default for new installs and for users who never chose a style; Illustrated and POS remain selectable in Settings > Appearance."
+    },
+    "pos-android": {
+      "module": "apps/android-management/feature/pos",
+      "status": "ACTIVE_RECONCILIATION_LINEAGE",
+      "canonical_branch": "chatgpt/pos-reconcile-green-20260907",
+      "required_ancestor": "296a447afb205324f25bda55cf017aac2c63483a",
+      "release_blocked_until_reconciled": false,
+      "notes": "POS release lineage must preserve locked visual benchmark plus all subsequently approved functional changes. Reconciled 2026-10-03 (owner request): the previously recorded ancestor 1e0a8b76 is on a pre-rewrite history that no remote branch contains any more. Its rewritten copy 296a447a (same message, date and patch; tree identical except one stray catalog/images HTML file) is on origin/chatgpt/pos-reconcile-green-20260907 and this branch; 2754 of the 2756 orphaned commits have patch-equivalent copies here, and the two auto-sync snapshots that differ only add files later deleted on purpose (pre-benchmark POS screens 395140f9, retired customer EPC c81a76ed, old web POS panel d15786db)."
+    },
+    "management-android": {
+      "module": "apps/android-management",
+      "status": "RECONCILED_LINEAGE",
+      "canonical_branch": "ccr-8c44a0d0-msyynq",
+      "required_ancestor": "296a447afb205324f25bda55cf017aac2c63483a",
+      "release_blocked_until_reconciled": false,
+      "notes": "Owner decision 2026-10-03: the management app on this branch (benchmark POS tablet/phone shell, offline outbox and catalogue, companion pairing) is canonical; the CoolMall/InvenTree management rebuild on origin/main (3f1e1be5, 1691ba81, 101667dd) is superseded. Its Android client adds no live backend calls beyond name constants; the backend it relied on is live and its source is now in supabase/live-history (hosted migration history) and supabase/functions/catalog-hierarchy-import, delivery-dispatch-cycle (deployed v1)."
+    },
+    "delivery-android": {
+      "module": "apps/android-delivery",
+      "status": "RECONCILED_LINEAGE",
+      "required_ancestor": "3bd799e6291b58fc2c9c070c1b59f6b57daa79dc",
+      "release_blocked_until_reconciled": false,
+      "notes": "Owner decision 2026-10-02: combine both lineages. Reconciled on ccr-8c44a0d0-msyynq by taking the delivery app from origin/main 7bab71c4 (POD evidence hardening, COD dual-read, receipt line items, job tap fix, status gate, fake bridges + tests) onto this branch's keyless maps-nav bridge (MapLibre + OpenFreeMap, OSRM routing; no Google key). Visual system afterwards rebuilt in the Slopes style (:core:design, light + dark, map-first screens with a draggable sheet); every driver feature kept."
+    }
   }
 }

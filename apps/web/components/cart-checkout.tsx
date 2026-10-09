@@ -10,22 +10,29 @@ import {
 } from "@/components/icons";
 import {
   checkoutCustomerCart,
+  checkoutCustomerCartOnDelivery,
+  checkoutRequestIdForCart,
   createCustomerContipayIntent,
   createCustomerEcocashIntent,
   createCustomerPaynowIntent,
   ensureOpenCart,
   fetchZigExchangeRate,
   formatMoney,
+  getCustomerOrder,
   fulfillmentLabel,
+  getMyAccountSuspension,
   loadCartLines,
   loadOpenCart,
   loadOwnCustomer,
   requireSession,
+  setCartDeliveryPaymentMethod,
   type CartLineRow,
   type CartRow,
   type CustomerRow,
+  type DeliveryPaymentMethod,
 } from "@/lib/customer-storefront";
 import { createWebClient } from "@/lib/supabase";
+import { owedText, type Owed } from "@/lib/money-owed";
 import styles from "@/app/(storefront)/page.module.css";
 
 function CartTitle() {
@@ -40,7 +47,14 @@ function CartTitle() {
 }
 
 type Fulfillment = "immediate" | "dispatch";
-type Tender = "cash" | "contipay" | "paynow" | "ecocash";
+type Tender = "cash" | "contipay" | "paynow" | "ecocash" | "delivery";
+type OnDeliveryMethod = Exclude<DeliveryPaymentMethod, "prepay">;
+
+const ON_DELIVERY_OPTIONS: { method: OnDeliveryMethod; title: string; hint: string }[] = [
+  { method: "cash_or_card_on_delivery", title: "Cash or card", hint: "Decide at the door" },
+  { method: "cash_on_delivery", title: "Cash", hint: "Have the exact USD amount ready" },
+  { method: "card_on_delivery", title: "Card", hint: "The driver brings a swipe machine" },
+];
 type SettleCurrency = "USD" | "ZIG";
 type EcoCashMode = "saved" | "other";
 
@@ -60,10 +74,12 @@ export function CartCheckout() {
   const [status, setStatus] = useState<Status>({ kind: "loading" });
   const [fulfillment, setFulfillment] = useState<Fulfillment>("immediate");
   const [settleCurrency, setSettleCurrency] = useState<SettleCurrency>("USD");
-  const [zigRate, setZigRate] = useState<number>(1);
+  const [zigRate, setZigRate] = useState<number | null>(null);
   const [tender, setTender] = useState<Tender>("cash");
   const [ecocashMode, setEcocashMode] = useState<EcoCashMode>("saved");
   const [ecocashOther, setEcocashOther] = useState("");
+  const [onDelivery, setOnDelivery] = useState<OnDeliveryMethod>("cash_or_card_on_delivery");
+  const [suspension, setSuspension] = useState<{ reason: string; owed: Owed } | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -86,6 +102,9 @@ export function CartCheckout() {
     const rate = await fetchZigExchangeRate(client);
     setZigRate(rate);
 
+    const suspended = await getMyAccountSuspension(client);
+    setSuspension(suspended.ok ? suspended.data : null);
+
     const cart = await loadOpenCart(client);
     if (!cart.ok) {
       setStatus({ kind: "error", message: cart.error });
@@ -100,6 +119,12 @@ export function CartCheckout() {
 
     if (cart.data) {
       setFulfillment(cart.data.fulfillment_mode);
+      // Column newer than the generated types: the cart remembers a pay-on-delivery choice.
+      const saved = (cart.data as unknown as { delivery_payment_method?: string }).delivery_payment_method;
+      if (saved && saved !== "prepay" && cart.data.fulfillment_mode === "dispatch") {
+        setTender("delivery");
+        setOnDelivery(saved as OnDeliveryMethod);
+      }
       const lines = await loadCartLines(client, cart.data.id);
       if (!lines.ok) {
         setStatus({ kind: "error", message: lines.error });
@@ -131,8 +156,41 @@ export function CartCheckout() {
     return status.lines.reduce((sum, line) => sum + Number(line.line_total), 0);
   }, [status]);
 
+  const effectiveFulfillment: Fulfillment =
+    status.kind === "ready" && status.cart ? status.cart.fulfillment_mode : fulfillment;
+  const onDeliveryAllowed = effectiveFulfillment === "dispatch" && !suspension;
+
+  // Pay on delivery exists only for dispatch; switching to collection drops it.
+  useEffect(() => {
+    if (!onDeliveryAllowed && tender === "delivery") setTender("cash");
+  }, [onDeliveryAllowed, tender]);
+  useEffect(() => {
+    if (tender === "delivery") setSettleCurrency("USD");
+  }, [tender]);
+
+  async function chooseOnDelivery(method: OnDeliveryMethod) {
+    setOnDelivery(method);
+    setTender("delivery");
+    const cartId = status.kind === "ready" ? status.cart?.id : null;
+    const client = createWebClient();
+    if (!cartId || !client) return;
+    const saved = await setCartDeliveryPaymentMethod(client, cartId, method);
+    if (!saved.ok) setMessage(saved.error);
+  }
+
+  async function chooseTender(next: Tender) {
+    const leavingDelivery = tender === "delivery" && next !== "delivery";
+    setTender(next);
+    const cartId = status.kind === "ready" ? status.cart?.id : null;
+    const client = createWebClient();
+    if (leavingDelivery && cartId && client) {
+      const saved = await setCartDeliveryPaymentMethod(client, cartId, "prepay");
+      if (!saved.ok) setMessage(saved.error);
+    }
+  }
+
   const zigTotal = useMemo(
-    () => Math.round(totalUsd * zigRate * 100) / 100,
+    () => (zigRate == null ? null : Math.round(totalUsd * zigRate * 100) / 100),
     [totalUsd, zigRate],
   );
 
@@ -173,51 +231,87 @@ export function CartCheckout() {
       return;
     }
 
-    const invoice = await checkoutCustomerCart(client, cartId);
-    if (!invoice.ok) {
-      setMessage(invoice.error);
+    if (tender === "delivery") {
+      if (!onDeliveryAllowed) {
+        setMessage(suspension ? "Pay on delivery is not available while your account is suspended." : "Pay on delivery is only for nationwide dispatch.");
+        setBusy(false);
+        return;
+      }
+      // Invoiced now; the driver collects the balance at the door (no online payment step).
+      const placed = await checkoutCustomerCartOnDelivery(client, cartId, onDelivery);
       setBusy(false);
+      if (!placed.ok) {
+        setMessage(placed.error);
+        return;
+      }
+      setMessage("Order placed. Pay the driver when it arrives.");
+      router.push(`/account/orders/${placed.data}`);
       return;
     }
 
-    const { data: invRow } = await client
-      .from("sales_invoices")
-      .select("status, total")
-      .eq("id", invoice.data)
-      .maybeSingle();
-    if (invRow?.status === "on_hold") {
-      setBusy(false);
+    const requestedZigRate =
+      settleCurrency === "ZIG" ? await fetchZigExchangeRate(client) : null;
+    if (settleCurrency === "ZIG" && requestedZigRate == null) {
       setMessage(
-        "Order created on hold (credit hold or over credit limit). Sales must clear it before fulfillment. Opening order…",
+        "ZiG settlement is unavailable because Finance has not published a verified exchange rate. Choose USD or try again after the rate is configured.",
       );
-      router.push(`/account/orders/${invoice.data}`);
+      setSettleCurrency("USD");
+      setBusy(false);
       return;
     }
 
-    const invTotal = Number(invRow?.total ?? totalUsd);
-    const rate = await fetchZigExchangeRate(client);
+    let checkoutRequestId: string;
+    try {
+      checkoutRequestId = checkoutRequestIdForCart(cartId);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to create a secure checkout request id.");
+      setBusy(false);
+      return;
+    }
+
+    const staged = await checkoutCustomerCart(client, cartId, checkoutRequestId);
+    if (!staged.ok) {
+      // The request id remains in localStorage. A retry therefore resolves to the
+      // same server-side order if the first response was lost after commit.
+      setMessage(staged.error);
+      setBusy(false);
+      return;
+    }
+
+    const order = await getCustomerOrder(client, staged.data);
+    if (!order.ok) {
+      setMessage(
+        `Order ${staged.data} was reserved, but its status could not be reloaded: ${order.error}. Open Orders to continue payment.`,
+      );
+      setBusy(false);
+      router.push(`/account/orders/${staged.data}`);
+      return;
+    }
+
+    const orderTotal = order.data.total;
+    const rate = requestedZigRate ?? 1;
     const settlement =
-      settleCurrency === "ZIG"
+      settleCurrency === "ZIG" && requestedZigRate != null
         ? {
             currency: "ZIG" as const,
-            amount: Math.round(invTotal * rate * 100) / 100,
-            exchangeRate: rate,
+            amount: Math.round(orderTotal * requestedZigRate * 100) / 100,
+            exchangeRate: requestedZigRate,
           }
         : undefined;
 
     if (tender === "contipay") {
       const intent = await createCustomerContipayIntent(
         client,
-        invoice.data,
+        staged.data,
         "ecocash",
         settlement,
       );
       if (!intent.ok) {
         setMessage(
-          `Invoice created, but ContiPay failed: ${intent.error}. Pay from order page.`,
+          `Order reserved, but ContiPay could not start: ${intent.error}. Retry payment from the order page before the reservation expires.`,
         );
         setBusy(false);
-        router.push(`/account/orders/${invoice.data}`);
+        router.push(`/account/orders/${staged.data}`);
         return;
       }
       if (intent.data.checkoutUrl) {
@@ -227,27 +321,27 @@ export function CartCheckout() {
       }
       setMessage(
         settlement
-          ? `Invoice created. ContiPay intent ready (settle ZiG ${settlement.amount.toFixed(2)} @ ${rate}). Opening order…`
-          : "Invoice created. ContiPay intent ready. Opening order…",
+          ? `Order reserved. ContiPay intent ready (settle ZiG ${settlement.amount.toFixed(2)} @ ${rate}).`
+          : "Order reserved. ContiPay intent ready; payment confirmation is pending.",
       );
       setBusy(false);
-      router.push(`/account/orders/${invoice.data}`);
+      router.push(`/account/orders/${staged.data}`);
       return;
     }
 
     if (tender === "paynow") {
       const intent = await createCustomerPaynowIntent(
         client,
-        invoice.data,
+        staged.data,
         "ecocash",
         settlement,
       );
       if (!intent.ok) {
         setMessage(
-          `Invoice created, but Paynow failed: ${intent.error}. Pay from order page.`,
+          `Order reserved, but Paynow could not start: ${intent.error}. Retry payment from the order page before the reservation expires.`,
         );
         setBusy(false);
-        router.push(`/account/orders/${invoice.data}`);
+        router.push(`/account/orders/${staged.data}`);
         return;
       }
       if (intent.data.checkoutUrl) {
@@ -257,44 +351,46 @@ export function CartCheckout() {
       }
       setMessage(
         settlement
-          ? `Invoice created. Paynow intent ready (settle ZiG ${settlement.amount.toFixed(2)} @ ${rate}). Opening order…`
-          : "Invoice created. Paynow intent ready. Opening order…",
+          ? `Order reserved. Paynow intent ready (settle ZiG ${settlement.amount.toFixed(2)} @ ${rate}).`
+          : "Order reserved. Paynow intent ready; payment confirmation is pending.",
       );
       setBusy(false);
-      router.push(`/account/orders/${invoice.data}`);
+      router.push(`/account/orders/${staged.data}`);
       return;
     }
 
     if (tender === "ecocash") {
-      const intent = await createCustomerEcocashIntent(client, invoice.data, {
+      const intent = await createCustomerEcocashIntent(client, staged.data, {
         payerMode: ecocashMode,
         payerMsisdn: ecocashMode === "other" ? ecocashOther : null,
         settlement,
       });
       if (!intent.ok) {
         setMessage(
-          `Invoice created, but EcoCash direct failed: ${intent.error}. Pay from order page.`,
+          `Order reserved, but EcoCash direct could not start: ${intent.error}. Retry payment from the order page before the reservation expires.`,
         );
         setBusy(false);
-        router.push(`/account/orders/${invoice.data}`);
+        router.push(`/account/orders/${staged.data}`);
         return;
       }
       setMessage(
         intent.data.message ??
-          "Invoice created. EcoCash PIN request sent — approve on the EcoCash handset.",
+          "Order reserved. EcoCash PIN request sent — approve it on the payer handset.",
       );
       setBusy(false);
-      router.push(`/account/orders/${invoice.data}`);
+      router.push(`/account/orders/${staged.data}`);
       return;
     }
 
+    // Cash / bank is deliberately not treated as settlement. No invoice, journal
+    // or stock issue is posted until a verified payment is recorded.
     setBusy(false);
     setMessage(
       settlement
-        ? `Order placed. Pay ZiG ${settlement.amount.toFixed(2)} (rate ${rate} ZiG/USD) at counter or transfer.`
-        : "Order placed. Pay USD at counter or transfer — invoice stays open.",
+        ? `Order reserved. Pay ZiG ${settlement.amount.toFixed(2)} (rate ${rate} ZiG/USD) before the reservation expires.`
+        : "Order reserved. Pay USD at the counter or by bank transfer before the reservation expires.",
     );
-    router.push(`/account/orders/${invoice.data}`);
+    router.push(`/account/orders/${staged.data}`);
   }
 
   if (status.kind === "loading") {
@@ -347,10 +443,10 @@ export function CartCheckout() {
       {customer && (creditHold || overLimit) ? (
         <p className={styles.lede} role="status">
           {creditHold
-            ? "Your account is on credit hold. Checkout will still create an invoice, but it will remain on_hold until sales clears the hold."
-            : `This cart would put you over your credit limit (${formatMoney(creditLimit, "USD")}; open ${formatMoney(openBalance, "USD")} + cart ${formatMoney(totalUsd, "USD")}). Checkout will post on_hold.`}
+            ? "Your trade account is on credit hold. This checkout still requires payment before invoicing or fulfillment."
+            : `This cart would exceed your trade credit limit (${formatMoney(creditLimit, "USD")}; open ${formatMoney(openBalance, "USD")} + cart ${formatMoney(totalUsd, "USD")}). Online checkout still requires payment before invoicing or fulfillment.`}
           {" "}
-          See <Link href="/b2b">B2B credit</Link>.
+          See <Link href="/b2b">B2B credit</Link> for account-credit options.
         </p>
       ) : null}
 
@@ -479,12 +575,16 @@ export function CartCheckout() {
                 name="settle"
                 checked={settleCurrency === "ZIG"}
                 onChange={() => setSettleCurrency("ZIG")}
+                disabled={zigRate == null || tender === "delivery"}
               />
               <span>
                 <strong>ZiG</strong>
                 <span className={styles.muted}>
-                  ≈ {formatMoney(zigTotal, "ZIG")} @ {zigRate} ZiG per USD
-                  (today&apos;s rate)
+                  {tender === "delivery"
+                    ? "Pay on delivery is collected in USD"
+                    : zigRate != null && zigTotal != null
+                    ? `≈ ${formatMoney(zigTotal, "ZIG")} @ ${zigRate} ZiG per USD (today's rate)`
+                    : "Unavailable until Finance publishes a verified exchange rate"}
                 </span>
               </span>
             </label>
@@ -502,12 +602,12 @@ export function CartCheckout() {
               type="radio"
               name="tender"
               checked={tender === "cash"}
-              onChange={() => setTender("cash")}
+              onChange={() => void chooseTender("cash")}
             />
             <span>
               <strong>Cash / bank</strong>
               <span className={styles.muted}>
-                Pay at counter or transfer — invoice stays open
+                Reserve stock, then pay before the reservation expires
               </span>
             </span>
           </label>
@@ -516,7 +616,7 @@ export function CartCheckout() {
               type="radio"
               name="tender"
               checked={tender === "contipay"}
-              onChange={() => setTender("contipay")}
+              onChange={() => void chooseTender("contipay")}
             />
             <span>
               <strong>ContiPay</strong>
@@ -528,7 +628,7 @@ export function CartCheckout() {
               type="radio"
               name="tender"
               checked={tender === "paynow"}
-              onChange={() => setTender("paynow")}
+              onChange={() => void chooseTender("paynow")}
             />
             <span>
               <strong>Paynow</strong>
@@ -540,7 +640,7 @@ export function CartCheckout() {
               type="radio"
               name="tender"
               checked={tender === "ecocash"}
-              onChange={() => setTender("ecocash")}
+              onChange={() => void chooseTender("ecocash")}
             />
             <span>
               <strong>EcoCash direct</strong>
@@ -549,7 +649,47 @@ export function CartCheckout() {
               </span>
             </span>
           </label>
+          <label
+            className={styles.fulfillCard}
+            style={onDeliveryAllowed ? undefined : { opacity: 0.6 }}
+          >
+            <input
+              type="radio"
+              name="tender"
+              checked={tender === "delivery"}
+              disabled={!onDeliveryAllowed}
+              onChange={() => void chooseOnDelivery(onDelivery)}
+            />
+            <span>
+              <strong>Pay on delivery</strong>
+              <span className={styles.muted}>
+                {suspension
+                  ? `Not available: your account is suspended until what you owe (${owedText(suspension.owed)}) is settled. Pay online now instead.`
+                  : onDeliveryAllowed
+                    ? "Cash or card to the driver at your door"
+                    : "Only for nationwide dispatch — this order is click & collect"}
+              </span>
+            </span>
+          </label>
         </div>
+        {tender === "delivery" ? (
+          <div className={styles.fulfillOptions} style={{ marginTop: "0.75rem" }}>
+            {ON_DELIVERY_OPTIONS.map((o) => (
+              <label key={o.method} className={styles.fulfillCard}>
+                <input
+                  type="radio"
+                  name="onDelivery"
+                  checked={onDelivery === o.method}
+                  onChange={() => void chooseOnDelivery(o.method)}
+                />
+                <span>
+                  <strong>{o.title}</strong>
+                  <span className={styles.muted}>{o.hint}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+        ) : null}
         {tender === "ecocash" ? (
           <div className={styles.fulfillOptions} style={{ marginTop: "0.75rem" }}>
             <label className={styles.fulfillCard}>
@@ -597,7 +737,7 @@ export function CartCheckout() {
           disabled={busy || lines.length === 0}
           onClick={() => void onCheckout()}
         >
-          {busy ? "Checking out…" : "Checkout"}
+          {busy ? "Checking out…" : tender === "delivery" ? "Place order — pay on delivery" : "Checkout"}
         </button>
         <Link href="/search" className={styles.button} style={{ background: "var(--gtr-steel)" }}>
           Continue shopping

@@ -1,0 +1,233 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const REPO_ROOT = path.resolve(__dirname, '../../..');
+
+const TOKENS_JSON_PATH = path.join(__dirname, '../brand-tokens.json');
+const rawData = fs.readFileSync(TOKENS_JSON_PATH, 'utf-8');
+const tokens = JSON.parse(rawData);
+
+// Helpers
+function hexToArgbHex(hex) {
+  const clean = hex.replace('#', '');
+  if (clean.length === 6) {
+    return `0xFF${clean.toUpperCase()}`;
+  }
+  if (clean.length === 8) {
+    return `0x${clean.toUpperCase()}`;
+  }
+  return `0xFF${clean.toUpperCase()}`;
+}
+
+// 1. Generate Kotlin Compose Tokens
+function generateKotlinTokens() {
+  const colorLines = [];
+
+  // Brand colors
+  for (const [k, v] of Object.entries(tokens.color.brand)) {
+    colorLines.push(`        val Brand_${k} = Color(${hexToArgbHex(v)})`);
+  }
+  // Status colors
+  for (const [k, v] of Object.entries(tokens.color.status)) {
+    if (typeof v === 'string') {
+      colorLines.push(`        val Status_${k} = Color(${hexToArgbHex(v)})`);
+    } else if (typeof v === 'object' && v !== null) {
+      for (const [subK, subV] of Object.entries(v)) {
+        colorLines.push(`        val Status_${k}_${subK} = Color(${hexToArgbHex(subV)})`);
+      }
+    }
+  }
+  // Neutral colors
+  colorLines.push(`        val Neutral_canvas = Color(${hexToArgbHex(tokens.color.neutral.canvas)})`);
+  colorLines.push(`        val Neutral_surface = Color(${hexToArgbHex(tokens.color.neutral.surface)})`);
+  colorLines.push(`        val Neutral_surfaceElevated = Color(${hexToArgbHex(tokens.color.neutral.surfaceElevated)})`);
+  colorLines.push(`        val Neutral_heroBackdrop = Color(${hexToArgbHex(tokens.color.neutral.heroBackdrop)})`);
+  colorLines.push(`        val Neutral_borderSubtle = Color(${hexToArgbHex(tokens.color.neutral.borderSubtle)})`);
+  colorLines.push(`        val Neutral_borderStrong = Color(${hexToArgbHex(tokens.color.neutral.borderStrong)})`);
+  colorLines.push(`        val Neutral_borderFocus = Color(${hexToArgbHex(tokens.color.neutral.borderFocus)})`);
+  colorLines.push(`        val Neutral_scrim = Color(${hexToArgbHex(tokens.color.neutral.scrim || '#000000')})`);
+  for (const [k, v] of Object.entries(tokens.color.neutral.ink)) {
+    colorLines.push(`        val Neutral_ink_${k} = Color(${hexToArgbHex(v)})`);
+  }
+  if (tokens.color.neutral.dark) {
+    for (const [k, v] of Object.entries(tokens.color.neutral.dark)) {
+      colorLines.push(`        val Neutral_dark_${k} = Color(${hexToArgbHex(v)})`);
+    }
+  }
+
+  if (tokens.color.neumorph) {
+    for (const [k, v] of Object.entries(tokens.color.neumorph)) {
+      if (typeof v === 'string' && !k.startsWith('$')) {
+        colorLines.push(`        val Neumorph_${k} = Color(${hexToArgbHex(v)})`);
+      } else if (k === 'dark' && v && typeof v === 'object') {
+        for (const [dk, dv] of Object.entries(v)) {
+          colorLines.push(`        val Neumorph_dark_${dk} = Color(${hexToArgbHex(dv)})`);
+        }
+      }
+    }
+  }
+
+  if (tokens.color.paper) {
+    for (const [k, v] of Object.entries(tokens.color.paper)) {
+      if (typeof v === 'string' && !k.startsWith('$')) {
+        colorLines.push(`        val Paper_${k} = Color(${hexToArgbHex(v)})`);
+      }
+    }
+  }
+
+  const spaceLines = [];
+  for (const [k, v] of Object.entries(tokens.space)) {
+    if (typeof v === 'number') {
+      const sanitizedKey = k.replace('.', '_');
+      spaceLines.push(`        val Space_${sanitizedKey} = ${v}.dp`);
+    }
+  }
+
+  const radiusLines = [];
+  for (const [k, v] of Object.entries(tokens.radius)) {
+    if (typeof v === 'number') {
+      radiusLines.push(`        val Radius_${k} = ${v}.dp`);
+    }
+  }
+
+  return `// AUTO-GENERATED from brand-tokens.json — DO NOT EDIT DIRECTLY
+package co.zw.nissangtr.pos.design.tokens
+
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+
+object PosTokens {
+    object ColorTokens {
+${colorLines.join('\n')}
+    }
+
+    object SpaceTokens {
+${spaceLines.join('\n')}
+    }
+
+    object RadiusTokens {
+${radiusLines.join('\n')}
+    }
+}
+`;
+}
+
+// 2. Generate CSS Variables
+// Flattens the full colour tree. `dark` sub-objects become a separate dark-scheme block so no
+// object is ever stringified into a variable.
+function flattenColors(node, prefix, light, dark) {
+  for (const [k, v] of Object.entries(node)) {
+    if (k.startsWith('$')) continue;
+    if (k === 'dark' && v && typeof v === 'object') {
+      for (const [dk, dv] of Object.entries(v)) {
+        if (typeof dv === 'string') dark.push(`  --gtr-color-${prefix}-${dk}: ${dv};`);
+      }
+    } else if (v && typeof v === 'object') {
+      flattenColors(v, `${prefix}-${k}`, light, dark);
+    } else if (typeof v === 'string') {
+      light.push(`  --gtr-color-${prefix}-${k}: ${v};`);
+    }
+  }
+}
+
+function generateCssVariables() {
+  const light = [];
+  const dark = [];
+  for (const [group, node] of Object.entries(tokens.color)) {
+    flattenColors(node, group, light, dark);
+  }
+  // Legacy alias kept for existing consumers.
+  light.push(`  --gtr-color-neutral-hero-backdrop: ${tokens.color.neutral.heroBackdrop};`);
+  for (const [k, v] of Object.entries(tokens.space)) {
+    if (typeof v === 'number') {
+      light.push(`  --gtr-space-${k.replace('_', '-')}: ${v}px;`);
+    }
+  }
+  for (const [k, v] of Object.entries(tokens.radius)) {
+    if (typeof v === 'number') {
+      light.push(`  --gtr-radius-${k}: ${v}px;`);
+    }
+  }
+  for (const [k, e] of Object.entries(tokens.elevation || {})) {
+    light.push(`  --gtr-elevation-${k}: 0 ${e.y}px ${e.blur}px ${e.spread}px rgba(10, 12, 14, ${e.opacity});`);
+  }
+  if (tokens.neumorph) {
+    const n = tokens.neumorph;
+    const hi = 'var(--gtr-color-neumorph-highlight)';
+    const sh = 'var(--gtr-color-neumorph-shade)';
+    light.push(`  --gtr-neu-raised: ${n.distance}px ${n.distance}px ${n.blur}px ${sh}, -${n.distance}px -${n.distance}px ${n.blur}px ${hi};`);
+    light.push(`  --gtr-neu-raised-sm: ${n.distanceSm}px ${n.distanceSm}px ${n.blurSm}px ${sh}, -${n.distanceSm}px -${n.distanceSm}px ${n.blurSm}px ${hi};`);
+    light.push(`  --gtr-neu-pressed: inset ${n.distanceSm}px ${n.distanceSm}px ${n.blurSm}px ${sh}, inset -${n.distanceSm}px -${n.distanceSm}px ${n.blurSm}px ${hi};`);
+  }
+  for (const [k, v] of Object.entries(tokens.motion || {})) {
+    if (typeof v === 'number') light.push(`  --gtr-motion-${k}: ${v}ms;`);
+  }
+  for (const [k, v] of Object.entries((tokens.font && tokens.font.pos) || {})) {
+    light.push(`  --gtr-font-pos-${k}: "${v}";`);
+  }
+  const out = [':root {', ...light, '}'];
+  if (dark.length) {
+    out.push('', '[data-gtr-scheme="dark"] {', ...dark, '}');
+  }
+  return out.join('\n') + '\n';
+}
+
+// 3. Generate TypeScript constants
+function generateTypeScriptTokens() {
+  return `// AUTO-GENERATED from brand-tokens.json — DO NOT EDIT DIRECTLY
+export const brandTokens = ${JSON.stringify(tokens, null, 2)} as const;
+
+export type BrandTokens = typeof brandTokens;
+`;
+}
+
+// 4. Generate Swift Tokens
+function generateSwiftTokens() {
+  const colorCases = [];
+  for (const [k, v] of Object.entries(tokens.color.brand)) {
+    colorCases.push(`    public static let brand_${k} = "${v}"`);
+  }
+  for (const [k, v] of Object.entries(tokens.color.status)) {
+    colorCases.push(`    public static let status_${k} = "${v}"`);
+  }
+  colorCases.push(`    public static let neutral_canvas = "${tokens.color.neutral.canvas}"`);
+  colorCases.push(`    public static let neutral_surface = "${tokens.color.neutral.surface}"`);
+
+  return `// AUTO-GENERATED from brand-tokens.json — DO NOT EDIT DIRECTLY
+import Foundation
+
+public enum GtrTokens {
+    public enum ColorHex {
+${colorCases.join('\n')}
+    }
+}
+`;
+}
+
+// Write outputs
+function run() {
+  // Kotlin output
+  const kotlinOutDir = path.join(REPO_ROOT, 'packages/pos-design/src/main/java/co/zw/nissangtr/pos/design/tokens');
+  fs.mkdirSync(kotlinOutDir, { recursive: true });
+  fs.writeFileSync(path.join(kotlinOutDir, 'PosTokens.kt'), generateKotlinTokens(), 'utf-8');
+  console.log('Generated: packages/pos-design/.../PosTokens.kt');
+
+  // CSS and TS outputs
+  const uiSrcDir = path.join(__dirname, '../src');
+  fs.mkdirSync(uiSrcDir, { recursive: true });
+  fs.writeFileSync(path.join(uiSrcDir, 'tokens.css'), generateCssVariables(), 'utf-8');
+  fs.writeFileSync(path.join(uiSrcDir, 'tokens.ts'), generateTypeScriptTokens(), 'utf-8');
+  console.log('Generated: packages/ui/src/tokens.css & tokens.ts');
+
+  // Swift output
+  const swiftOutDir = path.join(__dirname, '../dist');
+  fs.mkdirSync(swiftOutDir, { recursive: true });
+  fs.writeFileSync(path.join(swiftOutDir, 'Tokens.swift'), generateSwiftTokens(), 'utf-8');
+  console.log('Generated: packages/ui/dist/Tokens.swift');
+}
+
+run();

@@ -239,7 +239,6 @@ def test_stored_dimensions_skip_fallback() -> None:
 
 
 def test_variant_quality_breakdown() -> None:
-    from data_pipeline.megazip.quality import variant_quality_breakdown
 
     bundle = {
         "catalog_variants": [
@@ -495,10 +494,10 @@ def test_self_heal_requeues_missing_cache_and_empty_hub(tmp_path) -> None:
     """
     import sqlite3
 
+    from data_pipeline.megazip import state
     from data_pipeline.megazip.config import MegazipConfig, build_maker_paths
     from data_pipeline.megazip.crawl import self_heal_queue
     from data_pipeline.megazip.parse_html import cache_key
-    from data_pipeline.megazip import state
 
     config = MegazipConfig.load()
     paths = build_maker_paths("Nissan", tmp_path, config)
@@ -556,10 +555,10 @@ def test_self_heal_requeues_missing_cache_and_empty_hub(tmp_path) -> None:
 
 
 def test_prune_model_html_cache_requires_parsed(tmp_path) -> None:
+    from data_pipeline.megazip import state
     from data_pipeline.megazip.config import MegazipConfig, build_maker_paths
     from data_pipeline.megazip.crawl import prune_model_html_cache
     from data_pipeline.megazip.parse_html import cache_key
-    from data_pipeline.megazip import state
 
     config = MegazipConfig.load()
     paths = build_maker_paths("Nissan", tmp_path, config)
@@ -670,9 +669,9 @@ def test_worker_leases_exclude_from_main_claim(tmp_path) -> None:
 
 
 def test_prepare_remaining_requeues_non_priority_variants(tmp_path) -> None:
+    from data_pipeline.megazip import state
     from data_pipeline.megazip.config import MegazipConfig, build_maker_paths
     from data_pipeline.megazip.crawl import prepare_remaining_crawl
-    from data_pipeline.megazip import state
 
     paths = build_maker_paths("Nissan", tmp_path, MegazipConfig.load())
     state.init_db(paths.state_db)
@@ -721,8 +720,8 @@ def test_prepare_remaining_requeues_non_priority_variants(tmp_path) -> None:
 
 
 def test_load_visited_deep_chassis(tmp_path) -> None:
-    from data_pipeline.megazip.crawl import load_visited_deep_chassis
     from data_pipeline.megazip import state
+    from data_pipeline.megazip.crawl import load_visited_deep_chassis
 
     db = tmp_path / "q.db"
     state.init_db(db)
@@ -741,8 +740,8 @@ def test_load_visited_deep_chassis(tmp_path) -> None:
 
 def test_transform_attaches_diagram_engine_even_if_diagram_parsed_first(tmp_path) -> None:
     """SQLite insert order must not drop engines (diagram before variant_list)."""
-    from data_pipeline.megazip.config import MegazipConfig, build_maker_paths
     from data_pipeline.megazip import state
+    from data_pipeline.megazip.config import MegazipConfig, build_maker_paths
     from data_pipeline.megazip.transform import build_hierarchy_bundle
 
     paths = build_maker_paths("Toyota", tmp_path, MegazipConfig.load())

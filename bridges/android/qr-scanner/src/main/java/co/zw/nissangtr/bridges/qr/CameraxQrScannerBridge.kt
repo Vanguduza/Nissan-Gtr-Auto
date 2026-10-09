@@ -91,7 +91,9 @@ class CameraxQrScannerBridge(
         cont.resume(QrScanResult(rawValue = raw, scannedAt = at))
     }
 
-    override suspend fun scanOnce(): QrScanResult = withContext(Dispatchers.Main) {
+    override suspend fun scanOnce(): QrScanResult = scanOnce(CameraLens.BACK, null)
+
+    override suspend fun scanOnce(lens: CameraLens, hint: String?): QrScanResult = withContext(Dispatchers.Main) {
         val perm = resolvePermissionStatus()
         if (perm != CameraPermissionStatus.GRANTED) {
             throw SecurityException("Camera permission not granted ($perm)")
@@ -108,7 +110,9 @@ class CameraxQrScannerBridge(
             }
             @Suppress("DEPRECATION")
             activity.startActivityForResult(
-                Intent(activity, QrScanActivity::class.java),
+                Intent(activity, QrScanActivity::class.java)
+                    .putExtra(QrScanActivity.EXTRA_LENS, lens.name)
+                    .apply { if (hint != null) putExtra(QrScanActivity.EXTRA_HINT, hint) },
                 REQUEST_SCAN,
             )
         }

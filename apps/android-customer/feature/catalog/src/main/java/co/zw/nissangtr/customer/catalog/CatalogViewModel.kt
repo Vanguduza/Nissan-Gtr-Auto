@@ -103,7 +103,17 @@ class CatalogViewModel(
             try {
                 _state.update { it.copy(vehicleBusy = true, vehicleError = null) }
                 val rows = useCases.listVehicleMaster()
-                _state.update { it.copy(vehicleRows = rows, vehicleBusy = false) }
+                _state.update {
+                    it.copy(
+                        vehicleRows = rows,
+                        vehicleBusy = false,
+                        vehicleError = if (rows.isEmpty()) {
+                            "No vehicles in the live catalog yet."
+                        } else {
+                            null
+                        },
+                    )
+                }
             } catch (e: Exception) {
                 _state.update {
                     it.copy(
@@ -340,6 +350,25 @@ class CatalogViewModel(
                         message = "Added to cart $cartId · line $lineId",
                     )
                 }
+                onDone()
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(
+                        busy = false,
+                        error = UserFacingErrors.from(e, "Could not add to cart"),
+                    )
+                }
+            }
+        }
+    }
+
+
+    fun quickAddToCart(item: CatalogListItem, onDone: () -> Unit = {}) {
+        viewModelScope.launch {
+            _state.update { it.copy(busy = true, error = null, message = null) }
+            try {
+                useCases.addToCart(item.oem, 1.0)
+                _state.update { it.copy(busy = false, message = "Added to cart") }
                 onDone()
             } catch (e: Exception) {
                 _state.update {

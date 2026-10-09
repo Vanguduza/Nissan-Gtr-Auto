@@ -1,7 +1,6 @@
 import styles from "./whatsapp-cta.module.css";
 
-const wa =
-  process.env.NEXT_PUBLIC_WHATSAPP_E164?.replace(/\D/g, "") || "263770000000";
+const wa = process.env.NEXT_PUBLIC_WHATSAPP_E164?.replace(/\D/g, "") ?? "";
 
 export function WhatsAppCta({
   oem,
@@ -10,6 +9,8 @@ export function WhatsAppCta({
   oem?: string;
   compact?: boolean;
 }) {
+  if (!wa) return null;
+
   const text = oem
     ? `Hi GTR Auto — please confirm fitment for ${oem}`
     : "Hi GTR Auto — I need a parts counter check";

@@ -22,6 +22,24 @@ export function createBrowserClient(
   });
 }
 
+/**
+ * Isolated, non-persisted client for a one-off elevated action (POS manager approval). It never
+ * touches the signed-in cashier's stored session and is discarded after use.
+ */
+export function createEphemeralClient(url: string, anonKey: string): SupabaseClient<Database> {
+  if (!url || !anonKey) {
+    throw new Error("Supabase URL and anon key are required");
+  }
+  return createClient<Database>(url, anonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+      storageKey: `gtr-ephemeral-${Math.random().toString(36).slice(2)}`,
+    },
+  });
+}
+
 /** Admin RPC args — call via `supabase.rpc('assign_staff_role', …)`. */
 export function assignStaffRoleArgs(userId: string, role: Database["public"]["Enums"]["staff_role"]) {
   return { p_user_id: userId, p_role: role } as const;

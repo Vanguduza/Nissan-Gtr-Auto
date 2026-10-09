@@ -1,5 +1,6 @@
 import { StaffNav } from "@/components/staff-nav";
 import { StaffCreditPanel } from "@/components/staff-credit-panel";
+import { StaffSuspensionsPanel } from "@/components/staff-suspensions-panel";
 import { iconSizeMd, iconStroke, Users } from "@/components/icons";
 import styles from "@/components/account.module.css";
 
@@ -18,11 +19,12 @@ export default function StaffCustomerCreditPage() {
             Customer credit
           </h1>
           <p className={styles.pageSubtitle}>
-            Credit limits, balances, and holds for B2B accounts.
+            Credit limits, balances, holds and suspensions for customers who fail to settle.
           </p>
         </header>
         <div className={styles.pageBody}>
           <StaffCreditPanel />
+          <StaffSuspensionsPanel />
         </div>
       </div>
     </div>

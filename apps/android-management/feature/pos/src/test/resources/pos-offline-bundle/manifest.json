@@ -1,0 +1,443 @@
+{
+ "format": "gtr-pos-offline/1",
+ "maker": "nissan",
+ "release": "test-release",
+ "build": "20261002T165506Z",
+ "built_at": "2026-10-02T16:55:06+00:00",
+ "route_buckets": 64,
+ "counts": {
+  "vehicles": 2,
+  "vehicle_shards": 2,
+  "diagrams": 4,
+  "diagram_images": 3
+ },
+ "total_bytes": 3215,
+ "files": [
+  {
+   "path": "pack-0000.bin",
+   "kind": "pack",
+   "bytes": 251,
+   "sha256": "640354dacf7404fba35dbb28ce1977271a0e5afad0121dc778d472f60008e5bf"
+  },
+  {
+   "path": "pack-0001.bin",
+   "kind": "pack",
+   "bytes": 194,
+   "sha256": "bf53045f67093547c088bd76458e1df935fb04e86d661c9f36a9231da7bc282c"
+  },
+  {
+   "path": "pack-0002.bin",
+   "kind": "pack",
+   "bytes": 199,
+   "sha256": "d8cb7d5a3b39d9da18fbfc6d31eaa92b09bf84af6406c5ff20e3e3fd2f454e6a"
+  },
+  {
+   "path": "pack-0003.bin",
+   "kind": "pack",
+   "bytes": 249,
+   "sha256": "736d8f45c3d46c2eb05b479dcb05444d9bde91d041c295e070940da92819e9bd"
+  },
+  {
+   "path": "pack-0004.bin",
+   "kind": "pack",
+   "bytes": 264,
+   "sha256": "005b01ac20d9f0d71cc69ac5c11a414ef719d89af8e52b6f57cd0f741a972e7a"
+  },
+  {
+   "path": "pack-0005.bin",
+   "kind": "pack",
+   "bytes": 262,
+   "sha256": "90bdb7571ad0f6729c27443563a2fee39e496aeba38abbf0a515322968a211a3"
+  },
+  {
+   "path": "vehicles.json.gz",
+   "kind": "vehicles",
+   "bytes": 226,
+   "sha256": "32b8675d93d469e27fec54ccccd2ef97315c73d59d130e16c31b241cf16be36b"
+  },
+  {
+   "path": "routes-00.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-01.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-02.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-03.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-04.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-05.json.gz",
+   "kind": "routes",
+   "bytes": 64,
+   "sha256": "3474114587f3d3b60dbf212f58971921314dec45dc5a97d61bcd7bd094b74174"
+  },
+  {
+   "path": "routes-06.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-07.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-08.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-09.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-10.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-11.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-12.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-13.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-14.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-15.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-16.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-17.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-18.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-19.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-20.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-21.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-22.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-23.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-24.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-25.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-26.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-27.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-28.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-29.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-30.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-31.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-32.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-33.json.gz",
+   "kind": "routes",
+   "bytes": 54,
+   "sha256": "b57dbea6b27dc75ec4e3d106cc20c5b3cc86854a654b2c2f4ebc20a259e77050"
+  },
+  {
+   "path": "routes-34.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-35.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-36.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-37.json.gz",
+   "kind": "routes",
+   "bytes": 62,
+   "sha256": "8694cb9bc6c292fd230e88a86b00443c13a4930e752ca70ca55482ff70f173cc"
+  },
+  {
+   "path": "routes-38.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-39.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-40.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-41.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-42.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-43.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-44.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-45.json.gz",
+   "kind": "routes",
+   "bytes": 70,
+   "sha256": "b77c9943c098f2bbdea4e3defdb48054570c35becd64e78de8926e0389abdb23"
+  },
+  {
+   "path": "routes-46.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-47.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-48.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-49.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-50.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-51.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-52.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-53.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-54.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-55.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-56.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-57.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-58.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-59.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-60.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-61.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-62.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  },
+  {
+   "path": "routes-63.json.gz",
+   "kind": "routes",
+   "bytes": 22,
+   "sha256": "369fc3c72bbdf5d6864d01d0aaec5f89d0de19b0c1a057b3ad326c4cb4d8c800"
+  }
+ ]
+}

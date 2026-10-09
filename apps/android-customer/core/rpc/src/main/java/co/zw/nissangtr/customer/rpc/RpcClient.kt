@@ -121,6 +121,20 @@ interface RpcClient {
 
     suspend fun checkoutCustomerCart(cartId: String): String
 
+    /** Saves pay-on-delivery (or back to [DeliveryPaymentMethod.PREPAY]) on a dispatch cart. */
+    suspend fun setCustomerCartDeliveryPaymentMethod(cartId: String, method: DeliveryPaymentMethod): String =
+        throw UnsupportedOperationException("pay on delivery is not available here")
+
+    /** Null unless the account is suspended for failing to settle (then pay on delivery is refused). */
+    suspend fun getMyAccountSuspension(): AccountSuspension? = null
+
+    /** Codes for my deliveries that are on the way (`get_my_delivery_codes`). */
+    suspend fun getMyDeliveryCodes(): List<DeliveryCode> = emptyList()
+
+    /** Places a pay-on-delivery order (`checkout_customer_cart_v2`); returns the invoice id. */
+    suspend fun checkoutCustomerCartOnDelivery(cartId: String, method: DeliveryPaymentMethod): String =
+        throw UnsupportedOperationException("pay on delivery is not available here")
+
     /** Live: SELECT open storefront cart + lines via PostgREST + RLS. */
     suspend fun getOpenCart(): CartSummary?
 

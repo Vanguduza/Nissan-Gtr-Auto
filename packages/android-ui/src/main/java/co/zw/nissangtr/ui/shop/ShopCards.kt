@@ -7,9 +7,11 @@ package co.zw.nissangtr.ui.shop
  * omitted — host supplies [imageSlot]. Dimensions match KMP ProductBox.
  */
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -205,6 +207,7 @@ fun ShopCircleBadge(
 }
 
 /** Compact bordered list row (wishlist / history). */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ShopListCard(
     title: String,
@@ -214,11 +217,22 @@ fun ShopListCard(
     leading: @Composable (() -> Unit)? = null,
     trailing: @Composable (() -> Unit)? = null,
     badges: @Composable (RowScope.() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
+    onLongClickLabel: String? = null,
 ) {
+    val interaction = if (onLongClick == null) {
+        Modifier.clickable(onClick = onClick)
+    } else {
+        Modifier.combinedClickable(
+            onClick = onClick,
+            onLongClick = onLongClick,
+            onLongClickLabel = onLongClickLabel,
+        )
+    }
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .then(interaction),
         shape = MaterialTheme.shapes.small,
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 1.dp,

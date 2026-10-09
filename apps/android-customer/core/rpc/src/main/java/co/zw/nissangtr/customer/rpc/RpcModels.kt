@@ -12,6 +12,26 @@ enum class FulfillmentMode(val rpcValue: String) {
     DISPATCH("dispatch"),
 }
 
+/** Mirrors `public.delivery_payment_method`: pay-on-delivery is for dispatch orders only. */
+enum class DeliveryPaymentMethod(val rpcValue: String) {
+    PREPAY("prepay"),
+    CASH_ON_DELIVERY("cash_on_delivery"),
+    CARD_ON_DELIVERY("card_on_delivery"),
+    CASH_OR_CARD_ON_DELIVERY("cash_or_card_on_delivery"),
+}
+
+/** The signed-in customer's suspension for failing to settle (`get_my_account_suspension`). */
+data class AccountSuspension(val reason: String, val owed: List<OwedAmount>) {
+    /** "USD 95.00 + ZIG 2400.00": each currency on its own, never added together. */
+    val owedText: String
+        get() = if (owed.isEmpty()) "nothing" else owed.joinToString(" + ") { "%s %.2f".format(it.currency, it.amount) }
+}
+
+data class OwedAmount(val currency: String, val amount: Double)
+
+/** The code the customer gives the driver at the door (also sent by SMS). Only the customer sees it. */
+data class DeliveryCode(val deliveryJobId: String, val invoiceId: String, val code: String, val expiresAt: String)
+
 /** Mirrors `public.contipay_method` (subset used by storefront). */
 enum class ContipayMethod(val rpcValue: String) {
     ECOCASH("ecocash"),

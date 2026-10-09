@@ -40,6 +40,31 @@ export default function StaffHubPage() {
         </header>
         <div className={styles.pageBody}>
           <div className={styles.hubModules}>
+            <section className={styles.hubModule} aria-labelledby="hub-catalog">
+              <div className={styles.hubModuleHead}>
+                <span className={styles.hubModuleIcon} aria-hidden>
+                  <LayoutGrid size={iconSizeSm} strokeWidth={iconStroke} />
+                </span>
+                <h2 id="hub-catalog" className={styles.hubModuleTitle}>
+                  Catalog / EPC
+                </h2>
+                <span className={styles.hubModuleIconAccent} aria-hidden />
+              </div>
+              <div className={styles.cardGrid}>
+                <Link href="/staff/catalog" className={styles.card}>
+                  <span className={styles.cardIcon} aria-hidden>
+                    <LayoutGrid size={iconSizeMd} strokeWidth={iconStroke} />
+                  </span>
+                  <span className={styles.cardCopy}>
+                    <span className={styles.cardLabel}>Live Nissan EPC browser</span>
+                  </span>
+                  <span className={styles.cardArrow} aria-hidden>
+                    <ArrowRight size={iconSizeSm} strokeWidth={iconStroke} />
+                  </span>
+                </Link>
+              </div>
+            </section>
+
             {modules.map((mod) => {
               const ModIcon = staffNavIconForModule(mod);
               return (

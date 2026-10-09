@@ -77,6 +77,8 @@ class FakeRpcClient : RpcClient {
     private val cartLines = mutableMapOf<String, MutableList<PosCartLineSummary>>()
     /** cartId → customer_id */
     private val cartCustomers = mutableMapOf<String, String>()
+    /** cartId → immutable sale vehicle context. */
+    private val cartVehicles = mutableMapOf<String, PosSaleVehicleSelection>()
     /** pairing_code → (sessionId, cartId) */
     private val openScanSessions = mutableMapOf<String, Pair<String, String>>()
     private val claimedSessions = mutableSetOf<String>()
@@ -216,9 +218,31 @@ class FakeRpcClient : RpcClient {
         ),
     )
 
+    private val popularPins = mutableListOf<PosPopularPin>()
+
     private val customers = mutableListOf(
-        CustomerOption(id = FAKE_CUSTOMER_ID, displayName = "Acme Motors (B2B)"),
-        CustomerOption(id = FAKE_CUSTOMER_USER_ID, displayName = "Walk-in Sample"),
+        CustomerOption(
+            id = FAKE_CUSTOMER_ID,
+            displayName = "Tendai Moyo",
+            kind = PosCustomerKind.BUSINESS,
+            businessName = "Acme Motors",
+            email = "accounts@acme.test",
+            phoneE164 = "+263771000001",
+            whatsappE164 = "+263771000001",
+        ),
+        CustomerOption(
+            id = FAKE_CUSTOMER_USER_ID,
+            displayName = "Walk-in Sample",
+            email = "sample@example.test",
+        ),
+    )
+    private val customerGarage = mutableListOf(
+        CustomerGarageVehicle(
+            id = "00000000-0000-0000-0000-000000000191",
+            customerId = FAKE_CUSTOMER_ID,
+            make = "Nissan", modelSlug = "gt-r", model = "GT-R", generation = "R35",
+            chassisCode = "R35", engine = "VR38DETT", isPrimary = true,
+        ),
     )
 
     private val customerCredit = mutableMapOf(
@@ -386,11 +410,22 @@ class FakeRpcClient : RpcClient {
                 customerId = UUID.nameUUIDFromBytes("cust:${email ?: wa}".toByteArray()).toString()
             }
         }
+        val sold = cartLines[cartId].orEmpty().map { it.stockItemId }.toSet()
         openCarts.remove(cartId)
         cartLines.remove(cartId)
         cartCustomers.remove(cartId)
+        val invoiceId = UUID.randomUUID().toString()
+        // A posted sale makes its holds ready with the invoice (server trigger `sync_pos_fulfillment_invoice`).
+        fakeFulfillment.replaceAll {
+            if (it.cartId == cartId && it.status == "reserved" && it.kind in setOf("customer_collection", "alternate_pickup")) {
+                it.copy(status = "ready", invoiceId = invoiceId, readyAt = java.time.Instant.now().toString(), expiresAt = null)
+            } else if (it.cartId == cartId && it.kind == "backorder" && it.invoiceId == null && it.status in setOf("requested", "ready") && it.stockItemId in sold) {
+                // A back-order sold on this sale gets its invoice when the part is on it.
+                it.copy(status = "ready", invoiceId = invoiceId, readyAt = it.readyAt ?: java.time.Instant.now().toString())
+            } else it
+        }
         return CheckoutPosResult(
-            invoiceId = UUID.randomUUID().toString(),
+            invoiceId = invoiceId,
             customerId = customerId,
             receiptEmail = email,
             receiptWhatsappE164 = wa,
@@ -464,6 +499,31 @@ class FakeRpcClient : RpcClient {
         )
         return CatalogSearchResult(mode = mode, query = q, parts = parts)
     }
+
+    override suspend fun searchCatalogForVehicle(
+        vehicle: PosSaleVehicleSelection,
+        query: String,
+        limit: Int,
+    ): CatalogSearchResult {
+        val base = searchCatalog(CatalogSearchMode.PART, query)
+        return base.copy(
+            parts = base.parts.take(limit.coerceIn(1, 100)).map {
+                it.copy(chassisCode = vehicle.chassisCode, engineCode = vehicle.engineCode)
+            },
+        )
+    }
+
+    override suspend fun setPosCartVehicle(
+        cartId: String,
+        vehicle: PosSaleVehicleSelection?,
+    ): String {
+        require(cartId in openCarts) { "open cart required" }
+        if (vehicle == null) cartVehicles.remove(cartId) else cartVehicles[cartId] = vehicle
+        return cartId
+    }
+
+    override suspend fun getPosCartVehicle(cartId: String): PosSaleVehicleSelection? =
+        cartVehicles[cartId]
 
     override suspend fun setPosCartLineQty(lineId: String, qty: Double, unitPrice: Double) {
         require(lineId.isNotBlank()) { "lineId required" }
@@ -545,6 +605,12 @@ class FakeRpcClient : RpcClient {
         openScanSessions.values.firstOrNull { it.first == sessionId }?.let { return it.second }
         // After claim the open map entry is gone — track claimed cart via reverse lookup from create
         return claimedSessionCarts[sessionId]
+    }
+
+    override suspend fun getPosScanSessionStatus(sessionId: String): String? = when {
+        openScanSessions.values.any { it.first == sessionId } -> "open"
+        sessionId in claimedSessions -> "claimed"
+        else -> "revoked"
     }
 
     private val parkedCarts = mutableSetOf<String>()
@@ -680,6 +746,105 @@ class FakeRpcClient : RpcClient {
         quotations
             .filter { status.isNullOrBlank() || it.status.equals(status, ignoreCase = true) }
             .take(limit.coerceIn(1, 200))
+
+    override suspend fun listPosPopularSpares(
+        days: Int,
+        limit: Int,
+    ): List<PopularPosSpare> = listOf(
+        PopularPosSpare(
+            stockItemId = FAKE_STOCK_ITEM_ID,
+            oemPartNumber = "P2-POS-SMOKE-001",
+            description = "Oil filter",
+            unitsSold = 42.0,
+            saleableQty = 18.0,
+            unitPrice = 25.0,
+            currency = CurrencyCode.USD,
+        ),
+        PopularPosSpare(
+            stockItemId = "00000000-0000-4000-8000-0000000000b2",
+            oemPartNumber = "FAKE-PAD-001",
+            description = "Front brake pad set",
+            unitsSold = 31.0,
+            saleableQty = 7.0,
+            unitPrice = 85.0,
+            currency = CurrencyCode.USD,
+        ),
+    ).take(limit.coerceIn(1, 24))
+
+    private val hiddenBestsellers = linkedSetOf<String>()
+
+    override suspend fun hydratePosParts(oemPartNumbers: List<String>): List<PosPartMeta> =
+        oemPartNumbers.map { it.trim() }.filter { it.isNotEmpty() }.distinct().map { oem ->
+            val ref = lookupStockItemByOem(oem)
+            PosPartMeta(
+                stockItemId = ref.stockItemId,
+                uomId = ref.uomId,
+                oemPartNumber = oem,
+                description = null,
+                unitPrice = 10.0 + (oem.hashCode().toLong().and(0xFFFF) % 9000) / 100.0,
+                currency = CurrencyCode.USD,
+                saleableQty = (oem.hashCode().toLong().and(0xFF) % 40).toDouble(),
+                imageUrl = null,
+            )
+        }
+
+    override suspend fun listPosHiddenBestsellers(): List<String> = hiddenBestsellers.toList()
+
+    override suspend fun hidePosBestseller(stockItemId: String): Boolean = hiddenBestsellers.add(stockItemId) || true
+
+    override suspend fun unhidePosBestseller(stockItemId: String): Boolean = hiddenBestsellers.remove(stockItemId)
+
+    override suspend fun currentStaffDisplayName(): String = "Fake Operator"
+
+    override suspend fun listPosParkedCarts(limit: Int): List<PosParkedCart> =
+        parkedCarts.take(limit).map { id ->
+            val lines = cartLines[id].orEmpty()
+            PosParkedCart(
+                id = id,
+                documentNumber = "PARK-${id.take(6)}",
+                updatedAt = null,
+                currency = CurrencyCode.USD,
+                total = lines.sumOf { it.lineTotal },
+                lineCount = lines.size,
+            )
+        }
+
+    override suspend fun salesInvoiceDocumentNumber(invoiceId: String): String = "INV-FAKE-${invoiceId.take(6)}"
+
+    override suspend fun listPosPopularPins(): List<PosPopularPin> = popularPins.toList()
+
+    override suspend fun upsertPosPopularPin(pin: PosPopularPin): String {
+        popularPins.removeAll { it.kind == pin.kind && it.itemKey == pin.itemKey }
+        popularPins.add(0, pin)
+        while (popularPins.size > 24) popularPins.removeLast()
+        return pin.stableKey
+    }
+
+    override suspend fun deletePosPopularPin(kind: PosPopularItemKind, itemKey: String): Boolean =
+        popularPins.removeAll { it.kind == kind && it.itemKey == itemKey }
+
+    override suspend fun listPosRecentInvoices(
+        query: String?,
+        limit: Int,
+    ): List<PosInvoiceSummary> {
+        val rows = listOf(
+            PosInvoiceSummary(
+                id = "00000000-0000-4000-8000-0000000000i1",
+                documentNumber = "SINV-00001",
+                customerId = null,
+                customerName = "Walk-in",
+                total = 110.0,
+                currency = CurrencyCode.USD,
+                postedAt = "2026-09-07T06:00:00Z",
+            ),
+        )
+        val q = query?.trim()?.lowercase().orEmpty()
+        return rows.filter { row ->
+            q.isBlank() || row.id.lowercase() == q ||
+                row.documentNumber.orEmpty().lowercase().contains(q) ||
+                row.customerName.orEmpty().lowercase().contains(q)
+        }.take(limit.coerceIn(1, 200))
+    }
 
     override suspend fun pullPosOfflineSnapshot(warehouseId: String): OfflinePosSnapshot {
         require(warehouseId.isNotBlank()) { "warehouseId required for ${RpcNames.PULL_POS_OFFLINE_SNAPSHOT}" }
@@ -1242,8 +1407,74 @@ class FakeRpcClient : RpcClient {
         return if (uuidLike) {
             customers.filter { it.id.equals(q, ignoreCase = true) }
         } else {
-            customers.filter { it.displayName.contains(q, ignoreCase = true) }
+            customers.filter { c ->
+                listOfNotNull(c.displayName, c.businessName, c.email, c.phoneE164, c.whatsappE164)
+                    .any { it.contains(q, ignoreCase = true) }
+            }
         }
+    }
+
+    override suspend fun createPosCustomer(
+        kind: PosCustomerKind,
+        displayName: String,
+        businessName: String?,
+        email: String?,
+        phoneE164: String?,
+        whatsappE164: String?,
+    ): String {
+        require(displayName.isNotBlank())
+        val id = UUID.randomUUID().toString()
+        customers += CustomerOption(id, displayName.trim(), kind, businessName, email, phoneE164, whatsappE164)
+        return id
+    }
+
+    override suspend fun updatePosCustomer(
+        customerId: String,
+        kind: PosCustomerKind,
+        displayName: String,
+        businessName: String?,
+        email: String?,
+        phoneE164: String?,
+        whatsappE164: String?,
+    ) {
+        val i = customers.indexOfFirst { it.id == customerId }
+        require(i >= 0) { "customer not found" }
+        customers[i] = CustomerOption(customerId, displayName.trim(), kind, businessName, email, phoneE164, whatsappE164)
+    }
+
+    override suspend fun listPosCustomerGarage(customerId: String): List<CustomerGarageVehicle> =
+        customerGarage.filter { it.customerId == customerId }.sortedByDescending { it.isPrimary }
+
+    override suspend fun upsertPosCustomerGarageVehicle(
+        customerId: String,
+        vehicleId: String?,
+        modelSlug: String,
+        make: String,
+        model: String,
+        generation: String,
+        chassisCode: String,
+        engine: String,
+        vin: String?,
+        isPrimary: Boolean,
+    ): String {
+        require(customers.any { it.id == customerId }) { "customer not found" }
+        val id = vehicleId ?: UUID.randomUUID().toString()
+        if (isPrimary) {
+            for (i in customerGarage.indices) {
+                if (customerGarage[i].customerId == customerId) customerGarage[i] = customerGarage[i].copy(isPrimary = false)
+            }
+        }
+        val row = CustomerGarageVehicle(
+            id, customerId, make, modelSlug, model, generation, chassisCode, engine, vin, isPrimary,
+        )
+        val i = customerGarage.indexOfFirst { it.id == id && it.customerId == customerId }
+        if (i >= 0) customerGarage[i] = row else customerGarage += row
+        return id
+    }
+
+    override suspend fun setPosCartCustomer(cartId: String, customerId: String?) {
+        require(cartId in openCarts) { "open cart required" }
+        if (customerId.isNullOrBlank()) cartCustomers.remove(cartId) else cartCustomers[cartId] = customerId
     }
 
     override suspend fun listSuppliers(): List<SupplierRef> = suppliers.toList()
@@ -1829,6 +2060,9 @@ class FakeRpcClient : RpcClient {
     }
 
     companion object {
+        /** What the demo manager's printed badge QR carries (fake backend only). */
+        const val FAKE_MANAGER_BADGE: String = "GTRMGR1:fake-manager:demo-badge"
+
         const val FAKE_STAFF_USER_ID = "00000000-0000-4000-8000-0000000000a1"
         const val FAKE_CUSTOMER_USER_ID = "00000000-0000-4000-8000-0000000000c1"
         const val FAKE_CUSTOMER_ID = "00000000-0000-4000-8000-0000000000c2"
@@ -1878,4 +2112,802 @@ class FakeRpcClient : RpcClient {
         val dropoffLat: Double?,
         val dropoffLng: Double?,
     )
+
+    // --- POS till sessions (in memory; one operator)
+
+    private val tills = mutableListOf<PosTillSessionRow>()
+    private val tillCash = mutableMapOf<String, Double>()
+
+    private fun replaceTill(row: PosTillSessionRow) {
+        val i = tills.indexOfFirst { it.id == row.id }
+        if (i >= 0) tills[i] = row else tills.add(0, row)
+    }
+
+    override suspend fun getMyOpenPosTillSession(deviceId: String?): PosTillSessionRow? =
+        tills.firstOrNull { it.status == "open" || it.status == "variance_pending" }
+
+    override suspend fun openPosTillSession(warehouseId: String, deviceId: String, openingFloat: Double, currency: CurrencyCode): String {
+        check(getMyOpenPosTillSession(deviceId) == null) { "operator already has an open till" }
+        val id = "till-${tills.size + 1}"
+        replaceTill(
+            PosTillSessionRow(id, warehouseId, deviceId, currency, "fake-operator", openingFloat, "open",
+                null, null, null, null, java.time.OffsetDateTime.now().withNano(0).toString(), null),
+        )
+        tillCash[id] = openingFloat
+        return id
+    }
+
+    override suspend fun recordPosTillCashMovement(sessionId: String, kind: String, amount: Double, reasonCode: String, notes: String?): String {
+        require(amount > 0) { "amount must be > 0" }
+        tillCash[sessionId] = (tillCash[sessionId] ?: 0.0) + if (kind == "cash_in") amount else -amount
+        return "move-${System.nanoTime()}"
+    }
+
+    override suspend fun submitPosTillDenominatedClose(
+        sessionId: String,
+        lines: List<PosDenominationLine>,
+        varianceReasonCode: String?,
+        notes: String?,
+    ): PosTillCloseResult {
+        val row = tills.first { it.id == sessionId && it.status == "open" }
+        val counted = Math.round(lines.sumOf { it.denomination * it.quantity } * 100) / 100.0
+        val expected = Math.round((tillCash[sessionId] ?: 0.0) * 100) / 100.0
+        val variance = Math.round((counted - expected) * 100) / 100.0
+        if (kotlin.math.abs(variance) > 0.009 && varianceReasonCode.isNullOrBlank()) error("variance reason required")
+        val status = if (kotlin.math.abs(variance) > 0.009) "variance_pending" else "closed"
+        replaceTill(row.copy(status = status, expectedCash = expected, countedCash = counted, variance = variance, varianceReasonCode = varianceReasonCode))
+        return PosTillCloseResult(sessionId, expected, counted, variance, status)
+    }
+
+    override suspend fun approvePosTillVariance(sessionId: String, reasonCode: String, notes: String?) {
+        val row = tills.first { it.id == sessionId && it.status == "variance_pending" }
+        replaceTill(row.copy(status = "closed", closedAt = java.time.OffsetDateTime.now().withNano(0).toString()))
+    }
+
+    override suspend fun listPosApprovalReasons(action: String): List<PosApprovalReason> = when (action) {
+        "cash_out" -> listOf(
+            PosApprovalReason("petty_cash", "Petty cash", false),
+            PosApprovalReason("bank_drop", "Bank drop", false),
+            PosApprovalReason("other_cash_out", "Other", true),
+        )
+        "discount_percent" -> listOf(
+            PosApprovalReason("customer_retention", "Customer retention", false),
+            PosApprovalReason("price_match", "Price match", false),
+            PosApprovalReason("damaged_packaging", "Damaged packaging", false),
+        )
+        "price_override_delta_percent" -> listOf(
+            PosApprovalReason("supplier_price", "Supplier price change", false),
+            PosApprovalReason("advertised_price", "Advertised price", false),
+            PosApprovalReason("data_correction", "Price data correction", false),
+        )
+        "void_cart" -> listOf(
+            PosApprovalReason("customer_cancelled", "Customer cancelled", false),
+            PosApprovalReason("duplicate_cart", "Duplicate sale", false),
+            PosApprovalReason("pricing_error", "Pricing error", true),
+            PosApprovalReason("operator_error", "Operator error", true),
+        )
+        "refund_full_invoice" -> listOf(
+            PosApprovalReason("wrong_part", "Wrong part", false),
+            PosApprovalReason("customer_changed_mind", "Customer changed mind", false),
+            PosApprovalReason("defective", "Defective", false),
+            PosApprovalReason("manager_exception", "Manager exception", true),
+        )
+        "return_post" -> listOf(
+            PosApprovalReason("wrong_part", "Wrong part", false),
+            PosApprovalReason("customer_changed_mind", "Customer changed mind", false),
+            PosApprovalReason("defective", "Defective", false),
+            PosApprovalReason("fitment_issue", "Does not fit", false),
+        )
+        "core_return" -> listOf(
+            PosApprovalReason("eligible_core", "Eligible core", false),
+            PosApprovalReason("manager_exception", "Manager exception", true),
+        )
+        "till_variance" -> listOf(
+            PosApprovalReason("count_error", "Count error", false),
+            PosApprovalReason("short_change", "Short change given", false),
+            PosApprovalReason("other_variance", "Other", true),
+        )
+        else -> emptyList()
+    }
+
+    override suspend fun listPosHandoverOperators(): List<PosHandoverOperatorRow> = listOf(
+        PosHandoverOperatorRow("fake-operator-2", "E002", "Rudo Moyo"),
+        PosHandoverOperatorRow("fake-operator-3", "E003", "Tendai Ncube"),
+    )
+
+    override suspend fun handoverPosTillSession(sessionId: String, newOperatorUserId: String, notes: String?) {
+        val row = tills.first { it.id == sessionId && it.status == "open" }
+        replaceTill(row.copy(operatorUserId = newOperatorUserId))
+    }
+
+    override suspend fun listPosTillSessions(limit: Int): List<PosTillSessionRow> = tills.take(limit)
+
+    // --- POS approval policies (in memory; same actions as the server)
+
+    private val approvalPolicies = mutableListOf(
+        "cash_out", "core_return", "discount_percent", "price_override_delta_percent", "refund_full_invoice",
+        "return_post", "till_variance", "void_cart", "warranty_decision",
+    ).map { PosApprovalPolicy(it, 0.0, alwaysRequireManager = true, reasonRequired = true, updatedAt = null) }.toMutableList()
+
+    override suspend fun posActionRequiresManager(action: String, value: Double): Boolean =
+        approvalPolicies.firstOrNull { it.action == action }?.let { it.alwaysRequireManager || value > it.thresholdValue } ?: true
+
+    override suspend fun listPosApprovalPolicies(): List<PosApprovalPolicy> = approvalPolicies.toList()
+
+    override suspend fun setPosApprovalPolicy(action: String, thresholdValue: Double, alwaysRequireManager: Boolean, reasonRequired: Boolean) {
+        require(thresholdValue >= 0) { "threshold must be >= 0" }
+        val row = PosApprovalPolicy(action, thresholdValue, alwaysRequireManager, reasonRequired, java.time.OffsetDateTime.now().toString())
+        val i = approvalPolicies.indexOfFirst { it.action == action }
+        if (i >= 0) approvalPolicies[i] = row else approvalPolicies += row
+    }
+
+    // --- POS manager badges (fake: the demo manager's card)
+
+    override suspend fun posBadgeApprove(badge: String, action: String, args: Map<String, Any?>, deviceId: String?): PosBadgeApproval {
+        if (badge.trim() != FAKE_MANAGER_BADGE) return PosBadgeApproval(false, null, "badge not recognised")
+        return runCatching {
+            val notes = args["notes"]?.toString()
+            when (action) {
+                "discount" -> applyPosCartDiscount(args["cart_id"].toString(), args["percent"].toString().toDouble(), notes)
+                "price_override" -> applyPosLinePriceOverride(args["line_id"].toString(), args["unit_price"].toString().toDouble(), notes)
+                "void_sale" -> voidPosCart(args["cart_id"].toString(), notes)
+                "refund" -> postPosRefund(args["invoice_id"].toString(), notes)
+                "cash_out" -> recordPosTillCashMovement(args["session_id"].toString(), args["kind"].toString(), args["amount"].toString().toDouble(), args["reason_code"].toString(), notes)
+                "till_variance" -> approvePosTillVariance(args["session_id"].toString(), args["reason_code"].toString(), notes)
+                "till_handover" -> handoverPosTillSession(args["session_id"].toString(), args["new_operator_user_id"].toString(), notes)
+                "return_post" -> postPosReturnCase(args["return_case_id"].toString())
+                "core_return" -> postPosCoreReturn(
+                    args["invoice_id"].toString(), args["core_line_id"].toString(), args["qty"].toString().toDouble(), args["resolution"].toString(),
+                    args["reason_code"].toString(), args["till_session_id"]?.toString(), notes,
+                )
+                "warranty_approve" -> approvePosWarrantyClaim(
+                    args["claim_id"].toString(),
+                    args["resolution"].toString(),
+                    (args["lines"] as? List<*>)?.map { l -> (l as Map<*, *>).let { it["stock_item_id"].toString() to it["qty"].toString().toDouble() } },
+                    (args["replacement_lines"] as? List<*>)?.map { l ->
+                        (l as Map<*, *>).let { PosReplacementLineInput(it["stock_item_id"].toString(), it["uom_id"].toString(), it["qty"].toString().toDouble()) }
+                    },
+                )
+                "warranty_reject" -> rejectPosWarrantyClaim(args["claim_id"].toString(), args["reason"].toString())
+                "card_refund_begin" -> return PosBadgeApproval(
+                    true, "Demo manager", null,
+                    beginPosCardTerminalRefund(args["invoice_id"].toString(), args["terminal_id"].toString(), args["request_id"].toString()).attemptId,
+                )
+                "card_refund_finish" -> finalizePosCardTerminalRefund(args["attempt_id"].toString(), notes)
+                else -> error("unknown action $action")
+            }
+            PosBadgeApproval(true, "Demo manager", null)
+        }.getOrElse { PosBadgeApproval(false, "Demo manager", it.message) }
+    }
+
+
+    // --- POS reserve-first checkout (in memory). EcoCash approves after a few seconds; a number
+    // ending 0 is declined and one ending 9 never answers (recovery); ContiPay is not set up.
+
+    private data class FakeOrder(
+        val orderId: String,
+        val cartId: String,
+        var state: String,
+        var total: Double,
+        val currency: CurrencyCode,
+        var expiresAt: Long,
+        var provider: String? = null,
+        var intentId: String? = null,
+        var providerStatus: String? = null,
+        var providerFailure: String? = null,
+        var resolveAt: Long = 0,
+        var declines: Boolean = false,
+        var invoiceId: String? = null,
+    )
+    private val fakeOrders = mutableMapOf<String, FakeOrder>()
+    private val fakeSettlements = mutableMapOf<String, String>()
+
+    private fun FakeOrder.tick() {
+        if (state != "payment_processing" || System.currentTimeMillis() < resolveAt) return
+        if (declines) {
+            state = "payment_failed"; providerStatus = "failed"; providerFailure = "Insufficient funds in the wallet."
+        } else {
+            state = "paid"; providerStatus = "settled"
+            invoiceId = "inv-${orderId.takeLast(6)}"
+        }
+    }
+
+    override suspend fun preparePosCommerceCheckout(cartId: String, checkoutRequestId: String, receiptEmail: String?, receiptWhatsappE164: String?): String {
+        fakeOrders.values.firstOrNull { it.cartId == cartId && it.state in setOf("awaiting_payment", "payment_processing", "payment_failed") && it.expiresAt > System.currentTimeMillis() }
+            ?.let { return it.orderId }
+        val lines = cartLines[cartId].orEmpty()
+        require(lines.isNotEmpty()) { "cart has no lines" }
+        val id = "order-${UUID.randomUUID().toString().take(8)}"
+        fakeOrders[id] = FakeOrder(id, cartId, "awaiting_payment", lines.sumOf { it.lineTotal }, CurrencyCode.USD, System.currentTimeMillis() + 20 * 60_000)
+        return id
+    }
+
+    override suspend fun posPaymentStatus(orderId: String): PosPaymentStatus {
+        val o = fakeOrders[orderId] ?: error("commerce order not found")
+        o.tick()
+        return PosPaymentStatus(
+            o.orderId, o.cartId, o.state, o.total, o.currency, java.time.Instant.ofEpochMilli(o.expiresAt).toString(),
+            o.provider, o.intentId, o.providerStatus, o.providerFailure, o.provider.takeIf { o.invoiceId != null }, null, o.invoiceId, null, emptyList(),
+        )
+    }
+
+    override suspend fun settlePosCommerceTenders(orderId: String, paymentRequestId: String, tenders: List<PosTenderLine>): String {
+        fakeSettlements[paymentRequestId]?.let { return it }
+        val o = fakeOrders[orderId] ?: error("commerce order not found")
+        check(o.state == "awaiting_payment" || o.state == "payment_failed") { "manual tenders cannot settle order in state ${o.state}" }
+        check(kotlin.math.abs(tenders.sumOf { it.amount } - o.total) < 0.01) { "manual tenders must equal order total" }
+        val invoice = checkoutPosCartWithTenders(o.cartId, tenders).invoiceId
+        o.state = "paid"; o.invoiceId = invoice
+        fakeSettlements[paymentRequestId] = invoice
+        return invoice
+    }
+
+    override suspend fun posProviderAvailability(provider: String): String? =
+        if (provider == "contipay") "Not set up for this shop yet." else null
+
+    override suspend fun startPosProviderPayment(orderId: String, provider: String, msisdn: String?, method: String?, returnUrl: String): PosProviderStart {
+        val o = fakeOrders[orderId] ?: error("commerce order not found")
+        check(provider != "contipay") { "CONTIPAY_API_KEY / CONTIPAY_MERCHANT_ID required" }
+        val digits = msisdn.orEmpty().filter { it.isDigit() }
+        if (provider == "ecocash") require(Regex("^(263|0)7\\d{8}$").matches(digits)) { "payer_msisdn must normalize to 263XXXXXXXXX" }
+        o.state = "payment_processing"; o.provider = provider; o.intentId = "intent-${UUID.randomUUID().toString().take(6)}"
+        o.providerStatus = "pending"; o.providerFailure = null; o.declines = digits.endsWith("0")
+        o.resolveAt = if (digits.endsWith("9")) Long.MAX_VALUE else System.currentTimeMillis() + 5_000
+        return PosProviderStart(o.intentId!!, if (provider == "paynow") "https://www.paynow.co.zw/payment/demo/${o.intentId}" else null,
+            if (provider == "ecocash") "PIN request sent to $msisdn." else null)
+    }
+
+    override suspend fun cancelPosCommerceCheckout(orderId: String, reason: String) {
+        val o = fakeOrders[orderId] ?: error("commerce order not found")
+        check(o.state != "payment_processing") { "payment is in flight; resolve it from recovery" }
+        check(o.invoiceId == null) { "order already settled" }
+        o.state = "cancelled"
+    }
+
+    override suspend fun checkoutPosCartOnAccount(cartId: String, receiptEmail: String?, receiptWhatsappE164: String?): String {
+        checkNotNull(cartCustomers[cartId]) { "registered customer required for on-account checkout" }
+        val lines = cartLines[cartId].orEmpty()
+        return checkoutPosCartWithTenders(cartId, listOf(PosTenderLine("bank", lines.sumOf { it.lineTotal }))).invoiceId
+    }
+
+    override suspend fun listPosPaymentRecovery(): List<PosRecoveryRow> =
+        fakeOrders.values.onEach { it.tick() }.filter { it.state in setOf("payment_processing", "payment_failed", "allocation_pending") }.map {
+            PosRecoveryRow(it.orderId, it.state, it.total, it.currency, it.provider, null, it.invoiceId, null, java.time.Instant.now().toString(), 0)
+        }
+
+    override suspend fun repairPosPaidOrder(orderId: String, notes: String?): String = error("paid-but-unfinalized commerce order required")
+
+    override suspend fun listPosPickupOrders(query: String?): List<PosPickupRow> =
+        fakeOrders.values.onEach { it.tick() }.filter { it.state == "paid" && it.invoiceId != null }.map {
+            PosPickupRow(it.orderId, it.invoiceId, null, it.state, it.total, it.currency, it.invoiceId, it.provider, java.time.Instant.now().toString())
+        }
+
+    override suspend fun collectPosCommerceOrder(orderId: String, notes: String?) {
+        val o = fakeOrders[orderId] ?: error("eligible pickup order required")
+        check(o.state == "paid") { "eligible pickup order required" }
+        o.state = "delivered"
+    }
+
+    // Part payments: one session per order; cash/bank captured at once (bank needs a reference),
+    // store credit held for the registered customer; the sale posts when the parts cover it.
+    private class FakeSplit(val id: String, val orderId: String) {
+        var status = "open"
+        val legs = mutableListOf<PosSplitLegRow>()
+        val refunds = mutableListOf<PosSplitRefundRow>()
+        var invoiceId: String? = null
+        val keys = mutableSetOf<String>()
+    }
+    private val fakeSplits = mutableMapOf<String, FakeSplit>()
+
+    private fun FakeSplit.view(): PosSplitSession {
+        val o = fakeOrders.getValue(orderId)
+        fun sum(vararg st: String) = legs.filter { it.status in st }.sumOf { it.amount }
+        val captured = sum("captured", "allocated", "refund_review", "refund_pending")
+        val held = sum("held")
+        val locked = captured + held
+        if (status !in setOf("settled", "cancelled", "refunded", "refund_review", "refund_pending")) {
+            status = if (locked + 0.01 >= o.total) "fully_committed" else if (locked > 0) "partially_captured" else "open"
+        }
+        val due = (o.total - locked).coerceAtLeast(0.0)
+        return PosSplitSession(id, orderId, status, o.total, o.currency, captured, held, 0.0, locked, due, due, invoiceId, null, legs.toList(), refunds.toList())
+    }
+
+    private suspend fun FakeSplit.finalize(): PosSplitSession {
+        val v = view()
+        if (v.status != "fully_committed") return v
+        val o = fakeOrders.getValue(orderId)
+        var left = o.total
+        val tenders = mutableListOf<PosTenderLine>()
+        legs.replaceAll { l ->
+            if (l.status != "captured" && l.status != "held") return@replaceAll l
+            val apply = minOf(l.amount, left.coerceAtLeast(0.0)); left -= apply
+            if (apply > 0) tenders += PosTenderLine(l.tender, apply)
+            l.copy(status = if (l.status == "held") "allocated" else l.status, appliedAmount = apply)
+        }
+        invoiceId = checkoutPosCartWithTenders(o.cartId, tenders).invoiceId
+        o.state = "paid"; o.invoiceId = invoiceId
+        status = if (refunds.any { it.status != "settled" && it.status != "cancelled" }) "refund_review" else "settled"
+        return view()
+    }
+
+    override suspend fun findPosSplitPayment(orderId: String): PosSplitSession? = fakeSplits.values.firstOrNull { it.orderId == orderId }?.view()
+
+    override suspend fun startPosSplitPayment(orderId: String): PosSplitSession {
+        val o = fakeOrders[orderId] ?: error("unsettled reserve-first commerce order required")
+        check(o.invoiceId == null && o.state in setOf("awaiting_payment", "payment_processing", "payment_failed")) { "unsettled reserve-first commerce order required" }
+        val sp = fakeSplits.values.firstOrNull { it.orderId == orderId } ?: FakeSplit("split-${UUID.randomUUID().toString().take(8)}", orderId).also { fakeSplits[it.id] = it }
+        o.state = "payment_processing"; o.expiresAt = maxOf(o.expiresAt, System.currentTimeMillis() + 60 * 60_000)
+        return sp.view()
+    }
+
+    override suspend fun getPosSplitPayment(sessionId: String): PosSplitSession = (fakeSplits[sessionId] ?: error("split payment session not found")).view()
+
+    override suspend fun addPosSplitPaymentLeg(sessionId: String, tender: String, amount: Double, requestId: String, externalReference: String?): PosSplitSession {
+        val sp = fakeSplits[sessionId] ?: error("split payment session not found")
+        if (requestId in sp.keys) return sp.view()
+        val v = sp.view()
+        check(v.status !in setOf("settled", "refund_review", "refund_pending", "refunded", "cancelled")) { "split session does not accept new payments in status ${v.status}" }
+        require(amount > 0 && amount <= v.availableToAllocate + 0.01) { "split leg amount must be > 0 and <= available balance ${"%.2f".format(v.availableToAllocate)}" }
+        require(tender != "bank" || !externalReference.isNullOrBlank()) { "bank split payment requires a transfer/reference number" }
+        if (tender == "store_credit") checkNotNull(cartCustomers[fakeOrders.getValue(sp.orderId).cartId]) { "insufficient available store credit after active POS holds" }
+        sp.keys += requestId
+        sp.legs += PosSplitLegRow("leg-${UUID.randomUUID().toString().take(6)}", sp.legs.size + 1, tender, amount,
+            if (tender == "store_credit") "held" else "captured", externalReference, externalReference, null, null, null)
+        return sp.finalize()
+    }
+
+    override suspend fun acceptPosSplitAffordableItems(sessionId: String, items: List<Pair<String, Double>>, notes: String?): PosSplitSession {
+        val sp = fakeSplits[sessionId] ?: error("split payment session not found")
+        val v = sp.view()
+        check(v.locked > 0) { "no locked payment is available for reduced-basket settlement" }
+        val o = fakeOrders.getValue(sp.orderId)
+        val lines = cartLines[o.cartId] ?: error("current operator cart required")
+        val kept = items.map { (id, qty) ->
+            val l = lines.firstOrNull { it.id == id } ?: error("invalid accepted quantity for cart line $id")
+            require(qty > 0 && qty <= l.qty) { "invalid accepted quantity for cart line $id" }
+            l.copy(qty = qty, lineTotal = l.lineTotal / l.qty * qty)
+        }
+        val total = kept.sumOf { it.lineTotal }
+        check(total <= v.locked + 0.01) { "accepted basket total ${"%.2f".format(total)} must be > 0 and <= locked payment ${"%.2f".format(v.locked)}" }
+        lines.clear(); lines.addAll(kept)
+        o.total = total
+        var left = total
+        sp.legs.replaceAll { l ->
+            if (l.status != "captured") return@replaceAll l
+            val apply = minOf(l.amount, left.coerceAtLeast(0.0)); left -= apply
+            val refund = l.amount - apply
+            if (refund > 0.009) sp.refunds += PosSplitRefundRow("refund-${UUID.randomUUID().toString().take(6)}", l.id, "review", refund, "manual_review", null, null, null,
+                notes ?: "Captured surplus after customer accepted reduced basket")
+            l.copy(appliedAmount = apply, refundRequired = refund)
+        }
+        return sp.finalize()
+    }
+
+    override suspend fun requestPosSplitCancellation(sessionId: String, reason: String, feePolicy: String): PosSplitSession {
+        val sp = fakeSplits[sessionId] ?: error("split payment session not found")
+        check(sp.status != "settled") { "settled sale must use the posted invoice return/refund workflow" }
+        sp.legs.replaceAll { l ->
+            when (l.status) {
+                "planned", "failed", "held" -> l.copy(status = "cancelled")
+                "captured" -> {
+                    sp.refunds += PosSplitRefundRow("refund-${UUID.randomUUID().toString().take(6)}", l.id, "review", l.amount, feePolicy, null, null, null, reason)
+                    l.copy(status = "refund_review")
+                }
+                else -> l
+            }
+        }
+        fakeOrders.getValue(sp.orderId).state = "cancelled"
+        sp.status = if (sp.legs.any { it.status == "refund_review" }) "refund_review" else "cancelled"
+        return sp.view()
+    }
+
+    override suspend fun retryPosSplitFinalization(sessionId: String): PosSplitSession = (fakeSplits[sessionId] ?: error("split payment session not found")).finalize()
+
+    override suspend fun listPosSplitPaymentRecovery(): List<PosSplitRecoveryRow> = fakeSplits.values.map { it.view() }
+        .filter { it.status in setOf("partially_captured", "fully_committed", "finalization_failed", "refund_review", "refund_pending") }
+        .map { PosSplitRecoveryRow(null, null, java.time.Instant.now().toString(), it) }
+
+    private fun refundStep(refundId: String, change: (FakeSplit, PosSplitRefundRow) -> PosSplitRefundRow): PosSplitSession {
+        val sp = fakeSplits.values.firstOrNull { s -> s.refunds.any { it.id == refundId } } ?: error("split refund request not found")
+        val i = sp.refunds.indexOfFirst { it.id == refundId }
+        sp.refunds[i] = change(sp, sp.refunds[i])
+        val open = sp.refunds.any { it.status != "settled" && it.status != "cancelled" }
+        sp.status = when {
+            sp.refunds[i].status == "failed" -> "refund_review"
+            sp.refunds[i].status == "pending" -> "refund_pending"
+            open -> "refund_pending"
+            sp.invoiceId != null -> "settled"
+            else -> "refunded"
+        }
+        return sp.view()
+    }
+
+    override suspend fun approvePosSplitRefund(refundId: String, feePolicy: String, customerFee: Double, notes: String?) = refundStep(refundId) { _, r ->
+        check(r.status == "review" || r.status == "failed") { "review/failed refund request required" }
+        require(customerFee == 0.0 || feePolicy == "customer_bears") { "customer fee deduction requires customer_bears policy" }
+        r.copy(status = "pending", feePolicy = feePolicy, netCustomerRefund = r.grossAmount - customerFee)
+    }
+
+    override suspend fun completePosSplitRefund(refundId: String, providerRef: String, notes: String?) = refundStep(refundId) { _, r ->
+        check(r.status in setOf("pending", "review", "failed")) { "refund cannot settle in status ${r.status}" }
+        r.copy(status = "settled", providerRef = providerRef)
+    }
+
+    override suspend fun failPosSplitRefund(refundId: String, reason: String) = refundStep(refundId) { _, r -> r.copy(status = "failed", failureReason = reason) }
+
+    // Card terminal (demo): one simulated card machine; results are trusted as sent (no device signature here).
+    private val fakeTerminal = PosCardTerminalRow(
+        "term-demo", "DEMO-1", "Demo card machine", "Demo bank", "android_intent_v1",
+        mapOf("package_name" to "co.zw.nissangtr.demo.terminal", "purchase_action" to "co.zw.nissangtr.demo.PURCHASE",
+            "reversal_action" to "co.zw.nissangtr.demo.REVERSAL", "status_action" to "co.zw.nissangtr.demo.STATUS"),
+        null, null,
+    )
+    private val fakeAttempts = mutableMapOf<String, PosTerminalAttempt>()
+    private val fakeAttemptKeys = mutableMapOf<String, String>()
+
+    override suspend fun listPosCardTerminals(warehouseId: String?, deviceId: String?) = listOf(fakeTerminal)
+
+    private fun newAttempt(requestId: String, operation: String, orderId: String?, legId: String?, amount: Double): PosTerminalAttempt {
+        fakeAttemptKeys[requestId]?.let { return fakeAttempts.getValue(it) }
+        val id = "att-${UUID.randomUUID().toString().take(8)}"
+        val a = PosTerminalAttempt(
+            id, operation, "initiated", fakeTerminal.id, fakeTerminal.label, fakeTerminal.adapterKey, fakeTerminal.adapterConfig,
+            amount, CurrencyCode.USD, "GTR-CT-${requestId.replace("-", "").take(12)}", null, null, null, null, null, null, orderId, legId, null, null,
+        )
+        fakeAttempts[id] = a; fakeAttemptKeys[requestId] = id
+        return a
+    }
+
+    override suspend fun beginPosCardTerminalPurchase(orderId: String, terminalId: String, requestId: String): PosTerminalAttempt {
+        val o = fakeOrders[orderId] ?: error("unsettled commerce order required")
+        check(o.invoiceId == null) { "unsettled commerce order required" }
+        o.state = "payment_processing"
+        return newAttempt(requestId, "purchase", orderId, null, o.total)
+    }
+
+    override suspend fun beginPosSplitCardTerminalLeg(legId: String, terminalId: String, requestId: String): PosTerminalAttempt {
+        val sp = fakeSplits.values.firstOrNull { s -> s.legs.any { it.id == legId } } ?: error("planned card-terminal split leg required")
+        val leg = sp.legs.first { it.id == legId }
+        check(leg.status == "planned") { "planned card-terminal split leg required" }
+        sp.legs.replaceAll { if (it.id == legId) it.copy(status = "pending") else it }
+        return newAttempt(requestId, "purchase", sp.orderId, legId, leg.amount)
+    }
+
+    override suspend fun getPosCardTerminalAttempt(attemptId: String) = fakeAttempts[attemptId] ?: error("card terminal attempt not found")
+
+    override suspend fun submitCardTerminalEvidence(payloadJson: String, signatureBase64: String): PosTerminalAttempt {
+        val p = kotlinx.serialization.json.Json.parseToJsonElement(payloadJson) as kotlinx.serialization.json.JsonObject
+        fun f(k: String) = (p[k] as? kotlinx.serialization.json.JsonPrimitive)?.takeIf { it.isString }?.content
+        val id = f("attempt_id") ?: error("attempt_id required")
+        val a = fakeAttempts[id] ?: error("card terminal attempt not found")
+        if (a.status == "settled" || a.status == "reversed") return a
+        val outcome = f("outcome") ?: error("invalid terminal outcome")
+        check(!(a.status == "approved" && outcome != "approved")) { "approved terminal result cannot be downgraded; reverse or finalize it" }
+        var next = a.copy(status = outcome, transactionId = f("terminal_transaction_id"), rrn = f("rrn"), authorizationCode = f("authorization_code"),
+            cardLast4 = f("card_last4"), cardScheme = f("card_scheme"), responseMessage = f("response_message"))
+        if (a.operation == "reversal" && outcome == "approved") {
+            a.orderId?.let { oid -> fakeAttempts.values.firstOrNull { it.orderId == oid && it.operation == "purchase" && it.status == "approved" } }
+                ?.let { fakeAttempts[it.attemptId] = it.copy(status = "reversed") }
+            next = next.copy(status = "settled")
+        }
+        if (a.operation == "purchase" && a.splitLegId == null && outcome in setOf("declined", "cancelled", "failed")) {
+            a.orderId?.let { fakeOrders[it]?.state = "payment_failed" }
+        }
+        if (a.splitLegId != null && outcome in setOf("declined", "cancelled", "failed")) {
+            fakeSplits.values.forEach { s -> s.legs.replaceAll { if (it.id == a.splitLegId) it.copy(status = "failed") else it } }
+        }
+        fakeAttempts[id] = next
+        return next
+    }
+
+    override suspend fun finalizePosCardTerminalPurchase(attemptId: String): PosTerminalAttempt {
+        val a = fakeAttempts[attemptId] ?: error("card terminal attempt not found")
+        if (a.status == "settled") return a
+        check(a.status == "approved") { "terminal approval required before finalization" }
+        val settled = if (a.splitLegId != null) {
+            val sp = fakeSplits.values.first { s -> s.legs.any { it.id == a.splitLegId } }
+            sp.legs.replaceAll { if (it.id == a.splitLegId) it.copy(status = "captured", externalReference = a.transactionId) else it }
+            val v = sp.finalize()
+            a.copy(status = "settled", invoiceId = v.finalInvoiceId)
+        } else {
+            val o = fakeOrders[a.orderId] ?: error("order not found")
+            val invoice = checkoutPosCartWithTenders(o.cartId, listOf(PosTenderLine("card_terminal", o.total))).invoiceId
+            o.state = "paid"; o.invoiceId = invoice
+            a.copy(status = "settled", invoiceId = invoice)
+        }
+        fakeAttempts[attemptId] = settled
+        return settled
+    }
+
+    override suspend fun beginPosCardTerminalReversal(purchaseAttemptId: String, requestId: String): PosTerminalAttempt {
+        val p = fakeAttempts[purchaseAttemptId] ?: error("approved, unfinalized purchase attempt required for reversal")
+        check(p.operation == "purchase" && p.status == "approved") { "approved, unfinalized purchase attempt required for reversal" }
+        return newAttempt(requestId, "reversal", p.orderId, null, p.amount)
+    }
+
+    override suspend fun listPosCardTerminalRecovery(): List<PosTerminalRecoveryRow> =
+        fakeAttempts.values.filter { it.status in setOf("initiated", "approved", "unknown") || it.finalizationError != null }.map {
+            PosTerminalRecoveryRow(it.attemptId, it.operation, it.status, it.terminalLabel, it.orderId, it.amount, it.currency, it.externalRef,
+                it.transactionId, it.cardLast4, it.responseMessage, it.finalizationError, java.time.Instant.now().toString())
+        }
+
+    // --- POS returns, cores, warranty and stock (in memory, same rules as the server)
+
+    private val fakeInvoiceId = "00000000-0000-4000-8000-0000000000i1"
+    private val fakeInvoiceLines = mutableListOf(
+        PosInvoiceDetailLine("line-fake-pad", "item-fake-pad", "FAKE-PAD-001", "Front brake pad set", "uom-ea", 2.0, 45.0, 90.0, false, 2.0),
+        PosInvoiceDetailLine("line-fake-core", "item-fake-pad", "FAKE-PAD-001", "Brake caliper core charge", "uom-ea", 1.0, 20.0, 20.0, true, 1.0),
+    )
+    private data class FakeReturnCase(val invoiceId: String, val resolution: String, val lines: List<PosReturnLineInput>, var posted: Boolean = false)
+    private val fakeReturnCases = linkedMapOf<String, FakeReturnCase>()
+    private val fakeCoreBack = mutableMapOf<String, Double>()
+    private val fakeClaims = mutableListOf(
+        PosWarrantyClaimRow(
+            "wc-fake-1", "WAR-00001", "open", null, fakeInvoiceId, "SINV-00001", "item-fake-pad", "FAKE-PAD-001", "PAD-SN-0042",
+            "Squeal after one week", null, null, "2026-09-08T09:00:00Z", null, null,
+        ),
+    )
+    private val fakeRefundInvoice = mutableMapOf<String, String>()
+
+    private fun fakeReturnable(line: PosInvoiceDetailLine): Double =
+        if (line.isCoreCharge) (line.qty - (fakeCoreBack[line.id] ?: 0.0)).coerceAtLeast(0.0)
+        else (line.qty - fakeReturnCases.values.filter { it.posted }.flatMap { it.lines }.filter { it.invoiceLineId == line.id }.sumOf { it.qty }).coerceAtLeast(0.0)
+
+    override suspend fun getPosInvoiceDetail(invoiceId: String): PosInvoiceDetail {
+        check(invoiceId == fakeInvoiceId) { "posted invoice not found" }
+        return PosInvoiceDetail(
+            fakeInvoiceId, "SINV-00001", "cust-fake-1", CurrencyCode.USD, 110.0, 110.0, "2026-09-07T06:00:00Z", null,
+            fakeInvoiceLines.sortedBy { it.isCoreCharge }.map { it.copy(returnableQty = fakeReturnable(it)) },
+        )
+    }
+
+    override suspend fun createPosReturnCase(
+        invoiceId: String,
+        resolution: String,
+        reasonCode: String,
+        lines: List<PosReturnLineInput>,
+        notes: String?,
+        replacementLines: List<PosReplacementLineInput>?,
+        tillSessionId: String?,
+    ): String {
+        check(invoiceId == fakeInvoiceId) { "posted source invoice required" }
+        check(reasonCode.isNotBlank()) { "return reason required" }
+        check(lines.isNotEmpty()) { "at least one return line required" }
+        check(resolution != "replacement" || !replacementLines.isNullOrEmpty()) { "replacement lines required" }
+        lines.forEach { l ->
+            val line = fakeInvoiceLines.firstOrNull { it.id == l.invoiceLineId && !it.isCoreCharge } ?: error("return line must be a non-core line from source invoice")
+            check(l.qty > 0) { "return qty must be > 0" }
+            check(l.qty <= fakeReturnable(line)) { "return qty ${l.qty} exceeds remaining returnable qty ${fakeReturnable(line)}" }
+        }
+        val id = "rc-${UUID.randomUUID().toString().take(8)}"
+        fakeReturnCases[id] = FakeReturnCase(invoiceId, resolution, lines)
+        return id
+    }
+
+    override suspend fun postPosReturnCase(returnCaseId: String) {
+        val c = fakeReturnCases[returnCaseId] ?: error("draft return case required")
+        check(!c.posted) { "draft return case required" }
+        if (c.resolution == "warranty") {
+            check(c.lines.size == 1) { "warranty submission supports one claimed item per case" }
+            fakeClaims.add(0, PosWarrantyClaimRow("wc-${UUID.randomUUID().toString().take(8)}", "WAR-${fakeClaims.size + 1}", "open", null, c.invoiceId, "SINV-00001",
+                "item-fake-pad", "FAKE-PAD-001", null, null, null, null, java.time.Instant.now().toString(), null, null))
+        }
+        c.posted = true
+    }
+
+    override suspend fun postPosCoreReturn(invoiceId: String, coreLineId: String, qty: Double, resolution: String, reasonCode: String, tillSessionId: String?, notes: String?) {
+        val line = fakeInvoiceLines.firstOrNull { it.id == coreLineId && it.isCoreCharge } ?: error("core-charge invoice line required")
+        check(qty > 0) { "core return qty must be > 0" }
+        check(qty <= fakeReturnable(line)) { "core return qty exceeds remaining eligible core qty" }
+        check(reasonCode.isNotBlank()) { "core return reason required" }
+        fakeCoreBack[line.id] = (fakeCoreBack[line.id] ?: 0.0) + qty
+    }
+
+    override suspend fun openPosWarrantyClaim(invoiceId: String, invoiceLineId: String, serialId: String?, notes: String?): String {
+        val line = fakeInvoiceLines.firstOrNull { it.id == invoiceLineId && !it.isCoreCharge } ?: error("non-core source invoice line required")
+        val id = "wc-${UUID.randomUUID().toString().take(8)}"
+        fakeClaims.add(0, PosWarrantyClaimRow(id, "WAR-${fakeClaims.size + 1}", "open", null, invoiceId, "SINV-00001", line.stockItemId, line.oemPartNumber,
+            if (serialId != null) "PAD-SN-0042" else null, notes, null, null, java.time.Instant.now().toString(), null, null))
+        return id
+    }
+
+    override suspend fun findPosWarrantySerial(serialNumber: String): List<PosWarrantySerialRow> =
+        if (serialNumber.trim().equals("PAD-SN-0042", ignoreCase = true)) listOf(PosWarrantySerialRow("ser-fake-1", "PAD-SN-0042", "item-fake-pad", "FAKE-PAD-001", "sold")) else emptyList()
+
+    override suspend fun listPosWarrantyClaims(query: String?, status: String?): List<PosWarrantyClaimRow> {
+        val q = query?.trim()?.lowercase().orEmpty()
+        return fakeClaims.filter { c ->
+            (status == null || c.status == status) &&
+                (q.isBlank() || listOf(c.documentNumber, c.invoiceNumber, c.oemPartNumber, c.serialNumber).any { it.orEmpty().lowercase().contains(q) })
+        }
+    }
+
+    private fun updateClaim(claimId: String, f: (PosWarrantyClaimRow) -> PosWarrantyClaimRow) {
+        val i = fakeClaims.indexOfFirst { it.id == claimId }
+        check(i >= 0) { "warranty claim not found" }
+        fakeClaims[i] = f(fakeClaims[i])
+    }
+
+    override suspend fun approvePosWarrantyClaim(claimId: String, resolution: String, creditLines: List<Pair<String, Double>>?, replacementLines: List<PosReplacementLineInput>?) {
+        check(fakeClaims.firstOrNull { it.id == claimId }?.status == "open") { "open warranty claim required" }
+        check(resolution in setOf("replacement", "credit_note", "return_only")) { "invalid warranty approval resolution" }
+        check(resolution != "replacement" || !replacementLines.isNullOrEmpty()) { "replacement lines required" }
+        updateClaim(claimId) {
+            it.copy(status = "approved", resolution = resolution, creditNoteId = if (resolution == "credit_note") "cn-fake" else null, decidedAt = java.time.Instant.now().toString())
+        }
+    }
+
+    override suspend fun rejectPosWarrantyClaim(claimId: String, reason: String) {
+        check(fakeClaims.firstOrNull { it.id == claimId }?.status == "open") { "open warranty claim required" }
+        check(reason.isNotBlank()) { "reject reason required" }
+        updateClaim(claimId) { it.copy(status = "rejected", resolution = "reject_only", rejectReason = reason.trim(), decidedAt = java.time.Instant.now().toString()) }
+    }
+
+    override suspend fun closeWarrantyClaim(claimId: String) {
+        check(fakeClaims.firstOrNull { it.id == claimId }?.status in setOf("approved", "rejected")) { "decided warranty claim required" }
+        updateClaim(claimId) { it.copy(status = "closed", closedAt = java.time.Instant.now().toString()) }
+    }
+
+    override suspend fun listPosStockAvailability(stockItemId: String): List<PosStockAvailabilityRow> {
+        val seed = stockItemId.sumOf { it.code }
+        return listOf(
+            PosStockAvailabilityRow("wh-main", "MAIN", "Harare main", (seed % 9 + 2).toDouble(), (seed % 2).toDouble(), 0.0, 0.0),
+            PosStockAvailabilityRow("wh-byo", "BYO", "Bulawayo branch", (seed % 4).toDouble(), 0.0, 0.0, if (seed % 3 == 0) 2.0 else 0.0),
+            PosStockAvailabilityRow("wh-mut", "MUT", "Mutare branch", 0.0, 0.0, 0.0, 0.0),
+        ).map { it.copy(available = (it.onHand - it.reserved).coerceAtLeast(0.0)) }
+    }
+
+    override suspend fun beginPosCardTerminalRefund(invoiceId: String, terminalId: String, requestId: String): PosTerminalAttempt {
+        fakeAttemptKeys[requestId]?.let { return fakeAttempts.getValue(it) }
+        val purchase = fakeAttempts.values.firstOrNull { it.operation == "purchase" && it.status == "settled" && it.invoiceId == invoiceId }
+            ?: error("invoice was not fully settled through a card terminal")
+        check(fakeAttempts.values.none { it.operation == "refund" && fakeRefundInvoice[it.attemptId] == invoiceId && it.status in setOf("initiated", "approved", "unknown", "settled") }) {
+            "an existing card terminal refund must be reconciled before another refund"
+        }
+        val a = newAttempt(requestId, "refund", purchase.orderId, null, purchase.amount)
+        fakeRefundInvoice[a.attemptId] = invoiceId
+        return a
+    }
+
+    override suspend fun finalizePosCardTerminalRefund(attemptId: String, notes: String?): PosTerminalAttempt {
+        val a = fakeAttempts[attemptId] ?: error("card terminal attempt not found")
+        if (a.status == "settled") return a
+        check(a.operation == "refund" && a.status == "approved") { "approved card terminal refund required" }
+        val settled = a.copy(status = "settled", invoiceId = fakeRefundInvoice[attemptId])
+        fakeAttempts[attemptId] = settled
+        return settled
+    }
+
+    // --- Approvals (demo: one urgent card payment, one till difference, one web-only requisition)
+
+    override suspend fun listMyApprovals(): List<WaitingApprovalRow> = listOf(
+        WaitingApprovalRow("card_unresolved", "demo-card", "Card payment to reconcile", "Machine gave no answer at Counter 1", true, "2026-10-08T06:50:00Z", 42.0, "USD"),
+        WaitingApprovalRow("till_variance", "demo-till", "Till difference: Rudo", "Counted USD 5.00 short", false, "2026-10-08T06:10:00Z", -5.0, "USD"),
+        WaitingApprovalRow("requisition", "demo-req", "Requisition: shop supplies", "Waiting for your approval", false, "2026-10-07T15:00:00Z", 120.0, "USD"),
+    )
+
+    // --- Payment letters (in memory; the demo manager signs)
+
+    private var fakeProfile = BusinessProfileRow("Nissan GTR Auto", "Nissan GTR Auto", "nissangtrauto.co.zw", "Harare", "Zimbabwe", null, null, null, null, null)
+    private var fakeSignature: ByteArray? = null
+    private val fakeLetters = mutableListOf<PaymentLetterDocument>()
+    private val fakeLetterSource = mutableMapOf<String, Pair<String, String>>()
+
+    override suspend fun listPaymentLetters(sourceKind: String?, sourceId: String?): List<PaymentLetterRow> =
+        fakeLetters.map { it.row }.filter { r -> fakeLetterSource[r.id]?.let { (k, id) -> (sourceKind == null || k == sourceKind) && (sourceId == null || id == sourceId) } ?: false }
+
+    override suspend fun createPaymentLetter(sourceKind: String, sourceId: String, notes: String?): String {
+        checkNotNull(fakeSignature) { "manager profile signature required before issuing a payment-resolution letter" }
+        val attempt = fakeAttempts[sourceId]
+        val id = "letter-${UUID.randomUUID().toString().take(8)}"
+        val row = PaymentLetterRow(
+            id, "PDL-${fakeLetters.size + 1}", sourceKind, if (attempt != null) "card_terminal" else sourceKind, attempt?.status ?: "unknown",
+            attempt?.amount ?: 0.0, CurrencyCode.USD, null, null, "Demo manager", "Shop manager", java.time.Instant.now().toString(),
+        )
+        fakeLetters.add(
+            0,
+            PaymentLetterDocument(
+                row,
+                mapOf(
+                    "external_reference" to attempt?.externalRef, "terminal_transaction_id" to attempt?.transactionId, "card_last4" to attempt?.cardLast4,
+                    "card_scheme" to attempt?.cardScheme, "failure_detail" to (attempt?.finalizationError ?: attempt?.responseMessage),
+                    "manager_employee_code" to "E001", "issue_notes" to notes,
+                ),
+                fakeProfile, fakeSignature, "demo",
+            ),
+        )
+        fakeLetterSource[id] = sourceKind to sourceId
+        return id
+    }
+
+    override suspend fun getPaymentLetter(letterId: String): PaymentLetterDocument =
+        fakeLetters.firstOrNull { it.row.id == letterId }?.copy(business = fakeProfile) ?: error("payment-resolution letter not found")
+
+    override suspend fun getMyManagerSignature() = ManagerSignatureRow("Demo manager", "E001", fakeSignature != null, null, fakeSignature)
+
+    override suspend fun saveMyManagerSignature(png: ByteArray): ManagerSignatureRow {
+        require(png.isNotEmpty()) { "valid PNG/JPEG signature and sha256 required" }
+        fakeSignature = png
+        return getMyManagerSignature()
+    }
+
+    override suspend fun getBusinessDocumentProfile() = fakeProfile
+
+    override suspend fun setBusinessDocumentProfile(profile: BusinessProfileRow): BusinessProfileRow {
+        check(profile.legalName.isNotBlank() && profile.tradingName.isNotBlank() && profile.domain.isNotBlank()) { "legal name, trading name and domain required" }
+        fakeProfile = profile
+        return fakeProfile
+    }
+
+    // --- POS fulfilment (in memory, same rules as the server)
+
+    private val fakeFulfillment = mutableListOf<PosFulfillmentRow>()
+    private val fakeBranches = mapOf("wh-main" to "Harare main", "wh-byo" to "Bulawayo branch", "wh-mut" to "Mutare branch")
+
+    override suspend fun createPosFulfillmentRequest(
+        kind: String,
+        stockItemId: String,
+        qty: Double,
+        sourceWarehouseId: String?,
+        destinationWarehouseId: String?,
+        customerId: String?,
+        cartId: String?,
+        notes: String?,
+        holdMinutes: Int,
+    ): String {
+        check(qty > 0) { "qty must be > 0" }
+        check(kind != "branch_transfer" || (sourceWarehouseId != null && destinationWarehouseId != null && sourceWarehouseId != destinationWarehouseId)) {
+            "branch transfer requires distinct source and destination warehouses"
+        }
+        check(kind !in setOf("alternate_pickup", "customer_collection") || sourceWarehouseId != null) { "source warehouse required for stock hold" }
+        val id = "pfr-${UUID.randomUUID().toString().take(8)}"
+        fakeFulfillment.add(
+            0,
+            PosFulfillmentRow(
+                id, "PFR-${fakeFulfillment.size + 1}", kind, if (kind == "backorder") "requested" else "reserved", stockItemId, "FAKE-PAD-001", "Front brake pad set", qty,
+                sourceWarehouseId, sourceWarehouseId?.let { fakeBranches[it] ?: it }, destinationWarehouseId, destinationWarehouseId?.let { fakeBranches[it] ?: it },
+                customerId, cartId, null, if (kind == "backorder") null else java.time.Instant.now().plusSeconds(holdMinutes * 60L).toString(), null, null,
+                java.time.Instant.now().toString(),
+            ),
+        )
+        return id
+    }
+
+    override suspend fun listPosFulfillmentRequests(query: String?, status: String?): List<PosFulfillmentRow> {
+        val q = query?.trim()?.lowercase().orEmpty()
+        return fakeFulfillment.filter { (status == null || it.status == status) && (q.isBlank() || "${it.documentNumber} ${it.oemPartNumber}".lowercase().contains(q)) }
+    }
+
+    override suspend fun attachPosFulfillmentToCart(requestId: String, cartId: String) {
+        val i = fakeFulfillment.indexOfFirst { it.id == requestId }
+        val f = fakeFulfillment.getOrNull(i)
+        check(f != null && f.kind == "backorder" && f.status in setOf("requested", "ready") && f.invoiceId == null) { "an open back-order without a sale is required" }
+        check(cartId in openCarts) { "open sale required" }
+        fakeFulfillment[i] = f.copy(cartId = cartId)
+    }
+
+    override suspend fun posFulfillmentStep(requestId: String, step: String, notes: String?) {
+        val i = fakeFulfillment.indexOfFirst { it.id == requestId }
+        check(i >= 0) { "fulfillment request not found" }
+        val f = fakeFulfillment[i]
+        val now = java.time.Instant.now().toString()
+        fakeFulfillment[i] = when (step) {
+            // The fake warehouse posts the transfer at once, which makes it ready.
+            "approve" -> { check(f.kind == "branch_transfer" && f.status == "reserved") { "reserved branch-transfer request required" }; f.copy(status = "ready", readyAt = now) }
+            "ready" -> { check(f.status in setOf("requested", "reserved") && f.kind != "branch_transfer") { "request cannot be marked ready" }; f.copy(status = "ready", readyAt = now) }
+            "collect" -> {
+                check(f.status == "ready") { "ready fulfillment request required" }
+                check(f.invoiceId != null || f.kind == "branch_transfer") { "sale/invoice must be linked before customer collection" }
+                f.copy(status = "collected", collectedAt = now)
+            }
+            "cancel" -> {
+                check(f.status !in setOf("collected", "cancelled", "rejected")) { "active fulfillment request required" }
+                f.copy(status = "cancelled")
+            }
+            else -> error("unknown fulfilment step $step")
+        }
+    }
+
+    override suspend fun registerPosCardTerminalDeviceKey(terminalId: String, deviceId: String, publicKeySpkiBase64: String, keySha256: String) =
+        "key-${keySha256.take(8)}"
 }

@@ -23,13 +23,14 @@ import json
 import logging
 import sqlite3
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
 from data_pipeline.amayama_catalog_auto import (
     ResponseCache,
+    _omit_none,
     decode_from_chassis,
     enrich_hints_with_vin,
     extract_page_vehicle_meta,
@@ -39,7 +40,6 @@ from data_pipeline.amayama_catalog_auto import (
     store_payload,
     transform_raw_records,
     write_bundle,
-    _omit_none,
 )
 from data_pipeline.chassis_discovery import ensure_schema as ensure_unmapped_schema
 from data_pipeline.chassis_discovery import set_discovery_db
@@ -75,7 +75,7 @@ _IDENTITY_HINT_KEYS = (
 
 
 def _utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _digest(url: str) -> str:
@@ -321,11 +321,13 @@ def _context_needs_enrichment(context: dict[str, Any] | None, hints: dict[str, A
         return True
     if hints.get("vin_prefix") and not context.get("vin_prefix"):
         return True
-    if hints.get("chassis_code") and context.get("chassis_code") != hints.get("chassis_code"):
-        # Parts page used model name as chassis — replace with real code
-        if str(context.get("chassis_code") or "").upper() != str(hints["chassis_code"]).upper():
-            return True
-    return False
+    # Parts page used model name as chassis — replace with real code.
+    return bool(
+        hints.get("chassis_code")
+        and context.get("chassis_code") != hints.get("chassis_code")
+        and str(context.get("chassis_code") or "").upper()
+        != str(hints["chassis_code"]).upper()
+    )
 
 
 def backfill_scraped_for_vid(
@@ -483,9 +485,8 @@ def enqueue_new_from_cache(
             if "partsouq.com" not in urlparse(url).netloc.lower():
                 continue
             path = cache_dir / f"{_digest(url)}.html"
-            if not path.exists():
-                if cache.get_text(url) is None:
-                    continue
+            if not path.exists() and cache.get_text(url) is None:
+                continue
             digest = _digest(url)
             row = conn.execute(
                 "SELECT digest, status FROM parse_queue WHERE url = ?", (url,)
@@ -842,7 +843,7 @@ def run_pass(
                     parts += p_count
                 processed += 1
                 since_bundle += 1
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.exception("Parse failed for %s", url)
                 _mark_done(parse_db, url, status="ERROR", error=str(exc)[:500])
                 errors += 1

@@ -245,7 +245,7 @@ export async function loadCatalogProduct(
   const usd = price.data.unitPrice;
   const rate = zigExchangeRate();
   const zig =
-    usd != null && price.data.currency === "USD"
+    usd != null && price.data.currency === "USD" && rate != null
       ? usd * rate
       : price.data.currency === "ZIG"
         ? price.data.unitPrice
@@ -673,7 +673,7 @@ export async function listCatalogProducts(
     const zig =
       price?.currency === "ZIG"
         ? price.unitPrice
-        : usd != null
+        : usd != null && rate != null
           ? usd * rate
           : null;
     const qty = qtyByItem.get(item.id) ?? 0;

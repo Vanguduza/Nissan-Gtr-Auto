@@ -8,13 +8,15 @@
       "types": "./src/index.ts",
       "default": "./src/index.ts"
     },
-    "./brand-tokens.json": "./brand-tokens.json"
+    "./brand-tokens.json": "./brand-tokens.json",
+    "./tokens.css": "./src/tokens.css"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "build": "tsc -p tsconfig.json",
+    "build:tokens": "node ./scripts/build-tokens.mjs",
+    "build": "node ./scripts/build-tokens.mjs && tsc -p tsconfig.json",
     "test": "echo \"no tests yet\"",
-    "lint": "echo \"lint: ui — pending\""
+    "lint": "echo \"lint: ui \u2014 pending\""
   },
   "devDependencies": {
     "typescript": "^5.7.3"

@@ -17,15 +17,17 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.lang.ref.WeakReference
+import java.net.InetSocketAddress
+import java.net.Socket
 import java.util.UUID
 
 /**
- * Android [EscPosPrinterBridge] via classic Bluetooth RFCOMM (SPP).
+ * Android [EscPosPrinterBridge] via Bluetooth RFCOMM (SPP) or Wi-Fi/LAN raw TCP.
  *
  * Set printer MAC with [setPrinterAddress] (persisted) before [connect].
  * Host must [attachActivity] before [requestBluetoothPermission].
  *
- * Sends ESC/POS bytes only — **no Supabase / network**.
+ * Sends ESC/POS bytes directly to the selected printer transport — never through Supabase.
  */
 class BluetoothEscPosPrinterBridge(
     context: Context,
@@ -39,6 +41,9 @@ class BluetoothEscPosPrinterBridge(
     @Volatile
     private var socket: BluetoothSocket? = null
 
+    @Volatile
+    private var networkSocket: Socket? = null
+
     fun attachActivity(activity: Activity) {
         activityRef = WeakReference(activity)
     }
@@ -47,9 +52,34 @@ class BluetoothEscPosPrinterBridge(
         activityRef = null
     }
 
+    override fun selectTransport(transport: PrinterTransport) {
+        prefs.edit().putString(KEY_TRANSPORT, transport.name).apply()
+    }
+
+    override fun getConfiguredTransport(): PrinterTransport =
+        runCatching {
+            PrinterTransport.valueOf(prefs.getString(KEY_TRANSPORT, PrinterTransport.BLUETOOTH.name)!!)
+        }.getOrDefault(PrinterTransport.BLUETOOTH)
+
+    override fun configureNetworkPrinter(host: String, port: Int) {
+        val cleanHost = host.trim()
+        require(cleanHost.isNotEmpty()) { "Printer host required" }
+        require(port in 1..65535) { "Printer port must be 1..65535" }
+        prefs.edit()
+            .putString(KEY_HOST, cleanHost)
+            .putInt(KEY_PORT, port)
+            .putString(KEY_TRANSPORT, PrinterTransport.WIFI.name)
+            .apply()
+    }
+
+    override fun getConfiguredNetworkHost(): String? =
+        prefs.getString(KEY_HOST, null)?.takeIf { it.isNotBlank() }
+
+    override fun getConfiguredNetworkPort(): Int = prefs.getInt(KEY_PORT, DEFAULT_NETWORK_PORT)
+
     /** Persist / update the bonded printer Bluetooth MAC (e.g. `00:11:22:33:44:55`). */
     override fun configurePrinterAddress(macAddress: String) {
-        prefs.edit().putString(KEY_MAC, macAddress.trim()).apply()
+        prefs.edit().putString(KEY_MAC, macAddress.trim()).putString(KEY_TRANSPORT, PrinterTransport.BLUETOOTH.name).apply()
     }
 
     /** @deprecated Prefer [configurePrinterAddress] (contract-aligned). */
@@ -106,28 +136,41 @@ class BluetoothEscPosPrinterBridge(
 
     @SuppressLint("MissingPermission")
     override suspend fun connect() = withContext(Dispatchers.IO) {
-        ensureBluetoothAllowed()
-        val mac = getPrinterAddress()
-            ?: throw IllegalStateException("Printer MAC not set — call setPrinterAddress()")
-        val adapter = bluetoothAdapter()
-            ?: throw IllegalStateException("Bluetooth adapter unavailable")
-        if (!adapter.isEnabled) {
-            throw IllegalStateException("Bluetooth is disabled")
-        }
         disconnectInternal()
-        val device = adapter.getRemoteDevice(mac)
-        val sock = device.createRfcommSocketToServiceRecord(SPP_UUID)
-        adapter.cancelDiscovery()
-        try {
-            sock.connect()
-        } catch (e: IOException) {
-            try {
-                sock.close()
-            } catch (_: IOException) {
+        when (getConfiguredTransport()) {
+            PrinterTransport.BLUETOOTH -> {
+                ensureBluetoothAllowed()
+                val mac = getPrinterAddress()
+                    ?: throw IllegalStateException("Printer Bluetooth MAC not set")
+                val adapter = bluetoothAdapter()
+                    ?: throw IllegalStateException("Bluetooth adapter unavailable")
+                if (!adapter.isEnabled) throw IllegalStateException("Bluetooth is disabled")
+                val device = adapter.getRemoteDevice(mac)
+                val sock = device.createRfcommSocketToServiceRecord(SPP_UUID)
+                adapter.cancelDiscovery()
+                try {
+                    sock.connect()
+                } catch (e: IOException) {
+                    runCatching { sock.close() }
+                    throw IOException("ESC/POS Bluetooth connect failed for $mac", e)
+                }
+                socket = sock
             }
-            throw IOException("ESC/POS connect failed for $mac", e)
+            PrinterTransport.WIFI -> {
+                val host = getConfiguredNetworkHost()
+                    ?: throw IllegalStateException("Printer Wi-Fi host/IP not set")
+                val port = getConfiguredNetworkPort()
+                val sock = Socket()
+                try {
+                    sock.tcpNoDelay = true
+                    sock.connect(InetSocketAddress(host, port), NETWORK_CONNECT_TIMEOUT_MS)
+                } catch (e: IOException) {
+                    runCatching { sock.close() }
+                    throw IOException("ESC/POS Wi-Fi connect failed for $host:$port", e)
+                }
+                networkSocket = sock
+            }
         }
-        socket = sock
     }
 
     override suspend fun disconnect() = withContext(Dispatchers.IO) {
@@ -135,7 +178,10 @@ class BluetoothEscPosPrinterBridge(
     }
 
     override suspend fun isConnected(): Boolean = withContext(Dispatchers.IO) {
-        socket?.isConnected == true
+        when (getConfiguredTransport()) {
+            PrinterTransport.BLUETOOTH -> socket?.isConnected == true
+            PrinterTransport.WIFI -> networkSocket?.let { it.isConnected && !it.isClosed } == true
+        }
     }
 
     override suspend fun printInventoryLabel(job: EscPosPrintJob) {
@@ -151,14 +197,26 @@ class BluetoothEscPosPrinterBridge(
     }
 
     override suspend fun printRaw(bytes: ByteArray) = withContext(Dispatchers.IO) {
-        ensureBluetoothAllowed()
-        val sock = socket
-        if (sock == null || !sock.isConnected) {
-            throw IllegalStateException("Printer not connected — call connect() first")
-        }
         try {
-            sock.outputStream.write(bytes)
-            sock.outputStream.flush()
+            when (getConfiguredTransport()) {
+                PrinterTransport.BLUETOOTH -> {
+                    ensureBluetoothAllowed()
+                    val sock = socket
+                    if (sock == null || !sock.isConnected) {
+                        throw IllegalStateException("Bluetooth printer not connected")
+                    }
+                    sock.outputStream.write(bytes)
+                    sock.outputStream.flush()
+                }
+                PrinterTransport.WIFI -> {
+                    val sock = networkSocket
+                    if (sock == null || !sock.isConnected || sock.isClosed) {
+                        throw IllegalStateException("Wi-Fi printer not connected")
+                    }
+                    sock.getOutputStream().write(bytes)
+                    sock.getOutputStream().flush()
+                }
+            }
         } catch (e: IOException) {
             disconnectInternal()
             throw IOException("ESC/POS write failed", e)
@@ -171,6 +229,11 @@ class BluetoothEscPosPrinterBridge(
         } catch (_: IOException) {
         }
         socket = null
+        try {
+            networkSocket?.close()
+        } catch (_: IOException) {
+        }
+        networkSocket = null
     }
 
     private fun ensureBluetoothAllowed() {
@@ -220,5 +283,10 @@ class BluetoothEscPosPrinterBridge(
             UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
         private const val PREFS = "gtr_escpos_printer"
         private const val KEY_MAC = "printer_mac"
+        private const val KEY_TRANSPORT = "printer_transport"
+        private const val KEY_HOST = "printer_host"
+        private const val KEY_PORT = "printer_port"
+        private const val DEFAULT_NETWORK_PORT = 9100
+        private const val NETWORK_CONNECT_TIMEOUT_MS = 5_000
     }
 }

@@ -26,7 +26,7 @@ import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import urljoin
@@ -150,7 +150,7 @@ def load_makers_file(path: Path) -> tuple[list[str], dict[str, Any]]:
         makers = [str(m).strip() for m in data if str(m).strip()]
         return makers, {"makers": makers}
     if not isinstance(data, dict):
-        raise ValueError(f"Makers file must be a list or object: {path}")
+        raise TypeError(f"Makers file must be a list or object: {path}")
     makers_raw = data.get("makers") or data.get("brands") or []
     makers = [str(m).strip() for m in makers_raw if str(m).strip()]
     if not makers:
@@ -248,7 +248,7 @@ def write_manifest(
 ) -> Path:
     out_root.mkdir(parents=True, exist_ok=True)
     payload: dict[str, Any] = {
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "out_root": str(out_root.as_posix()),
         "makers": entries,
     }
@@ -263,7 +263,7 @@ def write_maker_meta(paths: MakerPaths, **fields: Any) -> Path:
     paths.root.mkdir(parents=True, exist_ok=True)
     payload = {
         **paths.as_manifest_entry(),
-        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(UTC).isoformat(),
         **fields,
     }
     paths.meta_json.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
@@ -283,8 +283,7 @@ def flaresolverr_health_sync(base_url: str = DEFAULT_FLARESOLVERR_HEALTH) -> boo
         return False
 
     base = base_url.rstrip("/")
-    if base.endswith("/v1"):
-        base = base[: -len("/v1")]
+    base = base.removesuffix("/v1")
     try:
         with httpx.Client(timeout=5.0) as client:
             return client.get(f"{base}/health").status_code == 200
@@ -384,7 +383,7 @@ def start_logged_process(
     out_fh = log_path.open("a", encoding="utf-8")
     err_fh = err_path.open("a", encoding="utf-8")
     try:
-        return subprocess.Popen(  # noqa: S603
+        return subprocess.Popen(
             argv,
             cwd=str(cwd),
             stdout=out_fh,
@@ -648,7 +647,7 @@ def run_maker_job(paths: MakerPaths, opts: OrchestratorOptions) -> MakerJobResul
 
     parse_proc: subprocess.Popen[Any] | None = None
     crawl_proc: subprocess.Popen[Any] | None = None
-    write_maker_meta(paths, status="running", started_at=datetime.now(timezone.utc).isoformat())
+    write_maker_meta(paths, status="running", started_at=datetime.now(UTC).isoformat())
     logger.info(
         "[%s] scrape + cache_parse_worker (vid/chassis/vin + catch-up inside watcher) → %s",
         paths.maker,
@@ -684,7 +683,7 @@ def run_maker_job(paths: MakerPaths, opts: OrchestratorOptions) -> MakerJobResul
         terminate_owned(parse_proc, paths.parse_pid)
         parse_proc = None
 
-        once = subprocess.run(  # noqa: S603
+        once = subprocess.run(
             build_parse_once_argv(paths, opts),
             cwd=str(opts.cwd),
             check=False,
@@ -692,7 +691,7 @@ def run_maker_job(paths: MakerPaths, opts: OrchestratorOptions) -> MakerJobResul
         result.parse_final_exit = once.returncode
 
         if opts.transform_after:
-            tr = subprocess.run(  # noqa: S603
+            tr = subprocess.run(
                 build_transform_argv(paths, opts),
                 cwd=str(opts.cwd),
                 check=False,
@@ -710,13 +709,13 @@ def run_maker_job(paths: MakerPaths, opts: OrchestratorOptions) -> MakerJobResul
             crawl_exit=result.crawl_exit,
             parse_final_exit=result.parse_final_exit,
             transform_exit=result.transform_exit,
-            finished_at=datetime.now(timezone.utc).isoformat(),
+            finished_at=datetime.now(UTC).isoformat(),
         )
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         result.error = str(exc)
         result.ok = False
         write_maker_meta(paths, status="error", error=str(exc))
-        logger.exception("[%s] job failed: %s", paths.maker, exc)
+        logger.exception("[%s] job failed", paths.maker)
         # On abort only: stop owned crawl if still running (do not touch unrelated PIDs).
         if crawl_proc is not None and crawl_proc.poll() is None:
             terminate_owned(crawl_proc, paths.crawl_pid)
@@ -736,15 +735,18 @@ def run_orchestrator(opts: OrchestratorOptions) -> int:
         logger.error("No makers selected")
         return 2
 
-    if not opts.skip_flaresolverr_check and not opts.dry_run:
-        if not flaresolverr_health_sync(opts.flaresolverr_health_url):
-            logger.error(
-                "FlareSolverr not healthy at %s — start it first:\n"
-                "  docker compose -f docker-compose.satellites.yml --profile scrape up -d\n"
-                "Or pass --skip-flaresolverr-check (not recommended).",
-                opts.flaresolverr_health_url,
-            )
-            return 3
+    if (
+        not opts.skip_flaresolverr_check
+        and not opts.dry_run
+        and not flaresolverr_health_sync(opts.flaresolverr_health_url)
+    ):
+        logger.error(
+            "FlareSolverr not healthy at %s — start it first:\n"
+            "  docker compose -f docker-compose.satellites.yml --profile scrape up -d\n"
+            "Or pass --skip-flaresolverr-check (not recommended).",
+            opts.flaresolverr_health_url,
+        )
+        return 3
 
     path_list = [build_maker_paths(m, opts.out_root) for m in opts.makers]
     write_manifest(
@@ -800,7 +802,7 @@ def run_orchestrator(opts: OrchestratorOptions) -> int:
         ],
         extra={
             "parallel_makers": opts.parallel_makers,
-            "finished_at": datetime.now(timezone.utc).isoformat(),
+            "finished_at": datetime.now(UTC).isoformat(),
             "ok_count": sum(1 for r in ordered if r.ok),
             "fail_count": sum(1 for r in ordered if not r.ok),
         },

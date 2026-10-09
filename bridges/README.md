@@ -28,6 +28,7 @@ geolocation APIs directly.
 | Review photo (customer) | same local-path shape as POD | Android pod-camera reuse | `bridges/ios/ReviewCamera/` | UIImagePickerController |
 | POD signature | `contracts/pod.ts` → `PodSignatureBridge` | `bridges/android/pod-signature/` | — (no iOS driver app) | Compose Canvas pad |
 | Delivery maps (display) | — (helper) | `bridges/android/maps-nav/` | — | Maps Compose + Directions REST |
+| Card terminal (ECR) | `android/card-terminal` → `CardTerminalBridge` | `bridges/android/card-terminal/` | — | Android intent to the acquirer's terminal app (`android_intent_v1`) + Android Keystore evidence key |
 | Barrel export | `contracts/index.ts` | — | — | — |
 
 ## Android modules
@@ -36,6 +37,7 @@ geolocation APIs directly.
 |---------------|------|--------|
 | `:location-tracker` | `android/location-tracker/` | **Hardened** — FGS + battery cadence (`AUTO`/`MOVING`/`IDLE`) + `GpsPingBuffer` |
 | `:qr-scanner` | `android/qr-scanner/` | Implemented — CameraX + ML Kit |
+| `:card-terminal` | `android/card-terminal/` | Implemented — intent adapter, RSA evidence signing (`gtr-card-terminal-evidence-v1`), simulated machine for the demo backend only. Card data never reaches the app. In kiosk / lock-task mode the acquirer app's package must be allow-listed. |
 | `:escpos-printer` | `android/escpos-printer/` | Implemented — RFCOMM ESC/POS |
 | `:pod-camera` | `android/pod-camera/` | **P0** — CameraX still capture → local JPEG path |
 | `:pod-signature` | `android/pod-signature/` | **P0** — Compose Canvas ink pad → local PNG path |

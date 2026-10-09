@@ -142,3 +142,15 @@ export {
   EPC_CHASSIS_ALIASES,
   epcChassisLookupCodes,
 } from "./catalog-chassis-alias";
+export {
+  RECEIPT_FORMAT_VERSION,
+  RECEIPT_LABELS_EN,
+  THERMAL_COLUMNS,
+  formatReceiptMoney,
+  receiptRows,
+  thermalLines,
+  thermalText,
+  type ReceiptInput,
+  type ReceiptLabels,
+  type ReceiptRow,
+} from "./pos/receipt";

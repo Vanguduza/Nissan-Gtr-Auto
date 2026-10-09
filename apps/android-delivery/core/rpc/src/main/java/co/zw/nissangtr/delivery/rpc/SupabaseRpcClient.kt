@@ -7,6 +7,8 @@ import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.auth.user.UserSession
 import io.github.jan.supabase.createSupabaseClient
+import io.github.jan.supabase.functions.Functions
+import io.github.jan.supabase.functions.functions
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.postgrest
@@ -14,6 +16,8 @@ import io.github.jan.supabase.postgrest.query.Columns
 import io.github.jan.supabase.postgrest.query.Order
 import io.github.jan.supabase.storage.Storage
 import io.github.jan.supabase.storage.storage
+import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -94,19 +98,69 @@ class SupabaseRpcClient(
                 limit(100)
             }
             .decodeList<DeliveryJobRow>()
-            .map { it.toSummary() }
+            .map { row ->
+                val settlement = runCatching { fetchSettlement(row.id) }.getOrNull()
+                val lines = runCatching { fetchLines(row.id) }.getOrElse { emptyList() }
+                row.toSummary(settlement, lines)
+            }
     }
 
     override suspend fun getDeliveryJob(jobId: String): DeliveryJobSummary? {
         require(jobId.isNotBlank())
-        return client.from("delivery_jobs")
+        val row = client.from("delivery_jobs")
             .select(JOB_COLUMNS) {
                 filter { eq("id", jobId) }
                 limit(1)
             }
             .decodeList<DeliveryJobRow>()
             .firstOrNull()
-            ?.toSummary()
+            ?: return null
+        val settlement = runCatching { fetchSettlement(row.id) }.getOrNull()
+        val lines = runCatching { fetchLines(row.id) }.getOrElse { emptyList() }
+        return row.toSummary(settlement, lines)
+    }
+
+    private suspend fun fetchSettlement(jobId: String): DeliveryJobSettlement? {
+        val rows = client.postgrest.rpc(
+            RpcNames.GET_DELIVERY_JOB_SETTLEMENT,
+            buildJsonObject { put("p_delivery_job_id", jobId) },
+        ).decodeList<SettlementRow>()
+        val row = rows.firstOrNull() ?: return null
+        val currency = CurrencyCode.entries.find { it.rpcValue.equals(row.currency, ignoreCase = true) }
+            ?: CurrencyCode.USD
+        return DeliveryJobSettlement(
+            currency = currency,
+            invoiceTotal = row.invoiceTotal,
+            invoiceTotalMinor = row.invoiceTotalMinor,
+            amountPaid = row.amountPaid,
+            amountPaidMinor = row.amountPaidMinor,
+            amountDue = row.amountDue,
+            amountDueMinor = row.amountDueMinor,
+        )
+    }
+
+    private suspend fun fetchLines(jobId: String): List<DeliveryJobLineItem> {
+        val rows = client.postgrest.rpc(
+            RpcNames.GET_DELIVERY_JOB_LINES,
+            buildJsonObject { put("p_delivery_job_id", jobId) },
+        ).decodeList<JobLineRow>()
+        return rows.map { row ->
+            val currency = CurrencyCode.entries.find {
+                it.rpcValue.equals(row.currency, ignoreCase = true)
+            } ?: CurrencyCode.USD
+            DeliveryJobLineItem(
+                lineId = row.lineId ?: "",
+                qty = row.qty ?: 0.0,
+                oemPartNumber = row.oemPartNumber,
+                description = row.description,
+                currency = currency,
+                unitPrice = row.unitPrice,
+                lineTotal = row.lineTotal,
+                unitPriceMinor = row.unitPriceMinor,
+                lineTotalMinor = row.lineTotalMinor,
+                isCoreCharge = row.isCoreCharge ?: false,
+            )
+        }
     }
 
     override suspend fun setDriverPresence(
@@ -355,6 +409,209 @@ class SupabaseRpcClient(
         ).decodeAs<String>()
     }
 
+    // --- Cash and card on delivery
+
+    private fun kotlinx.serialization.json.JsonObject.str(k: String): String? =
+        (this[k] as? kotlinx.serialization.json.JsonPrimitive)?.takeIf { it !is JsonNull }?.content
+    private fun kotlinx.serialization.json.JsonObject.num(k: String): Double? = str(k)?.toDoubleOrNull()
+    private fun kotlinx.serialization.json.JsonObject.bool(k: String): Boolean = str(k) == "true"
+    private fun stringMap(e: kotlinx.serialization.json.JsonElement?): Map<String, String?> =
+        (e as? kotlinx.serialization.json.JsonObject)?.mapValues { (_, v) -> (v as? kotlinx.serialization.json.JsonPrimitive)?.takeIf { it !is JsonNull }?.content } ?: emptyMap()
+
+    private fun attemptFrom(o: kotlinx.serialization.json.JsonObject): DeliveryCardAttempt {
+        val t = o["terminal"] as? kotlinx.serialization.json.JsonObject
+        return DeliveryCardAttempt(
+            attemptId = o.str("attempt_id") ?: error("card attempt missing"),
+            status = o.str("status") ?: "initiated",
+            amount = o.num("amount") ?: 0.0,
+            currency = o.str("currency") ?: "USD",
+            externalRef = o.str("external_ref"),
+            terminalLabel = t?.str("label"),
+            adapterConfig = stringMap(t?.get("adapter_config")),
+            transactionId = o.str("terminal_transaction_id"),
+            cardLast4 = o.str("card_last4"),
+            responseMessage = o.str("response_message"),
+            finalizationError = o.str("finalization_error") ?: o.str("error"),
+        )
+    }
+
+    private suspend fun rpcObject(fn: String, args: kotlinx.serialization.json.JsonObject): kotlinx.serialization.json.JsonObject? =
+        client.postgrest.rpc(fn, args).decodeAs<kotlinx.serialization.json.JsonElement>() as? kotlinx.serialization.json.JsonObject
+
+    override suspend fun getDeliveryPaymentContext(deliveryJobId: String): DeliveryPaymentContext? {
+        val o = try {
+            rpcObject("get_delivery_job_payment_context", buildJsonObject { put("p_delivery_job_id", deliveryJobId) })
+        } catch (e: Exception) {
+            // A stop without an invoice (e.g. a transfer) has nothing to collect.
+            if (e.message?.contains("delivery invoice not found") == true) return null
+            throw e
+        } ?: return null
+        return DeliveryPaymentContext(
+            deliveryJobId = o.str("delivery_job_id") ?: deliveryJobId,
+            invoiceId = o.str("sales_invoice_id").orEmpty(),
+            documentNumber = o.str("document_number"),
+            warehouseId = o.str("warehouse_id"),
+            currency = o.str("currency") ?: "USD",
+            invoiceTotal = o.num("invoice_total") ?: 0.0,
+            amountPaid = o.num("amount_paid") ?: 0.0,
+            amountDue = o.num("amount_due") ?: 0.0,
+            method = o.str("delivery_payment_method") ?: "prepay",
+            mayCollectCash = o.bool("may_collect_cash"),
+            mayCollectCard = o.bool("may_collect_card"),
+        )
+    }
+
+    override suspend fun collectDeliveryCash(deliveryJobId: String, amount: Double, requestId: String, notes: String?): DeliveryCashReceipt {
+        val o = rpcObject(
+            "collect_delivery_cash",
+            buildJsonObject {
+                put("p_delivery_job_id", deliveryJobId)
+                put("p_amount", amount)
+                put("p_request_id", requestId)
+                if (notes == null) put("p_notes", JsonNull) else put("p_notes", notes)
+            },
+        ) ?: error("The cash was not recorded.")
+        return DeliveryCashReceipt(o.str("collection_id").orEmpty(), o.num("amount") ?: amount, o.str("currency") ?: "USD", o.num("balance_due"))
+    }
+
+    override suspend fun listDeliveryCardTerminals(warehouseId: String?, deviceId: String): List<DeliveryCardTerminal> {
+        val e = client.postgrest.rpc(
+            "list_delivery_card_terminals",
+            buildJsonObject {
+                if (warehouseId == null) put("p_warehouse_id", JsonNull) else put("p_warehouse_id", warehouseId)
+                put("p_device_id", deviceId)
+            },
+        ).decodeAs<kotlinx.serialization.json.JsonElement>()
+        return (e as? kotlinx.serialization.json.JsonArray).orEmpty().mapNotNull { x ->
+            val o = x as? kotlinx.serialization.json.JsonObject ?: return@mapNotNull null
+            DeliveryCardTerminal(
+                id = o.str("id") ?: return@mapNotNull null,
+                label = o.str("label") ?: o.str("code").orEmpty(),
+                acquirer = o.str("acquirer_name"),
+                adapterKey = o.str("adapter_key"),
+                adapterConfig = stringMap(o["adapter_config"]),
+                deviceId = o.str("device_id"),
+            )
+        }
+    }
+
+    override suspend fun registerDeliveryCardDeviceKey(terminalId: String, deviceId: String, publicKeySpkiBase64: String, keySha256: String): String =
+        client.postgrest.rpc(
+            "register_delivery_card_terminal_device_key",
+            buildJsonObject {
+                put("p_terminal_id", terminalId)
+                put("p_device_id", deviceId)
+                put("p_public_key_spki_base64", publicKeySpkiBase64)
+                put("p_key_sha256", keySha256)
+            },
+        ).decodeAs<String>()
+
+    override suspend fun beginDeliveryCardPayment(deliveryJobId: String, terminalId: String, deviceId: String, amount: Double, requestId: String) =
+        attemptFrom(
+            rpcObject(
+                "begin_delivery_card_terminal_payment",
+                buildJsonObject {
+                    put("p_delivery_job_id", deliveryJobId)
+                    put("p_terminal_id", terminalId)
+                    put("p_device_id", deviceId)
+                    put("p_amount", amount)
+                    put("p_request_id", requestId)
+                },
+            ) ?: error("The card payment did not start."),
+        )
+
+    override suspend fun getDeliveryCardAttempt(attemptId: String) =
+        attemptFrom(rpcObject("get_pos_card_terminal_attempt", buildJsonObject { put("p_attempt_id", attemptId) }) ?: error("card attempt not found"))
+
+    override suspend fun submitCardTerminalEvidence(payloadJson: String, signatureBase64: String): DeliveryCardAttempt {
+        val body = buildJsonObject {
+            put("payload", kotlinx.serialization.json.Json.parseToJsonElement(payloadJson))
+            put("signature_base64", signatureBase64)
+        }
+        val text = try {
+            client.functions.invoke("card-terminal-result") { setBody(body) }.bodyAsText()
+        } catch (e: io.github.jan.supabase.exceptions.RestException) {
+            val o = runCatching { kotlinx.serialization.json.Json.parseToJsonElement(e.error) as? kotlinx.serialization.json.JsonObject }.getOrNull()
+            throw IllegalStateException(o?.str("error") ?: e.error)
+        }
+        val o = kotlinx.serialization.json.Json.parseToJsonElement(text) as? kotlinx.serialization.json.JsonObject ?: error("The card machine answer was not recorded.")
+        return attemptFrom(o["attempt"] as? kotlinx.serialization.json.JsonObject ?: error(o.str("error") ?: "The card machine answer was not recorded."))
+    }
+
+    override suspend fun finalizeDeliveryCardPayment(attemptId: String) =
+        attemptFrom(rpcObject("finalize_delivery_card_terminal_payment", buildJsonObject { put("p_attempt_id", attemptId) }) ?: error("The card payment was not posted."))
+
+    private fun balanceFrom(o: kotlinx.serialization.json.JsonObject) = DeliveryBalanceApproval(
+        id = o.str("id").orEmpty(),
+        status = o.str("status") ?: "pending",
+        basis = o.str("basis") ?: "back_office",
+        amount = o.num("amount") ?: 0.0,
+        currency = o.str("currency") ?: "USD",
+        reason = o.str("reason").orEmpty(),
+        decidedByName = o.str("decided_by_name"),
+        decisionNote = o.str("decision_note"),
+    )
+
+    override suspend fun requestDeliveryBalanceOnAccount(deliveryJobId: String, reason: String) =
+        balanceFrom(
+            rpcObject("request_delivery_balance_on_account", buildJsonObject { put("p_delivery_job_id", deliveryJobId); put("p_reason", reason) })
+                ?: error("The request was not sent."),
+        )
+
+    override suspend fun getDeliveryBalanceApproval(deliveryJobId: String): DeliveryBalanceApproval? =
+        rpcObject("get_delivery_balance_approval", buildJsonObject { put("p_delivery_job_id", deliveryJobId) })?.let(::balanceFrom)
+
+    override suspend fun getDeliveryCardRecovery(deliveryJobId: String): DeliveryCardAttempt? =
+        rpcObject("get_delivery_card_terminal_recovery", buildJsonObject { put("p_delivery_job_id", deliveryJobId) })?.let(::attemptFrom)
+
+    private fun handinFrom(o: kotlinx.serialization.json.JsonObject) = DriverCashHandin(
+        id = o.str("id").orEmpty(),
+        documentNumber = o.str("document_number"),
+        status = o.str("status") ?: "submitted",
+        currency = o.str("currency") ?: "USD",
+        expectedAmount = o.num("expected_amount") ?: 0.0,
+        declaredAmount = o.num("declared_amount") ?: 0.0,
+        receivedAmount = o.num("received_amount"),
+        variance = o.num("variance"),
+        collectionCount = o.num("collection_count")?.toInt() ?: 0,
+        submittedAt = o.str("submitted_at"),
+        receivedByName = o.str("received_by_name"),
+        reasonCode = o.str("reason_code"),
+    )
+
+    override suspend fun getMyDriverCash(): DriverCash {
+        val o = rpcObject("get_my_driver_cash", buildJsonObject { }) ?: return DriverCash(emptyList(), emptyList())
+        fun list(k: String) = (o[k] as? kotlinx.serialization.json.JsonArray).orEmpty().mapNotNull { it as? kotlinx.serialization.json.JsonObject }
+        return DriverCash(
+            holding = list("holding").map { h ->
+                DriverCashHolding(
+                    currency = h.str("currency") ?: "USD",
+                    amount = h.num("amount") ?: 0.0,
+                    count = h.num("count")?.toInt() ?: 0,
+                    oldestAt = h.str("oldest_at"),
+                    collections = (h["collections"] as? kotlinx.serialization.json.JsonArray).orEmpty().mapNotNull { c ->
+                        val x = c as? kotlinx.serialization.json.JsonObject ?: return@mapNotNull null
+                        DriverCashCollection(x.str("id").orEmpty(), x.num("amount") ?: 0.0, x.str("collected_at"), x.str("job_number"), x.str("invoice_number"))
+                    },
+                )
+            },
+            handins = list("handins").map(::handinFrom),
+            owed = list("owed").map { DriverCashOwed(it.str("currency") ?: "USD", it.num("amount") ?: 0.0) },
+        )
+    }
+
+    override suspend fun submitDriverCashHandin(currency: String, declaredAmount: Double, notes: String?) =
+        handinFrom(
+            rpcObject(
+                "submit_driver_cash_handin",
+                buildJsonObject {
+                    put("p_currency", currency)
+                    put("p_declared_amount", declaredAmount)
+                    if (notes == null) put("p_notes", JsonNull) else put("p_notes", notes)
+                },
+            ) ?: error("The hand-in was not recorded."),
+        )
+
     companion object {
         private val JOB_COLUMNS = Columns.list(
             "id",
@@ -381,6 +638,7 @@ class SupabaseRpcClient(
             ) {
                 install(Auth)
                 install(Postgrest)
+                install(Functions)
                 install(Storage)
             }
             return SupabaseRpcClient(client)
@@ -418,7 +676,10 @@ private data class DeliveryJobRow(
     @SerialName("pod_signature_path") val podSignaturePath: String? = null,
     @SerialName("assignee_user_id") val assigneeUserId: String? = null,
 ) {
-    fun toSummary() = DeliveryJobSummary(
+    fun toSummary(
+        settlement: DeliveryJobSettlement? = null,
+        lineItems: List<DeliveryJobLineItem> = emptyList(),
+    ) = DeliveryJobSummary(
         id = id,
         deliveryNoteId = deliveryNoteId,
         documentNumber = documentNumber,
@@ -434,8 +695,37 @@ private data class DeliveryJobRow(
         podPhotoPath = podPhotoPath,
         podSignaturePath = podSignaturePath,
         assigneeUserId = assigneeUserId,
+        settlement = settlement,
+        lineItems = lineItems,
     )
 }
+
+@Serializable
+private data class SettlementRow(
+    @SerialName("delivery_job_id") val deliveryJobId: String? = null,
+    val currency: String = "USD",
+    @SerialName("invoice_total") val invoiceTotal: Double? = null,
+    @SerialName("amount_paid") val amountPaid: Double? = null,
+    @SerialName("amount_due") val amountDue: Double? = null,
+    @SerialName("invoice_total_minor") val invoiceTotalMinor: Long? = null,
+    @SerialName("amount_paid_minor") val amountPaidMinor: Long? = null,
+    @SerialName("amount_due_minor") val amountDueMinor: Long? = null,
+)
+
+@Serializable
+private data class JobLineRow(
+    @SerialName("delivery_job_id") val deliveryJobId: String? = null,
+    @SerialName("line_id") val lineId: String? = null,
+    val qty: Double? = null,
+    @SerialName("oem_part_number") val oemPartNumber: String? = null,
+    val description: String? = null,
+    val currency: String = "USD",
+    @SerialName("unit_price") val unitPrice: Double? = null,
+    @SerialName("line_total") val lineTotal: Double? = null,
+    @SerialName("unit_price_minor") val unitPriceMinor: Long? = null,
+    @SerialName("line_total_minor") val lineTotalMinor: Long? = null,
+    @SerialName("is_core_charge") val isCoreCharge: Boolean? = null,
+)
 
 @Serializable
 private data class GeofenceRow(

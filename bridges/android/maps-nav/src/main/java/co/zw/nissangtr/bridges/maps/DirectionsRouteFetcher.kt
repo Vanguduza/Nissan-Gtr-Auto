@@ -4,20 +4,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.net.HttpURLConnection
 import java.net.URL
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
 
 /**
- * Fetches a driving route via Google Directions API (HTTP JSON).
- * Requires a Maps/Directions-enabled API key from the host app — never hardcode secrets.
- *
- * Adopt-first: Directions REST + Maps Compose instead of Navigation SDK
- * (Navigation SDK needs a Google enterprise agreement).
- *
- * JSON parsing avoids Android [org.json.JSONObject] so unit tests run on JVM without mocks.
+ * Keyless driving-route client for an OSRM-compatible endpoint.
+ * Defaults to the public OSRM router and can be pointed at a self-hosted service.
  */
 class DirectionsRouteFetcher(
-    private val apiKey: String,
+    private val baseUrl: String = DEFAULT_ROUTING_BASE_URL,
     private val connectTimeoutMs: Int = 12_000,
     private val readTimeoutMs: Int = 12_000,
 ) {
@@ -26,88 +19,100 @@ class DirectionsRouteFetcher(
         destination: MapLatLng,
         waypoints: List<MapLatLng> = emptyList(),
     ): RouteFetchResult = withContext(Dispatchers.IO) {
-        if (apiKey.isBlank()) {
-            return@withContext RouteFetchResult.Failed(
-                "GOOGLE_MAPS_API_KEY missing — set in local.properties",
-            )
-        }
         try {
-            val originStr = "${origin.latitude},${origin.longitude}"
-            val destStr = "${destination.latitude},${destination.longitude}"
-            val wp = if (waypoints.isEmpty()) {
-                ""
-            } else {
-                "&waypoints=" + URLEncoder.encode(
-                    waypoints.joinToString("|") { "${it.latitude},${it.longitude}" },
-                    StandardCharsets.UTF_8.name(),
-                )
-            }
+            val points = listOf(origin) + waypoints + destination
+            val coordinates = points.joinToString(";") { "${it.longitude},${it.latitude}" }
+            val root = baseUrl.trim().trimEnd('/')
             val url = URL(
-                "https://maps.googleapis.com/maps/api/directions/json" +
-                    "?origin=${URLEncoder.encode(originStr, StandardCharsets.UTF_8.name())}" +
-                    "&destination=${URLEncoder.encode(destStr, StandardCharsets.UTF_8.name())}" +
-                    wp +
-                    "&mode=driving" +
-                    "&key=${URLEncoder.encode(apiKey, StandardCharsets.UTF_8.name())}",
+                "$root/$coordinates?overview=full&geometries=geojson&steps=false",
             )
             val conn = (url.openConnection() as HttpURLConnection).apply {
                 connectTimeout = connectTimeoutMs
                 readTimeout = readTimeoutMs
                 requestMethod = "GET"
+                setRequestProperty("Accept", "application/json")
+                setRequestProperty("User-Agent", "NissanGTRAuto-Android/1.0")
             }
+            val status = conn.responseCode
+            val stream = if (status in 200..299) conn.inputStream else conn.errorStream
             val body = try {
-                conn.inputStream.bufferedReader().use { it.readText() }
+                stream?.bufferedReader()?.use { it.readText() }.orEmpty()
             } finally {
                 conn.disconnect()
             }
+            if (status !in 200..299) {
+                return@withContext RouteFetchResult.Failed("Routing HTTP $status")
+            }
             parseDirectionsJson(body)
         } catch (e: Exception) {
-            RouteFetchResult.Failed(e.message ?: "Directions request failed")
+            RouteFetchResult.Failed(e.message ?: "Routing request failed")
         }
     }
 
     companion object {
+        const val DEFAULT_ROUTING_BASE_URL =
+            "https://router.project-osrm.org/route/v1/driving"
+
+        /** Parse OSRM route JSON without adding a JSON dependency to this bridge. */
         fun parseDirectionsJson(body: String): RouteFetchResult {
-            val status = jsonStringField(body, "status") ?: ""
-            if (status != "OK") {
-                val err = jsonStringField(body, "error_message")?.takeIf { it.isNotBlank() }
-                    ?: status.ifBlank { "UNKNOWN" }
-                return RouteFetchResult.Failed("Directions: $err")
+            val code = stringField(body, "code") ?: ""
+            if (code != "Ok") {
+                val message = stringField(body, "message") ?: code.ifBlank { "UNKNOWN" }
+                return RouteFetchResult.Failed("Routing: $message")
             }
-            val encoded = regexGroup(
-                """"overview_polyline"\s*:\s*\{[^}]*"points"\s*:\s*"([^"]+)"""".toRegex(),
-                body,
+            val routesIndex = body.indexOf("\"routes\"")
+            if (routesIndex < 0) return RouteFetchResult.Failed("Routing: routes missing")
+            val routeBody = body.substring(routesIndex)
+            val distance = numberField(routeBody, "distance")?.toInt()
+            val duration = numberField(routeBody, "duration")?.toInt()
+            val geometryIndex = routeBody.indexOf("\"geometry\"")
+            if (geometryIndex < 0) return RouteFetchResult.Failed("Routing: geometry missing")
+            val coordinatesJson = extractArrayAfterKey(routeBody.substring(geometryIndex), "coordinates")
+                ?: return RouteFetchResult.Failed("Routing: coordinates missing")
+            val pairRegex = Regex(
+                """\[\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*]""",
             )
-            if (encoded.isNullOrBlank()) {
-                return RouteFetchResult.Failed("Directions: empty polyline")
-            }
-            val points = PolylineDecoder.decode(encoded)
-            if (points.isEmpty()) {
-                return RouteFetchResult.Failed("Directions: empty polyline")
-            }
-            var distance = 0
-            var duration = 0
-            """"distance"\s*:\s*\{[^}]*"value"\s*:\s*(\d+)""".toRegex()
-                .findAll(body)
-                .forEach { distance += it.groupValues[1].toIntOrNull() ?: 0 }
-            """"duration"\s*:\s*\{[^}]*"value"\s*:\s*(\d+)""".toRegex()
-                .findAll(body)
-                .forEach { duration += it.groupValues[1].toIntOrNull() ?: 0 }
-            val summary = regexGroup(""""summary"\s*:\s*"([^"]*)"""".toRegex(), body)
+            val points = pairRegex.findAll(coordinatesJson).mapNotNull { match ->
+                val lon = match.groupValues[1].toDoubleOrNull()
+                val lat = match.groupValues[2].toDoubleOrNull()
+                if (lat == null || lon == null) null else runCatching { MapLatLng(lat, lon) }.getOrNull()
+            }.toList()
+            if (points.size < 2) return RouteFetchResult.Failed("Routing: empty geometry")
+
             return RouteFetchResult.Ok(
                 DrivingRoute(
                     points = points,
-                    distanceMeters = distance.takeIf { it > 0 },
-                    durationSeconds = duration.takeIf { it > 0 },
-                    summary = summary?.ifBlank { null },
+                    distanceMeters = distance,
+                    durationSeconds = duration,
+                    summary = "OSRM",
                 ),
             )
         }
 
-        private fun jsonStringField(body: String, key: String): String? =
-            regexGroup(""""$key"\s*:\s*"([^"]*)"""".toRegex(), body)
+        private fun stringField(body: String, key: String): String? =
+            Regex(""""${Regex.escape(key)}"\s*:\s*"([^"]*)"""")
+                .find(body)?.groupValues?.getOrNull(1)
 
-        private fun regexGroup(re: Regex, body: String): String? =
-            re.find(body)?.groupValues?.getOrNull(1)
+        private fun numberField(body: String, key: String): Double? =
+            Regex(""""${Regex.escape(key)}"\s*:\s*(-?\d+(?:\.\d+)?)""")
+                .find(body)?.groupValues?.getOrNull(1)?.toDoubleOrNull()
+
+        private fun extractArrayAfterKey(body: String, key: String): String? {
+            val keyIndex = body.indexOf("\"$key\"")
+            if (keyIndex < 0) return null
+            val start = body.indexOf('[', keyIndex)
+            if (start < 0) return null
+            var depth = 0
+            for (i in start until body.length) {
+                when (body[i]) {
+                    '[' -> depth += 1
+                    ']' -> {
+                        depth -= 1
+                        if (depth == 0) return body.substring(start, i + 1)
+                    }
+                }
+            }
+            return null
+        }
     }
 }
