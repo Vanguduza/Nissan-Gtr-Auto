@@ -1,0 +1,39 @@
+{
+  "id": "catcar",
+  "display_name": "CatCar",
+  "engine": "catcar",
+  "base_url": "https://www.catcar.info",
+  "cloudflare": {
+    "mode": "auto",
+    "flaresolverr_url": "http://127.0.0.1:8191/v1"
+  },
+  "paths": {
+    "parts_hub": "/",
+    "maker_hub": "/{maker_slug}/?lang=en",
+    "catalog_prefix": "/",
+    "model": "/{maker_slug}/?lang=en",
+    "variant": "/{maker_slug}/?lang=en&l={variant_slug}",
+    "section": "/{maker_slug}/?lang=en&l={section_slug}",
+    "maker_slug_map": {
+      "Nissan": "nissan",
+      "Toyota": "toyota",
+      "Honda": "honda",
+      "Mazda": "mazda",
+      "Subaru": "subaru",
+      "Mitsubishi": "mitsubishi",
+      "Suzuki": "suzuki",
+      "Lexus": "toyota",
+      "Infiniti": "nissan",
+      "Mercedes": "mercedes",
+      "BMW": "bmw",
+      "Renault": "renault",
+      "Opel": "opel",
+      "Ford": "ford",
+      "Volvo": "volvo"
+    }
+  },
+  "selectors": {
+    "preset": "catcar_v1"
+  },
+  "rate_limit_seconds": 0.45
+}

@@ -8,15 +8,12 @@ export function SiteFooter() {
         <div className={styles.trustInner}>
           <p>
             <strong>Fitment-first</strong>
-            <span>VIN / model scoped parts</span>
           </p>
           <p>
             <strong>Dual currency</strong>
-            <span>Explicit USD · ZiG at checkout</span>
           </p>
           <p>
             <strong>Trade supply</strong>
-            <span>B2B price lists & credit hold</span>
           </p>
           <p>
             <strong>Genuine quality spares</strong>

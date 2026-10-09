@@ -1,0 +1,26 @@
+{
+  "id": "japan_parts",
+  "display_name": "Japan Parts EU",
+  "engine": "japan_parts",
+  "base_url": "https://japan-parts.eu",
+  "cloudflare": {
+    "mode": "auto",
+    "flaresolverr_url": "http://127.0.0.1:8191/v1"
+  },
+  "paths": {
+    "parts_hub": "/",
+    "maker_hub": "/{maker_slug}",
+    "catalog_prefix": "/toyota",
+    "model": "/{maker_slug}/eu/{model_slug}",
+    "variant": "/{maker_slug}/eu/{model_slug}/{variant_slug}",
+    "section": "/{maker_slug}/eu/{model_slug}/{variant_slug}/{section_slug}",
+    "maker_slug_map": {
+      "Toyota": "toyota",
+      "Lexus": "lexus"
+    }
+  },
+  "selectors": {
+    "preset": "japan_parts_v1"
+  },
+  "rate_limit_seconds": 0.5
+}

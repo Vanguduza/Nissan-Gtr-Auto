@@ -79,9 +79,13 @@ export function StaffRfqList() {
   if (status.rfqs.length === 0) {
     return (
       <p className={styles.muted}>
-        No RFQs yet.{" "}
+        No optional RFQs yet.{" "}
         <Link href="/procurement/rfqs/new" className={styles.btnGhost}>
-          Create one
+          Create spot-buy RFQ
+        </Link>
+        {" · "}
+        <Link href="/procurement/orders/new" className={styles.btnGhost}>
+          Preferred-supplier PO
         </Link>
       </p>
     );

@@ -140,7 +140,11 @@ export function PartDetail({
       if (stats.ok) setReviewStats(stats.data);
       if (photos.ok) {
         setPhotoUrls(photos.data);
-        if (!result.data.diagram && photos.data.length > 0) {
+        const staffPhotos = result.data.productImages ?? [];
+        if (
+          !result.data.diagram &&
+          (staffPhotos.length > 0 || photos.data.length > 0)
+        ) {
           setGalleryTab("photo");
         }
       }
@@ -322,9 +326,16 @@ export function PartDetail({
   }
 
   const p = status.product;
+  const productPhotos = p.productImages ?? [];
   const hasDiagram = Boolean(p.diagram?.publicUrl);
-  const hasPhotos = photoUrls.length > 0;
+  const hasProductPhotos = productPhotos.length > 0;
+  const hasReviewPhotos = photoUrls.length > 0;
+  const hasPhotos = hasProductPhotos || hasReviewPhotos;
   const showGalleryTabs = hasDiagram && hasPhotos;
+  const displayPhotos = hasProductPhotos ? productPhotos : photoUrls;
+  const photoHint = hasProductPhotos
+    ? "Product photos"
+    : "Approved customer review photos";
   const fitmentSummary =
     p.fitments.length === 0
       ? null
@@ -366,12 +377,12 @@ export function PartDetail({
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 className={styles.photoHero}
-                src={photoUrls[0]}
-                alt={`Customer photo for ${p.oem}`}
+                src={displayPhotos[0]}
+                alt={`Photo for ${p.oem}`}
               />
-              {photoUrls.length > 1 ? (
+              {displayPhotos.length > 1 ? (
                 <div className={styles.photoThumbs}>
-                  {photoUrls.slice(1, 4).map((url) => (
+                  {displayPhotos.slice(1, 4).map((url) => (
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <img
                       key={url}
@@ -382,17 +393,15 @@ export function PartDetail({
                   ))}
                 </div>
               ) : null}
-              <p className={styles.photoHint}>
-                Approved customer review photos
-              </p>
+              <p className={styles.photoHint}>{photoHint}</p>
             </div>
           ) : (
             <div className={styles.photo}>
               <Images size={28} strokeWidth={iconStroke} aria-hidden />
               <span>No diagram or photo yet</span>
               <span className={styles.photoHint}>
-                FAST diagram when part_fitment.diagram_path is seeded; photos
-                from approved reviews when uploaded.
+                EPC diagram from catalog when seeded; product photos from staff
+                Product pages.
               </span>
             </div>
           )}
@@ -475,7 +484,20 @@ export function PartDetail({
         <StockBadge state={p.stock} />
         <div className={styles.priceRow}>
           {p.usd != null ? (
-            <PriceDual usd={p.usd} zig={p.zig} />
+            <>
+              <PriceDual usd={p.usd} zig={p.zig} />
+              {p.listUsd != null && p.discount && p.discount.kind !== "none" ? (
+                <p className={styles.muted}>
+                  Was USD {p.listUsd.toFixed(2)}
+                  {p.discount.description
+                    ? ` · ${p.discount.description}`
+                    : ""}
+                  {p.discount.kind === "percent"
+                    ? ` (−${p.discount.value}%)`
+                    : ` (−USD ${p.discount.value.toFixed(2)})`}
+                </p>
+              ) : null}
+            </>
           ) : (
             <p className={styles.muted}>Price on request — ask counter.</p>
           )}

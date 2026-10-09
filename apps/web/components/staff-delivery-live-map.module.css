@@ -1,6 +1,13 @@
+/*
+ * B7 responsive recon (screenshots N/A):
+ * - 800px: staff shell collapses nav→stack (account.module.css .shell)
+ * - 640px: geo formGrid → 1 col; map min-height 16rem / height min(50vh, 22rem)
+ * MapLibre remains render SoR; ResizeObserver keeps canvas fill on viewport change.
+ */
 .wrap {
   display: grid;
   gap: 1rem;
+  min-width: 0;
 }
 
 .mapFrame {
@@ -20,6 +27,22 @@
   width: 100%;
   height: 100%;
   min-height: 22rem;
+}
+
+@media (max-width: 640px) {
+  .mapFrame {
+    min-height: 16rem;
+    height: min(50vh, 22rem);
+  }
+
+  .mapCanvas {
+    min-height: 16rem;
+  }
+
+  .statusRow {
+    gap: 0.45rem 0.85rem;
+    font-size: 0.85rem;
+  }
 }
 
 /* MapLibre sizes canvas from container client box — keep fill non-zero. */

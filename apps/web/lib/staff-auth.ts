@@ -8,7 +8,7 @@ export type StaffContext = {
   isStaff: boolean;
   roles: StaffRole[];
   /**
-   * Organogram `hr_roles.module_access` module ids (e.g. `pos`, `finance`).
+   * Organogram `hr_roles.module_access` module ids (e.g. `finance`, `warehouse`).
    * `null` = not loaded / empty → fall back to staff_roles-only nav filter.
    * Admins bypass module gating.
    */
@@ -62,7 +62,7 @@ export type StaffNavModule = {
   href: string;
   /** `"any"` = any authenticated staff (`is_staff`). */
   roles: StaffRole[] | "any";
-  /** Default `?tab=` when path matches and URL has no tab (finance/POS). */
+  /** Default `?tab=` when path matches and URL has no tab (e.g. finance). */
   defaultTab?: string;
   children: StaffNavLeaf[];
 };
@@ -141,8 +141,13 @@ export const STAFF_NAV_TREE: StaffNavEntry[] = [
         roles: ["admin", "warehouse"],
       },
       {
+        href: "/staff/warehouse/master-stock",
+        label: "Master stock",
+        roles: ["admin", "warehouse", "sales", "finance"],
+      },
+      {
         href: "/staff/warehouse/transfers",
-        label: "Transfers",
+        label: "Transfers (WH1→WH2)",
         roles: ["admin", "warehouse"],
       },
       {
@@ -172,20 +177,12 @@ export const STAFF_NAV_TREE: StaffNavEntry[] = [
     id: "finance",
     label: "Finance",
     href: "/staff/finance",
-    defaultTab: "journals",
     roles: ["admin", "finance"],
     children: [
       {
         href: "/staff/finance?tab=accounts",
-        label: "Accounts",
+        label: "Online sales",
         tab: "accounts",
-        exact: true,
-        roles: ["admin", "finance"],
-      },
-      {
-        href: "/staff/finance?tab=statements",
-        label: "Statements",
-        tab: "statements",
         exact: true,
         roles: ["admin", "finance"],
       },
@@ -198,15 +195,8 @@ export const STAFF_NAV_TREE: StaffNavEntry[] = [
       },
       {
         href: "/staff/finance?tab=cash-sales",
-        label: "Cash sales",
+        label: "Cash",
         tab: "cash-sales",
-        exact: true,
-        roles: ["admin", "finance"],
-      },
-      {
-        href: "/staff/finance?tab=online-sales",
-        label: "Online (legacy)",
-        tab: "online-sales",
         exact: true,
         roles: ["admin", "finance"],
       },
@@ -240,7 +230,7 @@ export const STAFF_NAV_TREE: StaffNavEntry[] = [
       },
       {
         href: "/staff/finance?tab=journals",
-        label: "Journals",
+        label: "Manual journals",
         tab: "journals",
         exact: true,
         roles: ["admin", "finance"],
@@ -261,7 +251,7 @@ export const STAFF_NAV_TREE: StaffNavEntry[] = [
       },
       {
         href: "/staff/finance?tab=reports",
-        label: "Reports",
+        label: "Reports & statements",
         tab: "reports",
         exact: true,
         roles: ["admin", "finance"],
@@ -298,6 +288,16 @@ export const STAFF_NAV_TREE: StaffNavEntry[] = [
         href: "/staff/crm/reviews",
         label: "Review moderation",
         roles: ["admin", "sales"],
+      },
+      {
+        href: "/staff/crm/product-pages",
+        label: "Product pages",
+        roles: ["admin", "sales", "warehouse"],
+      },
+      {
+        href: "/staff/crm/kits",
+        label: "Kits",
+        roles: ["admin", "sales", "warehouse"],
       },
     ],
   },
@@ -437,20 +437,20 @@ export const STAFF_NAV_TREE: StaffNavEntry[] = [
         roles: ["admin", "warehouse", "finance"],
       },
       {
-        href: "/procurement/rfqs",
-        label: "RFQs",
-        excludePathPrefix: "/procurement/rfqs/new",
-        roles: ["admin", "warehouse", "finance"],
-      },
-      {
-        href: "/procurement/rfqs/new",
-        label: "New RFQ",
+        href: "/procurement/suppliers",
+        label: "Preferred suppliers",
         exact: true,
         roles: ["admin", "warehouse", "finance"],
       },
       {
-        href: "/procurement/blankets",
-        label: "Blankets",
+        href: "/procurement/orders/new",
+        label: "New PO",
+        exact: true,
+        roles: ["admin", "warehouse", "finance"],
+      },
+      {
+        href: "/procurement/grn",
+        label: "GRN",
         exact: true,
         roles: ["admin", "warehouse", "finance"],
       },
@@ -459,6 +459,24 @@ export const STAFF_NAV_TREE: StaffNavEntry[] = [
         label: "Approvals",
         exact: true,
         roles: ["admin", "finance"],
+      },
+      {
+        href: "/procurement/blankets",
+        label: "Blankets",
+        exact: true,
+        roles: ["admin", "warehouse", "finance"],
+      },
+      {
+        href: "/procurement/rfqs",
+        label: "RFQs (optional)",
+        excludePathPrefix: "/procurement/rfqs/new",
+        roles: ["admin", "warehouse", "finance"],
+      },
+      {
+        href: "/procurement/rfqs/new",
+        label: "New RFQ",
+        exact: true,
+        roles: ["admin", "warehouse", "finance"],
       },
     ],
   },
@@ -496,7 +514,6 @@ export const STAFF_NAV_ITEMS: StaffNavItem[] = (() => {
  */
 export const STAFF_MODULE_ROLES = {
   hub: [] as const satisfies readonly StaffRole[],
-  pos: ["admin", "warehouse", "sales"] as const satisfies readonly StaffRole[],
   warehouse: ["admin", "warehouse"] as const satisfies readonly StaffRole[],
   finance: ["admin", "finance"] as const satisfies readonly StaffRole[],
   logistics: [
@@ -538,6 +555,16 @@ export const STAFF_MODULE_ROLES = {
     "finance",
   ] as const satisfies readonly StaffRole[],
   crmReviews: ["admin", "sales"] as const satisfies readonly StaffRole[],
+  crmProductPages: [
+    "admin",
+    "sales",
+    "warehouse",
+  ] as const satisfies readonly StaffRole[],
+  crmKits: [
+    "admin",
+    "sales",
+    "warehouse",
+  ] as const satisfies readonly StaffRole[],
 } as const;
 
 export type PathAccess =
@@ -568,9 +595,6 @@ export function pathAccessFor(pathname: string): PathAccess {
     return { kind: "roles", roles: ["admin", "finance", "sales", "dispatcher", "warehouse"] };
   }
 
-  if (path === "/staff/pos" || path.startsWith("/staff/pos/")) {
-    return { kind: "roles", roles: ["admin", "warehouse", "sales"] };
-  }
   if (path.startsWith("/staff/warehouse/insights")) {
     return { kind: "roles", roles: ["admin", "warehouse", "finance"] };
   }
@@ -603,6 +627,15 @@ export function pathAccessFor(pathname: string): PathAccess {
     path.startsWith("/staff/logistics/balances/")
   ) {
     return { kind: "roles", roles: ["admin", "dispatcher"] };
+  }
+  if (
+    path === "/staff/crm/product-pages" ||
+    path.startsWith("/staff/crm/product-pages/")
+  ) {
+    return { kind: "roles", roles: ["admin", "sales", "warehouse"] };
+  }
+  if (path === "/staff/crm/kits" || path.startsWith("/staff/crm/kits/")) {
+    return { kind: "roles", roles: ["admin", "sales", "warehouse"] };
   }
   if (
     path === "/staff/logistics/tracking" ||
@@ -783,23 +816,21 @@ export function isStaffNavModuleActive(
   pathname: string,
   searchTab: string | null,
 ): boolean {
+  // Nested module routes (e.g. /staff/finance/transactions/:id).
+  if (
+    mod.href !== "/staff" &&
+    (pathname === mod.href || pathname.startsWith(`${mod.href}/`))
+  ) {
+    if (pathname.startsWith(`${mod.href}/`)) return true;
+  }
   return mod.children.some((c) =>
     isStaffNavLeafActive(c, pathname, searchTab, mod.defaultTab),
   );
 }
 
-/**
- * Sales-only → POS workspace as home; admin/warehouse keep hub.
- * Mirrors Android `ManagementHomeRoles.prefersPosHome`.
- */
-export function prefersPosHome(roles: readonly StaffRole[]): boolean {
-  if (roles.some((r) => r === "admin" || r === "warehouse")) return false;
-  return roles.includes("sales");
-}
-
-/** Default staff landing after sign-in (no `next` override). */
-export function staffHomePath(roles: readonly StaffRole[]): string {
-  return prefersPosHome(roles) ? "/staff/pos" : "/staff";
+/** Default staff landing after sign-in (no `next` override). Till lives in android-pos. */
+export function staffHomePath(_roles: readonly StaffRole[] = []): string {
+  return "/staff";
 }
 
 export async function loadStaffContext(
@@ -926,7 +957,6 @@ export async function signInWithStaffIdentifier(
 
 /**
  * After password sign-in: staff land on management, not the storefront.
- * Sales-only default = `/staff/pos`; admin/warehouse = hub.
  * Honor `next` only for staff surfaces (`/staff`, `/procurement`).
  * When `mustChangePassword`, always `/staff/change-password` first.
  */
@@ -948,8 +978,10 @@ export function postLoginPath(
         path === "/procurement" ||
         path.startsWith("/procurement/"))
     ) {
-      // Bare hub → POS for sales-only (same as default home).
-      if (path === "/staff" && prefersPosHome(roles)) return "/staff/pos";
+      // Legacy bookmarks to removed web till → hub.
+      if (path === "/staff/pos" || path.startsWith("/staff/pos/")) {
+        return staffHomePath(roles);
+      }
       return path;
     }
     return staffHomePath(roles);

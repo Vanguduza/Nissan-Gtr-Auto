@@ -1,22 +1,33 @@
-# Customer OAuth setup — Google + Apple (Supabase Auth)
+# Customer OAuth setup — Google (Supabase Auth)
 
-Human + Dashboard checklist for [`docs/plans/2026-08-06-customer-oauth-google-apple.md`](./plans/2026-08-06-customer-oauth-google-apple.md).  
+Human + Dashboard checklist for Google storefront sign-in.  
+**Apple Sign In is not used** — do not enable the Apple provider.  
 **Never commit secret values** — names only. Clients keep `SUPABASE_URL` + anon key.
 
 **Pointing apps at hosted Supabase** (URL/keys, `db push`, Edge redeploy): [`docs/guides/hosted-supabase-cutover.md`](./guides/hosted-supabase-cutover.md).
+
+## Auth surfaces (quick map)
+
+| Who | How they authenticate |
+|-----|------------------------|
+| **Customers (web)** | Signup OTP (`auth-otp`) + password; login email/phone + password; Google OAuth; password reset OTP (`/forgot-password`) |
+| **Customers (Android / iOS)** | Same SoR: Edge `auth-otp` signup; GoTrue email/password login; Google; Edge password-reset OTP (in-app). No Apple. |
+| **Staff portal** | Employee # / email + password; middleware requires `profiles.is_staff` on `/staff` + `/procurement` (cookie session via `@supabase/ssr`) |
+| **Delivery drivers** | Android delivery app: email + password; must have staff role `driver` (or `admin` for QA). Same password-reset Edge as web. No Google on driver app. |
 
 ## What the backend already does
 
 | Piece | Behavior |
 |-------|----------|
-| `enable_signup = true` | Required so **first** Google/Apple login can create an Auth user |
-| `hook_before_user_created` | Blocks public GoTrue **email** `/signup`; allows `google` / `apple` and Edge Admin creates with `app_metadata.gtr_provisioned_via` = `auth_otp` \| `hr_onboarding` |
-| `handle_new_user` | Creates `profiles`; for **Google/Apple only** inserts a retail `customers` row. Does **not** mint customers for OTP Admin creates (custom `app_metadata` arrives after AFTER INSERT). |
+| `enable_signup = true` | Required so **first** Google login can create an Auth user |
+| `hook_before_user_created` | Blocks public GoTrue **email** `/signup`; allows `google` and Edge Admin creates with `app_metadata.gtr_provisioned_via` = `auth_otp` \| `hr_onboarding` |
+| `handle_new_user` | Creates `profiles`; for **Google only** inserts a retail `customers` row. Does **not** mint customers for OTP Admin creates (custom `app_metadata` arrives after AFTER INSERT). |
 | `ensure_customer_for_user(p_uid)` | **service_role only** — `auth-otp` `complete_signup` calls this after Admin `createUser` to mint the retail `customers` row |
 | `ensure_own_customer()` | Idempotent RPC for clients if `_current_customer_id()` is null (legacy / race). Denies staff (`is_staff`, `staff_roles`, `employees`, `gtr_provisioned_via=hr_onboarding`) |
 | Redirect allow-list | Web `/auth/callback` + `gtrcustomer://auth/callback` + `gtr-customer://auth/callback` in `supabase/config.toml` (mirror on hosted) |
+| Email confirmations | `enable_confirmations = false` — ownership via Edge OTP / password-reset OTP, not GoTrue confirm links |
 
-Email/password + OTP `complete_signup` remain SoR for email/phone. Staff auth unchanged (no OAuth requirement).
+Email/password + OTP `complete_signup` remain SoR for email/phone. Staff auth unchanged (no OAuth).
 
 ---
 
@@ -41,32 +52,15 @@ Email/password + OTP `complete_signup` remain SoR for email/phone. Staff auth un
 
 ---
 
-## 2. Apple Developer
-
-1. Enable **Sign in with Apple** on the App ID used by the customer iOS app.
-2. If web Apple: create a **Services ID**; return URL = Supabase callback  
-   `https://<PROJECT_REF>.supabase.co/auth/v1/callback` (and local equivalent if testing).
-3. Create a **Key** (Sign in with Apple). Note: **Key ID**, **Team ID**, **Services ID** / client id, and the `.p8` private key.
-4. In Supabase Dashboard Apple provider, paste fields as prompted (Dashboard builds the JWT secret from key material). Locally, `SUPABASE_AUTH_EXTERNAL_APPLE_SECRET` is the generated secret JWT (see [Supabase Apple docs](https://supabase.com/docs/guides/auth/social-login/auth-apple)) — **do not commit**.
-
-**Env / secret names:**
-
-| Name | Use |
-|------|-----|
-| `SUPABASE_AUTH_EXTERNAL_APPLE_CLIENT_ID` | Services ID / client id |
-| `SUPABASE_AUTH_EXTERNAL_APPLE_SECRET` | Apple secret JWT (from key) |
-
----
-
-## 3. Supabase Dashboard (hosted) + local mirror
+## 2. Supabase Dashboard (hosted) + local mirror
 
 ### Providers
 
 1. **Authentication → Providers → Google** — enable; paste Client ID(s) + Web secret.
-2. **Authentication → Providers → Apple** — enable; paste client id + key fields / secret.
+2. **Authentication → Providers → Apple** — leave **disabled** (product decision).
 3. Local (this repo’s web `.env.local` points at `127.0.0.1:54321` when developing locally):
-   - Copy `supabase/.env.example` → `supabase/.env` and fill `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` + `SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET` (Apple names if needed).
-   - Set `[auth.external.google].enabled = true` (and Apple if used) in `supabase/config.toml`.
+   - Copy `supabase/.env.example` → `supabase/.env` and fill `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` + `SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET`.
+   - Set `[auth.external.google].enabled = true` in `supabase/config.toml`.
    - Restart: `supabase stop` then `supabase start`.
    - Until those steps are done, GoTrue returns HTTP 400 **provider is not enabled** — expected.
 
@@ -75,7 +69,7 @@ Email/password + OTP `complete_signup` remain SoR for email/phone. Staff auth un
 **Authentication → URL configuration** — add (match `config.toml`):
 
 - **Site URL (hosted — fix confirm-email localhost bugs):** `https://nissangtrauto.co.zw`  
-  Do **not** leave Site URL as `http://localhost:3000` / `http://127.0.0.1:3000` on the hosted project — signup confirm links use Site URL when no `redirect_to` is accepted.  
+  Do **not** leave Site URL as `http://localhost:3000` / `http://127.0.0.1:3000` on the hosted project.
   Android signup sends `gtrcustomer://auth/callback` as `redirectUrl` (must be allow-listed).
 - Redirect URLs:
   - `https://nissangtrauto.co.zw/auth/callback`
@@ -115,26 +109,45 @@ Prefer Supabase default linking for same email (Google + password). Do not inven
 
 ---
 
-## 4. Smoke (backend)
+## 3. Staff portal edge gate
 
-After `db reset` / migration apply:
+Web `middleware.ts` + cookie sessions (`@supabase/ssr`):
 
-```powershell
-docker exec -i supabase_db_gylrgwqyuiwkyykardwc psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/tests/customer_oauth_ensure_smoke.sql
-```
+1. Unauthenticated `/staff/*` or `/procurement/*` → `/login?next=…`
+2. Authenticated but `profiles.is_staff = false` → `/account?notice=staff-only`
+3. Role fine-graining remains in `StaffGate` (`canAccessPath`)
 
-Expect: Google-simulated insert creates `customers`; Admin-shaped OTP insert does **not** until `ensure_customer_for_user`; `ensure_own_customer` idempotent + staff/employee deny; plain email Auth user does not auto-create until RPC.
-
-Also run the **post-deploy `/signup` 403 check** above on hosted (SQL smoke cannot verify the GoTrue hook wiring).
+RLS still protects data; middleware stops casual link-sharing of the staff UI shell.
 
 ---
 
-## 5. Client lane handoff (not this doc’s implementation)
+## 4. Password recovery
 
-| Lane | Gap |
-|------|-----|
-| `@android_agent` | Google ID token → `signInWithIdToken`; call `ensure_own_customer` if needed; show social UI when providers live |
-| `@ios_agent` | Sign in with Apple (+ Google if feasible); URL scheme / entitlements for `…://auth/callback` |
-| `@web_agent` | OAuth buttons on `app/(auth)/login`; `/auth/callback` route; staff tab unchanged |
+| Step | Edge / UI |
+|------|-----------|
+| Request OTP | `request-password-reset` — email and/or phone |
+| Verify + set password | `verify-password-reset` |
+| Web UI | `/forgot-password` |
 
-Gates: `/security-reviewer` → `/verifier`.
+Same Edge pair works for customers, staff, and drivers (account must exist).
+
+---
+
+## 5. Delivery driver auth
+
+- App: `apps/android-delivery` — GoTrue email/password only.
+- Gate: `staff_roles` includes `driver` (or `admin`).
+- Provision via HR onboarding (staff user + role), not storefront Google/OTP signup.
+- Password reset: web `/forgot-password` or call the same Edge functions.
+
+---
+
+## 6. Smoke (backend)
+
+After `db reset` / migration apply:
+
+1. Public email `/signup` → **403**.
+2. Google provider disabled → client shows friendly “not enabled” message.
+3. With Google enabled + redirect allow-list → first Google login creates `profiles` + `customers`.
+4. Hit `/staff` logged out → redirect to login.
+5. Customer session on `/staff` → redirect to `/account?notice=staff-only`.

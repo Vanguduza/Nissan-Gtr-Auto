@@ -12,12 +12,12 @@
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "build": "tsc -p tsconfig.json",
-    "test": "echo \"no tests yet\"",
+    "test": "node --experimental-strip-types --test src/**/*.test.ts",
     "lint": "echo \"lint: supabase-client — pending\""
   },
   "dependencies": {
     "@gtr/shared": "workspace:*",
-    "@supabase/supabase-js": "^2.49.1"
+    "@supabase/supabase-js": "^2.112.3"
   },
   "devDependencies": {
     "typescript": "^5.7.3"

@@ -36,6 +36,43 @@ object EscPosCommands {
         return out.toByteArray()
     }
 
+    /**
+     * Warehouse bin location label with QR glyph (same Epson QR path as inventory).
+     * Payload: `gtr://bin/{code}` — location scan, not inventory `gtr://part/…`.
+     */
+    fun binLabel(
+        code: String,
+        name: String,
+        aisle: String? = null,
+        rack: String? = null,
+        shelf: String? = null,
+        pickPathSeq: Int = 0,
+    ): ByteArray {
+        val payload = "gtr://bin/${code.trim()}"
+        val loc = listOfNotNull(
+            aisle?.let { "Aisle $it" },
+            rack?.let { "Rack $it" },
+            shelf?.let { "Shelf $it" },
+        ).joinToString(" · ").ifBlank { "seq $pickPathSeq" }
+        val out = ArrayList<Byte>(512)
+        out += INIT
+        out += ALIGN_CENTER
+        out += EMPHASIS_ON
+        out += "GTR BIN LABEL\n".toEscPos()
+        out += EMPHASIS_OFF
+        out += qrCode(payload)
+        out += "\n".toEscPos()
+        out += EMPHASIS_ON
+        out += "${code.trim()}\n".toEscPos()
+        out += EMPHASIS_OFF
+        out += ALIGN_LEFT
+        out += "${name.trim()}\n".toEscPos()
+        out += "$loc\n".toEscPos()
+        out += "Pick seq: $pickPathSeq\n".toEscPos()
+        out += FEED_CUT
+        return out.toByteArray()
+    }
+
     fun receiptLines(lines: List<EscPosReceiptLine>): ByteArray {
         val out = ArrayList<Byte>(256)
         out += INIT
@@ -47,6 +84,37 @@ object EscPosCommands {
         }
         out += FEED_CUT
         return out.toByteArray()
+    }
+
+    /**
+     * Standard cash-drawer kick: ESC p m t1 t2.
+     *
+     * Pulse ON/OFF times are in 2 ms units (Epson-compatible). Defaults ≈ 50 ms on /
+     * 200 ms off on pin 2 (drawer kick connector).
+     *
+     * @see https://reference.epson-biz.com/modules/ref_escpos/ (ESC p)
+     */
+    fun cashDrawerPulse(
+        pin: CashDrawerPin = CashDrawerPin.PIN_2,
+        onTimeMs: Int = 50,
+        offTimeMs: Int = 200,
+    ): ByteArray {
+        val t1 = ((onTimeMs.coerceAtLeast(0) + 1) / 2).coerceIn(0, 255)
+        val t2 = ((offTimeMs.coerceAtLeast(0) + 1) / 2).coerceIn(0, 255)
+        return byteArrayOf(0x1B, 0x70, pin.escPosM.toByte(), t1.toByte(), t2.toByte())
+    }
+
+    /**
+     * Real-time drawer pulse: DLE DC4 fn=1 (n=1, m=pin, t=ON×100 ms, 1..8).
+     * Prefer [cashDrawerPulse] (ESC p) for most Bluetooth thermal + RJ11 drawers;
+     * use this when the printer documents DLE DC4 as the kick path.
+     */
+    fun cashDrawerPulseDleDc4(
+        pin: CashDrawerPin = CashDrawerPin.PIN_2,
+        onTimeHundredMs: Int = 1,
+    ): ByteArray {
+        val t = onTimeHundredMs.coerceIn(1, 8)
+        return byteArrayOf(0x10, 0x14, 0x01, pin.escPosM.toByte(), t.toByte())
     }
 
     /**

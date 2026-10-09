@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "notes": "Optional EPC assembly group name → Auto Care PCdb PartTerminologyID. Additive only; EPC category_name remains authoritative for shop-by-diagram UX.",
+  "mappings": [
+    {
+      "epc_category_normalized": "ENGINE ASSEMBLY",
+      "pcdb_part_type_id": 12000,
+      "pcdb_part_type_name": "Engine Assembly"
+    },
+    {
+      "epc_category_normalized": "BRAKE",
+      "pcdb_part_type_id": 13000,
+      "pcdb_part_type_name": "Disc Brake Pad Set"
+    }
+  ]
+}

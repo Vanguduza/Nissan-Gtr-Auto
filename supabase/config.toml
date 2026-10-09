@@ -119,6 +119,10 @@ verify_jwt = true
 [functions.demand-forecast]
 verify_jwt = true
 
+# Worker: FIFO / Temporal dispatch cycle → assign_delivery_job (x-worker-secret)
+[functions.delivery-dispatch-cycle]
+verify_jwt = true
+
 [functions.analytics-insights]
 verify_jwt = true
 

@@ -27,12 +27,21 @@ const DEFAULT_BANNERS: HomeBanner[] = [
   },
   {
     id: "search",
-    kicker: "Four-way lookup",
+    kicker: "Parts search",
     title: "OEM, VIN, model, or PNC",
     lede: "Counter-grade catalog search — same index as the mobile apps.",
     href: "/search",
     cta: "Search parts",
     tone: "red",
+  },
+  {
+    id: "shop",
+    kicker: "Live stock",
+    title: "Featured, newest & top movers",
+    lede: "Browse in-stock priced parts — no account required to look.",
+    href: "/shop",
+    cta: "Open shop",
+    tone: "mist",
   },
   {
     id: "kits",
@@ -41,7 +50,7 @@ const DEFAULT_BANNERS: HomeBanner[] = [
     lede: "Job-ready kits from inventory — pick up or dispatch nationwide.",
     href: "/kits",
     cta: "Browse kits",
-    tone: "mist",
+    tone: "steel",
   },
 ];
 

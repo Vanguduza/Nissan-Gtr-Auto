@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { useStaffAuth } from "@/components/staff-auth-context";
 import { iconSizeMd, iconStroke, LogOut } from "@/components/icons";
+import { clearStaffIdleLockStorage } from "@/lib/staff-idle-lock-state";
 import { createWebClient } from "@/lib/supabase";
 import styles from "./staff-chrome.module.css";
 
@@ -17,6 +18,7 @@ export function StaffChrome({ children }: { children: ReactNode }) {
 
   async function signOut() {
     setBusy(true);
+    clearStaffIdleLockStorage();
     const client = createWebClient();
     if (client) await client.auth.signOut();
     setBusy(false);

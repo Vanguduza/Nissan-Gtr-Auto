@@ -10,7 +10,7 @@ import {
   type OnlinePrepQueueRow,
   type StaffOpsNotification,
 } from "@/lib/staff-ops";
-import { requireSession } from "@/lib/staff-pos";
+import { requireSession } from "@/lib/customer-storefront";
 import { createWebClient } from "@/lib/supabase";
 
 type Boot =

@@ -19,6 +19,9 @@ concurrency:
   group: simulation-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   scenarios:
     name: Trading-day scenarios + role rules

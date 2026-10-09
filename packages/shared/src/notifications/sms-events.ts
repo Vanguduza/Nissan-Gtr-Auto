@@ -25,6 +25,7 @@ export const SMS_EVENT_CODES = [
   "stock_reconciliation_cancelled",
   "po_created",
   "po_approved",
+  "procurement_funds_released",
   "po_received",
   "po_overdue",
   "supplier_mismatch",

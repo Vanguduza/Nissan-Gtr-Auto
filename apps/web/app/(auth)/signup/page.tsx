@@ -232,10 +232,21 @@ export default function SignupPage() {
               <button className={styles.submit} type="submit" disabled={busy}>{busy ? "Sending…" : "Verify email"}</button>
             </form>
             <div className={styles.oauthBlock}>
-              <p className={styles.oauthDivider} role="presentation"><span>or continue with</span></p>
-              <button type="button" className={styles.oauthGoogle} disabled={busy} onClick={() => void onOAuth("google")}>Google</button>
-              <button type="button" className={styles.oauthApple} disabled={busy} onClick={() => void onOAuth("apple")}>Apple</button>
-              <p className={styles.oauthHint}>Google and Apple remain native Supabase Auth providers.</p>
+              <p className={styles.oauthDivider} role="presentation">
+                <span>or continue with</span>
+              </p>
+              <button
+                type="button"
+                className={styles.oauthGoogle}
+                disabled={busy}
+                onClick={() => void onOAuth("google")}
+              >
+                Google
+              </button>
+              <p className={styles.oauthHint}>
+                Google skips OTP — first login creates your account when the
+                provider is enabled in Supabase.
+              </p>
             </div>
           </>
         ) : null}

@@ -19,16 +19,21 @@ type NavItem = {
 
 const nav: NavItem[] = [
   { href: "/procurement", label: "Overview", exact: true, Icon: LayoutGrid },
-  { href: "/procurement/rfqs", label: "RFQs", list: true, Icon: ClipboardList },
   {
-    href: "/procurement/rfqs/new",
-    label: "New RFQ",
+    href: "/procurement/suppliers",
+    label: "Suppliers",
     exact: true,
     Icon: PackageSearch,
   },
   {
-    href: "/procurement/blankets",
-    label: "Blankets",
+    href: "/procurement/orders/new",
+    label: "New PO",
+    exact: true,
+    Icon: ClipboardList,
+  },
+  {
+    href: "/procurement/grn",
+    label: "GRN",
     exact: true,
     Icon: ClipboardList,
   },
@@ -38,6 +43,13 @@ const nav: NavItem[] = [
     exact: true,
     Icon: ClipboardList,
   },
+  {
+    href: "/procurement/blankets",
+    label: "Blankets",
+    exact: true,
+    Icon: ClipboardList,
+  },
+  { href: "/procurement/rfqs", label: "RFQs (opt.)", list: true, Icon: ClipboardList },
 ];
 
 export function ProcurementNav({ current }: { current: string }) {

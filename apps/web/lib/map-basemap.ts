@@ -3,7 +3,8 @@ import { configuredMapStyleUrl } from "@/lib/customer-delivery-track";
 
 /**
  * Default keyless MapLibre style (CARTO Positron). Covers Harare; no API key.
- * Override with NEXT_PUBLIC_MAP_STYLE_URL (MapTiler / self-hosted / etc.).
+ * Prefer self-host via NEXT_PUBLIC_MAP_STYLE_URL →
+ * `http://127.0.0.1:8081/styles/basic-preview/style.json` (see infra/satellites/maptiles/).
  */
 export const MAP_STYLE_DEFAULT_URL =
   "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
@@ -36,7 +37,7 @@ export const MAP_STYLE_RASTER_FALLBACK: StyleSpecification = {
   ],
 };
 
-/** Staff live map: env override, else keyless CARTO Positron. */
+/** Staff live map: env override (self-host or keyed), else keyless CARTO Positron. */
 export function mapStyleUrl(): string {
   return configuredMapStyleUrl() || MAP_STYLE_DEFAULT_URL;
 }

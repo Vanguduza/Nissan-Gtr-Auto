@@ -370,7 +370,9 @@ async function handleCreateAuth(req: Request): Promise<Response> {
 
       const { data: emp, error: empErr } = await supabase
         .from("employees")
-        .select("id, user_id, email, phone_e164, full_name, employee_code, status")
+        .select(
+          "id, user_id, email, phone_e164, full_name, employee_code, status, hr_role_id",
+        )
         .eq("id", employeeId)
         .maybeSingle();
       if (empErr) return jsonErr(empErr.message, 400);
@@ -567,6 +569,22 @@ async function handleCreateAuth(req: Request): Promise<Response> {
         channels.push({ channel: "whatsapp", status: "skipped" });
       }
 
+      // link_employee_auth_user already applied staff_role; surface it for clients/ID card.
+      let staffRole: string | null = null;
+      const { data: roleRows } = await supabase
+        .from("staff_roles")
+        .select("role")
+        .eq("user_id", userId!)
+        .limit(8);
+      if (Array.isArray(roleRows) && roleRows.length > 0) {
+        const roles = roleRows.map((r) => String(r.role));
+        staffRole = roles.includes("driver")
+          ? "driver"
+          : roles.includes("admin")
+          ? "admin"
+          : roles[0] ?? null;
+      }
+
       // Never echo temp password or outbox body to the client.
       return jsonOk({
         ok: true,
@@ -574,6 +592,7 @@ async function handleCreateAuth(req: Request): Promise<Response> {
         user_id: userId,
         created,
         must_change_password: true,
+        staff_role: staffRole,
         channels,
       });
     } finally {

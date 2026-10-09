@@ -1,16 +1,19 @@
 {
   "actor": "unknown",
   "branch_at_record": "ccr-8c44a0d0-msyynq",
-  "change_id": "0a191d2e35e01cb25ebb",
+  "change_id": "3285930507182894e0c2",
   "changed_files": [
-    ".github/workflows/project-truth-autolog.yml"
+    "apps/web/components/whatsapp-cta.tsx",
+    "apps/web/lib/auth-otp.ts",
+    "apps/web/lib/auth-password-reset.ts",
+    "apps/web/lib/staff-hr.ts"
   ],
-  "diff_sha256": "0a191d2e35e01cb25ebb7a780f6fb8b27d4214ad88ecd679439c231f5098e6f8",
+  "diff_sha256": "3285930507182894e0c2577ccf2628257d8a26f50efce36e38d58fde3240c70b",
   "domains": [
-    "ci"
+    "web"
   ],
   "intent": "automatic-file-level-record",
-  "recorded_at_utc": "2026-10-09T08:15:54.429107+00:00",
+  "recorded_at_utc": "2026-10-09T09:19:47.792150+00:00",
   "schema_version": 1,
-  "source_parent": "a57f4d6bee53d6620e19d4931678bbecc564fad9"
+  "source_parent": "47689cbe1ecc9aac5a16ef4813d23b92de227926"
 }

@@ -133,7 +133,7 @@ export async function verifyPasswordReset(
   }
   const accessToken = typeof body.access_token === "string" ? body.access_token : "";
   const refreshToken = typeof body.refresh_token === "string" ? body.refresh_token : "";
-  const userId = typeof body.user_id === "string" ? body.user_id : "";
+  const userId = typeof body.user_id === "string" ? body.user_id : ""; // nosemgrep: dial.no-body-identity -- Edge function response body, not request input
   if (!accessToken || !refreshToken || !userId) {
     return { ok: false, error: "Recovery session tokens are missing." };
   }

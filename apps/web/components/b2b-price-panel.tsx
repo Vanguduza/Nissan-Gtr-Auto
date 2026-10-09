@@ -10,6 +10,10 @@ import {
   type PriceListRow,
 } from "@/lib/customer-storefront";
 import { createWebClient } from "@/lib/supabase";
+import {
+  displayCreditLimitMajor,
+  displayOpenBalanceMajor,
+} from "@gtr/shared";
 import styles from "@/app/(storefront)/page.module.css";
 import local from "@/app/(b2b)/b2b-page.module.css";
 
@@ -71,17 +75,35 @@ export function B2bPricePanel() {
       }
       sample = rows.data;
     }
+    const cust = resolved.data.customer;
+    const accountCurrency =
+      cust?.currency === "ZIG" ? "ZIG" : "USD";
     setStatus({
       kind: "ready",
       priceList: resolved.data.priceList,
       isTrade: resolved.data.isTrade,
       sample,
-      displayName: resolved.data.customer?.display_name ?? null,
-      creditLimit: Number(resolved.data.customer?.credit_limit ?? 0),
-      creditHold: !!resolved.data.customer?.credit_hold,
-      openBalance: Number(resolved.data.customer?.open_balance ?? 0),
-      accountCurrency:
-        resolved.data.customer?.currency === "ZIG" ? "ZIG" : "USD",
+      displayName: cust?.display_name ?? null,
+      creditLimit: cust
+        ? displayCreditLimitMajor(
+            {
+              credit_limit: Number(cust.credit_limit ?? 0),
+              credit_limit_minor: cust.credit_limit_minor ?? null,
+            },
+            accountCurrency,
+          )
+        : 0,
+      creditHold: !!cust?.credit_hold,
+      openBalance: cust
+        ? displayOpenBalanceMajor(
+            {
+              open_balance: Number(cust.open_balance ?? 0),
+              open_balance_minor: cust.open_balance_minor ?? null,
+            },
+            accountCurrency,
+          )
+        : 0,
+      accountCurrency,
     });
   }, []);
 

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import styles from "@/components/account.module.css";
 import {
+  cancelDeliveryNote,
   confirmPickLines,
   createDeliveryJob,
   createDeliveryNote,
@@ -19,6 +20,14 @@ import {
   type PickListLineRow,
   type PickListOption,
 } from "@/lib/staff-logistics";
+import {
+  assignDeliveryJob,
+  listDeliveryJobs,
+  suggestDeliveryAssignees,
+  type AssigneeSuggestion,
+  type DeliveryJobOption,
+} from "@/lib/staff-delivery-tracking";
+import { canOverrideAssignDeliveryJob } from "@gtr/supabase-client";
 import { createWebClient } from "@/lib/supabase";
 
 type Boot =
@@ -30,6 +39,7 @@ type Boot =
       invoices: DispatchInvoiceOption[];
       pickLists: PickListOption[];
       deliveryNotes: DeliveryNoteOption[];
+      deliveryJobs: DeliveryJobOption[];
     };
 
 export function StaffLogisticsPanel() {
@@ -42,6 +52,12 @@ export function StaffLogisticsPanel() {
   const [jobNotes, setJobNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [overrideJobId, setOverrideJobId] = useState<string | null>(null);
+  const [overrideSuggestions, setOverrideSuggestions] = useState<
+    AssigneeSuggestion[]
+  >([]);
+  const [overrideAssignee, setOverrideAssignee] = useState("");
+  const [overrideBusy, setOverrideBusy] = useState(false);
 
   const refresh = useCallback(async () => {
     const client = createWebClient();
@@ -58,10 +74,11 @@ export function StaffLogisticsPanel() {
       return;
     }
 
-    const [inv, picks, dns] = await Promise.all([
+    const [inv, picks, dns, jobs] = await Promise.all([
       listDispatchInvoices(client),
       listPickLists(client),
       listDeliveryNotes(client),
+      listDeliveryJobs(client),
     ]);
     if (!inv.ok) {
       setBoot({ kind: "error", message: inv.error });
@@ -75,12 +92,17 @@ export function StaffLogisticsPanel() {
       setBoot({ kind: "error", message: dns.error });
       return;
     }
+    if (!jobs.ok) {
+      setBoot({ kind: "error", message: jobs.error });
+      return;
+    }
 
     setBoot({
       kind: "ready",
       invoices: inv.data,
       pickLists: picks.data,
       deliveryNotes: dns.data,
+      deliveryJobs: jobs.data,
     });
     setInvoiceId((prev) => prev || inv.data[0]?.id || "");
     setPickListId((prev) => prev || picks.data[0]?.id || "");
@@ -225,6 +247,24 @@ export function StaffLogisticsPanel() {
     await refresh();
   }
 
+  async function onCancelDn() {
+    const client = createWebClient();
+    if (!client || !deliveryNoteId) {
+      setMessage("Select a delivery note.");
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    const res = await cancelDeliveryNote(client, deliveryNoteId);
+    setBusy(false);
+    if (!res.ok) {
+      setMessage(res.error);
+      return;
+    }
+    setMessage(`Delivery note cancelled · ${res.data.slice(0, 8)}…`);
+    await refresh();
+  }
+
   async function onCreateJob(e: FormEvent) {
     e.preventDefault();
     const client = createWebClient();
@@ -242,6 +282,74 @@ export function StaffLogisticsPanel() {
     }
     setMessage(`Delivery job created · ${res.data.slice(0, 8)}…`);
     setJobNotes("");
+    await refresh();
+  }
+
+  async function onBeginOverrideAssign(job: DeliveryJobOption) {
+    if (!canOverrideAssignDeliveryJob(job.assignee_user_id, job.status)) {
+      setMessage(
+        "Override assign only for unassigned/stuck jobs (auto-assign remains SoR).",
+      );
+      return;
+    }
+    const client = createWebClient();
+    if (!client) return;
+    setOverrideJobId(job.id);
+    setDeliveryNoteId(job.delivery_note_id);
+    setOverrideAssignee("");
+    setOverrideBusy(true);
+    setMessage(null);
+    const res = await suggestDeliveryAssignees(client, job.id);
+    setOverrideBusy(false);
+    if (!res.ok) {
+      setOverrideSuggestions([]);
+      setMessage(res.error);
+      return;
+    }
+    setOverrideSuggestions(res.data);
+    setOverrideAssignee(res.data[0]?.user_id ?? "");
+  }
+
+  async function onConfirmOverrideAssign() {
+    const client = createWebClient();
+    if (!client || !overrideJobId || !overrideAssignee.trim()) return;
+    const job =
+      boot.kind === "ready"
+        ? boot.deliveryJobs.find((j) => j.id === overrideJobId)
+        : null;
+    if (
+      !job ||
+      !canOverrideAssignDeliveryJob(job.assignee_user_id, job.status)
+    ) {
+      setMessage(
+        "Override assign only for unassigned/stuck jobs (auto-assign remains SoR).",
+      );
+      return;
+    }
+    const ok = window.confirm(
+      `Override-assign driver ${overrideAssignee.trim().slice(0, 8)}…? ` +
+        "Auto-assign remains SoR — exception uses assign_delivery_job(p_override=true).",
+    );
+    if (!ok) return;
+    setOverrideBusy(true);
+    setMessage(null);
+    const res = await assignDeliveryJob(
+      client,
+      overrideJobId,
+      overrideAssignee.trim(),
+      true,
+    );
+    setOverrideBusy(false);
+    if (!res.ok) {
+      setMessage(res.error);
+      return;
+    }
+    setMessage(
+      `Exception override assigned · ${overrideAssignee.trim().slice(0, 8)}…`,
+    );
+    setOverrideJobId(null);
+    setOverrideSuggestions([]);
+    setOverrideAssignee("");
     await refresh();
   }
 
@@ -271,6 +379,11 @@ export function StaffLogisticsPanel() {
       </p>
     );
   }
+
+  const selectedDn = boot.deliveryNotes.find((dn) => dn.id === deliveryNoteId);
+  const canMutateDn =
+    !!deliveryNoteId &&
+    (selectedDn?.status === "draft" || selectedDn?.status === "submitted");
 
   return (
     <div className={styles.form}>
@@ -415,10 +528,20 @@ export function StaffLogisticsPanel() {
               <button
                 type="button"
                 className={styles.btnGhost}
-                disabled={busy || !deliveryNoteId}
+                disabled={
+                  busy || !canMutateDn || selectedDn?.status !== "draft"
+                }
                 onClick={() => void onSubmitDn()}
               >
                 Submit DN
+              </button>
+              <button
+                type="button"
+                className={styles.btnGhost}
+                disabled={busy || !canMutateDn}
+                onClick={() => void onCancelDn()}
+              >
+                Cancel DN
               </button>
             </div>
           </div>
@@ -426,9 +549,129 @@ export function StaffLogisticsPanel() {
       </fieldset>
 
       <fieldset className={styles.fieldset}>
-        <legend className={styles.legend}>4 · Delivery job</legend>
+        <legend className={styles.legend}>4 · Delivery jobs (visibility)</legend>
         <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
-          Requires a submitted DN. Assign and dispatch on{" "}
+          Status + DN link · unassigned highlighted. Auto-assign remains SoR —
+          Override assign only for stuck/unassigned (exception), not a
+          pick-driver desk.{" "}
+          <Link href="/staff/logistics/tracking">Live tracking</Link> for map /
+          dispatch.
+        </p>
+        {boot.deliveryJobs.length === 0 ? (
+          <p className={styles.emptyState}>No delivery jobs yet.</p>
+        ) : (
+          <ul className={styles.list}>
+            {boot.deliveryJobs.map((job) => {
+              const canOverride = canOverrideAssignDeliveryJob(
+                job.assignee_user_id,
+                job.status,
+              );
+              return (
+                <li key={job.id}>
+                  <button
+                    type="button"
+                    className={styles.btnGhost}
+                    disabled={busy || overrideBusy}
+                    onClick={() => setDeliveryNoteId(job.delivery_note_id)}
+                  >
+                    <strong>
+                      {job.document_number ?? job.id.slice(0, 8)}
+                    </strong>{" "}
+                    · {job.status}
+                    {canOverride ? " · unassigned" : ""} · dn=
+                    {job.delivery_note_id.slice(0, 8)}…
+                    {!canOverride && job.assignee_user_id
+                      ? ` · driver=${job.assignee_user_id.slice(0, 8)}…`
+                      : ""}
+                  </button>
+                  {canOverride ? (
+                    <div
+                      className={styles.formActions}
+                      style={{ marginTop: "0.35rem" }}
+                    >
+                      <button
+                        type="button"
+                        className={styles.btn}
+                        disabled={busy || overrideBusy}
+                        onClick={() => void onBeginOverrideAssign(job)}
+                      >
+                        Override assign
+                      </button>
+                    </div>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        {overrideJobId ? (
+          <div style={{ marginTop: "1rem" }}>
+            <p className={styles.muted}>
+              Exception override for {overrideJobId.slice(0, 8)}… — suggest +
+              confirm calls <code>assign_delivery_job</code> with{" "}
+              <code>p_override=true</code>.
+            </p>
+            {overrideSuggestions.length === 0 ? (
+              <p className={styles.muted}>No eligible drivers suggested.</p>
+            ) : (
+              <ul className={styles.list}>
+                {overrideSuggestions.map((s) => (
+                  <li key={s.user_id}>
+                    <button
+                      type="button"
+                      className={styles.btnGhost}
+                      disabled={overrideBusy}
+                      onClick={() => setOverrideAssignee(s.user_id)}
+                    >
+                      {s.user_id.slice(0, 8)}… · {s.status} · open{" "}
+                      {s.open_jobs}/{s.capacity}
+                      {overrideAssignee === s.user_id ? " · selected" : ""}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <label className={styles.field} style={{ marginTop: "0.75rem" }}>
+              Assignee user id
+              <input
+                type="text"
+                value={overrideAssignee}
+                onChange={(e) => setOverrideAssignee(e.target.value)}
+                disabled={overrideBusy}
+                placeholder="uuid"
+              />
+            </label>
+            <div className={styles.formActions} style={{ marginTop: "0.75rem" }}>
+              <button
+                type="button"
+                className={styles.btn}
+                disabled={overrideBusy || !overrideAssignee.trim()}
+                onClick={() => void onConfirmOverrideAssign()}
+              >
+                Confirm override assign
+              </button>
+              <button
+                type="button"
+                className={styles.btnGhost}
+                disabled={overrideBusy}
+                onClick={() => {
+                  setOverrideJobId(null);
+                  setOverrideSuggestions([]);
+                  setOverrideAssignee("");
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </fieldset>
+
+      <fieldset className={styles.fieldset}>
+        <legend className={styles.legend}>5 · Create delivery job</legend>
+        <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
+          Requires a submitted DN. Auto-assign is SoR; exception override is on
+          the job list above or{" "}
           <Link href="/staff/logistics/tracking">Live tracking</Link>.
         </p>
         <form onSubmit={(e) => void onCreateJob(e)}>

@@ -1,5 +1,15 @@
 import type { Database, SupabaseClient } from "@gtr/supabase-client";
 import { owedFrom, type Owed } from "@/lib/money-owed";
+import {
+  displayLineTotalMajor,
+  displayMajorFromDual,
+  displayUnitPriceMajor,
+  fromAmountMinor,
+  settlementMoneyRpcFields,
+  sumPreferAmountMinor,
+  toAmountMinor,
+  type CurrencyCode as SharedCurrency,
+} from "@gtr/shared";
 import { publicSiteUrl } from "@/lib/site-url";
 
 type Currency = Database["public"]["Enums"]["currency_code"];
@@ -8,8 +18,11 @@ type ContipayMethod = Database["public"]["Enums"]["contipay_method"];
 type PaynowMethod = Database["public"]["Enums"]["paynow_method"];
 
 export type CartRow = Database["public"]["Tables"]["pos_carts"]["Row"];
+/** Optional *_minor fields for H4 dual-read when dual-write columns land. */
 export type CartLineRow = Database["public"]["Tables"]["pos_cart_lines"]["Row"] & {
   stock_items?: { oem_part_number: string; description: string | null } | null;
+  unit_price_minor?: number | null;
+  line_total_minor?: number | null;
 };
 export type InvoiceRow = Database["public"]["Tables"]["sales_invoices"]["Row"];
 export type CommerceOrderState =
@@ -208,6 +221,27 @@ export async function fetchZigExchangeRate(
   return zigExchangeRate();
 }
 
+/**
+ * `daily_exchange_rates.id` for the row `get_zig_exchange_rate` would use
+ * (latest ZIG `rate_date` ≤ as-of). Null when no row (env-fallback rate only).
+ */
+export async function fetchZigExchangeRateId(
+  client: SupabaseClient,
+  asOf?: string,
+): Promise<string | null> {
+  const asOfDate = asOf ?? new Date().toISOString().slice(0, 10);
+  const { data, error } = await client
+    .from("daily_exchange_rates")
+    .select("id")
+    .eq("currency", "ZIG")
+    .lte("rate_date", asOfDate)
+    .order("rate_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error || !data?.id) return null;
+  return data.id;
+}
+
 export async function requireSession(
   client: SupabaseClient,
 ): Promise<StorefrontResult<{ userId: string }>> {
@@ -328,6 +362,40 @@ export async function loadCartLines(
 
   if (error) return { ok: false, error: error.message };
   return { ok: true, data: (data ?? []) as CartLineRow[] };
+}
+
+/** H4 / D-57: dual-read cart line unit price (minor wins when present). */
+export function cartLineUnitPriceMajor(
+  line: CartLineRow,
+  currency: Currency = "USD",
+): number {
+  return displayUnitPriceMajor(line, currency as SharedCurrency);
+}
+
+/** H4 / D-57: dual-read cart line total (minor wins when present). */
+export function cartLineTotalMajor(
+  line: CartLineRow,
+  currency: Currency = "USD",
+): number {
+  return displayLineTotalMajor(line, currency as SharedCurrency);
+}
+
+/**
+ * Sum cart lines via minor units (H4 dual-read). Falls back to major when
+ * `line_total_minor` is absent.
+ */
+export function sumCartLinesMajor(
+  lines: CartLineRow[],
+  currency: Currency = "USD",
+): number {
+  const sum = sumPreferAmountMinor(
+    lines.map((line) => ({
+      amountMinor: line.line_total_minor ?? null,
+      amountMajor: Number(line.line_total),
+    })),
+    currency as SharedCurrency,
+  );
+  return fromAmountMinor(sum.amountMinor, currency as SharedCurrency);
 }
 
 export async function addCartLineByOem(
@@ -478,6 +546,24 @@ function parseInvoiceCustomerOrder(
   if (!raw || typeof raw !== "object") return null;
   const o = raw as Record<string, unknown>;
   if (typeof o.invoice_id !== "string") return null;
+  const currency = (o.currency as Currency) ?? "USD";
+  // H4 dual-read: prefer *_minor when RPC dual-writes them
+  const subtotal = displayMajorFromDualSafe(
+    o.subtotal_minor,
+    o.subtotal,
+    currency,
+  );
+  const total = displayMajorFromDualSafe(o.total_minor, o.total, currency);
+  const amount_paid = displayMajorFromDualSafe(
+    o.amount_paid_minor,
+    o.amount_paid,
+    currency,
+  );
+  const amount_open = displayMajorFromDualSafe(
+    o.amount_open_minor,
+    o.amount_open,
+    currency,
+  );
   return {
     id: commerceOrderId ?? o.invoice_id,
     commerce_order_id: commerceOrderId,
@@ -487,12 +573,12 @@ function parseInvoiceCustomerOrder(
     doc_type: String(o.doc_type ?? "invoice"),
     status: String(o.status ?? ""),
     fulfillment_mode: (o.fulfillment_mode as FulfillmentMode) ?? "immediate",
-    currency: (o.currency as Currency) ?? "USD",
+    currency,
     exchange_rate_applied: Number(o.exchange_rate_applied ?? 1),
-    subtotal: Number(o.subtotal ?? 0),
-    total: Number(o.total ?? 0),
-    amount_paid: Number(o.amount_paid ?? 0),
-    amount_open: Number(o.amount_open ?? 0),
+    subtotal,
+    total,
+    amount_paid,
+    amount_open,
     cart_id: typeof o.cart_id === "string" ? o.cart_id : null,
     posted_at: typeof o.posted_at === "string" ? o.posted_at : null,
     reservation_expires_at: null,
@@ -566,6 +652,32 @@ function commerceOrderAsCustomerOrder(row: CommerceOrderRow): CustomerOrder {
     active_delivery_job_id: null,
     delivery_payment_method: "prepay",
   };
+}
+
+function displayMajorFromDualSafe(
+  amountMinor: unknown,
+  amountMajor: unknown,
+  currency: Currency,
+): number {
+  const major =
+    amountMajor === null || amountMajor === undefined
+      ? 0
+      : Number(amountMajor);
+  const minor =
+    amountMinor === null ||
+    amountMinor === undefined ||
+    amountMinor === ""
+      ? null
+      : (amountMinor as string | number);
+  try {
+    return displayMajorFromDual({
+      amountMinor: minor,
+      amountMajor: Number.isFinite(major) ? major : 0,
+      currency: currency as SharedCurrency,
+    });
+  } catch {
+    return Number.isFinite(major) ? major : 0;
+  }
 }
 
 export async function getCustomerOrder(
@@ -676,6 +788,38 @@ export type PaymentIntentResult = {
   checkoutUrl: string | null;
 };
 
+/**
+ * H4 cutover: ZiG/PSP settlement prefers amountMinor; major derived for legacy Edge/RPC.
+ */
+export type StorefrontSettlementInput = {
+  currency: Currency;
+  /** Preferred: minor units (SoR for new call sites). */
+  amountMinor?: bigint | number;
+  /**
+   * @deprecated Prefer amountMinor. Legacy major NUMERIC for Edge that still
+   * read settlement_amount; derived when amountMinor is set.
+   */
+  amount?: number;
+  exchangeRate: number;
+  fxRateId?: string | null;
+};
+
+function settlementPayloadFields(settlement: StorefrontSettlementInput) {
+  const currency = settlement.currency as SharedCurrency;
+  const amountMinor =
+    settlement.amountMinor !== undefined && settlement.amountMinor !== null
+      ? typeof settlement.amountMinor === "bigint"
+        ? settlement.amountMinor
+        : BigInt(settlement.amountMinor)
+      : toAmountMinor(Number(settlement.amount ?? 0), currency);
+  return settlementMoneyRpcFields({
+    currency,
+    amountMinor,
+    exchangeRate: settlement.exchangeRate,
+    fxRateId: settlement.fxRateId ?? null,
+  });
+}
+
 /** Storefront return URL after ContiPay / Paynow hosted checkout (webhook still settles). */
 export function checkoutReturnUrl(orderRef?: string): string {
   const base = siteOrigin();
@@ -729,11 +873,7 @@ export async function createCustomerContipayIntent(
   client: SupabaseClient,
   orderRef: string,
   method: ContipayMethod = "ecocash",
-  settlement?: {
-    currency: Currency;
-    amount: number;
-    exchangeRate: number;
-  },
+  settlement?: StorefrontSettlementInput,
 ): Promise<StorefrontResult<PaymentIntentResult>> {
   const returnUrl = checkoutReturnUrl(orderRef);
   const cancelUrl = checkoutCancelUrl(orderRef);
@@ -754,6 +894,8 @@ export async function createCustomerContipayIntent(
     };
   }
 
+  const settleFields = settlement ? settlementPayloadFields(settlement) : null;
+
   const metadata = {
     order_reference_id: orderRef,
     channel: "storefront",
@@ -761,13 +903,7 @@ export async function createCustomerContipayIntent(
     cancel_url: cancelUrl,
     phone,
     cell: phone,
-    ...(settlement
-      ? {
-          settlement_currency: settlement.currency,
-          settlement_amount: settlement.amount,
-          settlement_exchange_rate: settlement.exchangeRate,
-        }
-      : {}),
+    ...(settleFields ?? {}),
   };
 
   const edge = await client.functions.invoke("contipay-initiate", {
@@ -778,13 +914,7 @@ export async function createCustomerContipayIntent(
       return_url: returnUrl,
       cancel_url: cancelUrl,
       metadata,
-      ...(settlement
-        ? {
-            settlement_currency: settlement.currency,
-            settlement_amount: settlement.amount,
-            settlement_exchange_rate: settlement.exchangeRate,
-          }
-        : {}),
+      ...(settleFields ?? {}),
     },
   });
 
@@ -805,11 +935,11 @@ export async function createCustomerContipayIntent(
     p_sales_invoice_id: orderRef,
     p_method: method,
     p_metadata: metadata,
-    ...(settlement
+    ...(settleFields
       ? {
-          p_settlement_currency: settlement.currency,
-          p_settlement_amount: settlement.amount,
-          p_settlement_exchange_rate: settlement.exchangeRate,
+          p_settlement_currency: settleFields.settlement_currency,
+          p_settlement_amount: settleFields.settlement_amount,
+          p_settlement_exchange_rate: settleFields.settlement_exchange_rate,
         }
       : {}),
   });
@@ -838,26 +968,17 @@ export async function createCustomerPaynowIntent(
   client: SupabaseClient,
   orderRef: string,
   method: PaynowMethod = "ecocash",
-  settlement?: {
-    currency: Currency;
-    amount: number;
-    exchangeRate: number;
-  },
+  settlement?: StorefrontSettlementInput,
 ): Promise<StorefrontResult<PaymentIntentResult>> {
   const returnUrl = checkoutReturnUrl(orderRef);
   const cancelUrl = checkoutCancelUrl(orderRef);
+  const settleFields = settlement ? settlementPayloadFields(settlement) : null;
   const metadata = {
     order_reference_id: orderRef,
     channel: "storefront",
     return_url: returnUrl,
     cancel_url: cancelUrl,
-    ...(settlement
-      ? {
-          settlement_currency: settlement.currency,
-          settlement_amount: settlement.amount,
-          settlement_exchange_rate: settlement.exchangeRate,
-        }
-      : {}),
+    ...(settleFields ?? {}),
   };
 
   const edge = await client.functions.invoke("paynow-initiate", {
@@ -867,13 +988,7 @@ export async function createCustomerPaynowIntent(
       return_url: returnUrl,
       cancel_url: cancelUrl,
       metadata,
-      ...(settlement
-        ? {
-            settlement_currency: settlement.currency,
-            settlement_amount: settlement.amount,
-            settlement_exchange_rate: settlement.exchangeRate,
-          }
-        : {}),
+      ...(settleFields ?? {}),
     },
   });
 
@@ -886,11 +1001,11 @@ export async function createCustomerPaynowIntent(
     p_sales_invoice_id: orderRef,
     p_method: method,
     p_metadata: metadata,
-    ...(settlement
+    ...(settleFields
       ? {
-          p_settlement_currency: settlement.currency,
-          p_settlement_amount: settlement.amount,
-          p_settlement_exchange_rate: settlement.exchangeRate,
+          p_settlement_currency: settleFields.settlement_currency,
+          p_settlement_amount: settleFields.settlement_amount,
+          p_settlement_exchange_rate: settleFields.settlement_exchange_rate,
         }
       : {}),
   });
@@ -923,11 +1038,7 @@ export async function createCustomerEcocashIntent(
   opts: {
     payerMode: EcoCashPayerMode;
     payerMsisdn?: string | null;
-    settlement?: {
-      currency: Currency;
-      amount: number;
-      exchangeRate: number;
-    };
+    settlement?: StorefrontSettlementInput;
   },
 ): Promise<StorefrontResult<PaymentIntentResult & { message?: string }>> {
   const customer = await loadOwnCustomer(client);
@@ -957,17 +1068,13 @@ export async function createCustomerEcocashIntent(
     };
   }
 
-  const settlement = opts.settlement;
+  const settleFields = opts.settlement
+    ? settlementPayloadFields(opts.settlement)
+    : null;
   const metadata = {
     order_reference_id: orderRef,
     channel: "web",
-    ...(settlement
-      ? {
-          settlement_currency: settlement.currency,
-          settlement_amount: settlement.amount,
-          settlement_exchange_rate: settlement.exchangeRate,
-        }
-      : {}),
+    ...(settleFields ?? {}),
   };
 
   const edge = await client.functions.invoke("ecocash-initiate", {
@@ -977,13 +1084,7 @@ export async function createCustomerEcocashIntent(
       payer_mode: payerMode,
       channel: "web",
       metadata,
-      ...(settlement
-        ? {
-            settlement_currency: settlement.currency,
-            settlement_amount: settlement.amount,
-            settlement_exchange_rate: settlement.exchangeRate,
-          }
-        : {}),
+      ...(settleFields ?? {}),
     },
   });
 
@@ -1020,11 +1121,11 @@ export async function createCustomerEcocashIntent(
     p_payer_mode: payerMode,
     p_channel: "web",
     p_metadata: metadata,
-    ...(settlement
+    ...(settleFields
       ? {
-          p_settlement_currency: settlement.currency,
-          p_settlement_amount: settlement.amount,
-          p_settlement_exchange_rate: settlement.exchangeRate,
+          p_settlement_currency: settleFields.settlement_currency,
+          p_settlement_amount: settleFields.settlement_amount,
+          p_settlement_exchange_rate: settleFields.settlement_exchange_rate,
         }
       : {}),
   });
@@ -1123,6 +1224,8 @@ export type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 export type InvoiceLineRow =
   Database["public"]["Tables"]["sales_invoice_lines"]["Row"] & {
     stock_items?: { oem_part_number: string; description: string | null } | null;
+    unit_price_minor?: number | null;
+    line_total_minor?: number | null;
   };
 export type LoyaltyBalance = {
   customer_id: string;
@@ -1130,6 +1233,8 @@ export type LoyaltyBalance = {
   currency: Currency;
   liability_per_point: number;
   estimated_liability: number;
+  /** B-MONEY-1 dual-read; prefer when present. */
+  estimated_liability_minor?: number | null;
 };
 export type LoyaltyLedgerRow =
   Database["public"]["Tables"]["loyalty_ledger"]["Row"];
@@ -1390,7 +1495,16 @@ export async function getLoyaltyBalance(
       points_balance: Number(r.points_balance ?? 0),
       currency: (r.currency as Currency) ?? "USD",
       liability_per_point: Number(r.liability_per_point ?? 0),
-      estimated_liability: Number(r.estimated_liability ?? 0),
+      estimated_liability: displayMajorFromDualSafe(
+        r.estimated_liability_minor,
+        r.estimated_liability,
+        (r.currency as Currency) ?? "USD",
+      ),
+      estimated_liability_minor:
+        r.estimated_liability_minor === null ||
+        r.estimated_liability_minor === undefined
+          ? null
+          : Number(r.estimated_liability_minor),
     },
   };
 }

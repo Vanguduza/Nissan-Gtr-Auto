@@ -15,7 +15,12 @@ import {
   toE164,
 } from "@/lib/country-dial-codes";
 import { createWebClient } from "@/lib/supabase";
-import { loadStaffContext, postLoginPath, signInWithStaffIdentifier } from "@/lib/staff-auth";
+import {
+  loadStaffContext,
+  postLoginPath,
+  signInWithStaffIdentifier,
+} from "@/lib/staff-auth";
+import { clearStaffIdleLockStorage } from "@/lib/staff-idle-lock-state";
 import styles from "./auth.module.css";
 
 const DEFAULT_COUNTRY_OPTION =
@@ -44,7 +49,16 @@ function LoginForm() {
   const [countryOption, setCountryOption] = useState(countryDialOptionValue(DEFAULT_COUNTRY_OPTION));
   const [phoneNational, setPhoneNational] = useState("");
   const [password, setPassword] = useState("");
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(() => {
+    const notice = searchParams.get("notice");
+    if (notice === "password-reset") {
+      return "Password updated. Sign in with your new password.";
+    }
+    if (notice === "staff-only") {
+      return "That area is for staff accounts only.";
+    }
+    return null;
+  });
   const [busy, setBusy] = useState(false);
 
   const selectedDial = parseCountryDialOption(countryOption)?.dial ?? DEFAULT_COUNTRY_DIAL;
@@ -53,9 +67,25 @@ function LoginForm() {
 
   async function finishStaffRedirect(client: NonNullable<ReturnType<typeof createWebClient>>) {
     const ctx = await loadStaffContext(client);
-    if (!ctx.ok) { setMessage(ctx.error); return; }
-    const dest = postLoginPath(Boolean(ctx.data?.isStaff), next, ctx.data?.roles ?? [], Boolean(ctx.data?.mustChangePassword));
-    setMessage(ctx.data?.mustChangePassword ? "Signed in — password change required…" : ctx.data?.isStaff ? "Signed in — opening staff…" : "Signed in — redirecting…");
+    if (!ctx.ok) {
+      setMessage(ctx.error);
+      return;
+    }
+    // Fresh password sign-in resets idle lock so reload after login is not locked.
+    clearStaffIdleLockStorage();
+    const dest = postLoginPath(
+      Boolean(ctx.data?.isStaff),
+      next,
+      ctx.data?.roles ?? [],
+      Boolean(ctx.data?.mustChangePassword),
+    );
+    setMessage(
+      ctx.data?.mustChangePassword
+        ? "Signed in — password change required…"
+        : ctx.data?.isStaff
+          ? "Signed in — opening staff…"
+          : "Signed in — redirecting…",
+    );
     router.replace(dest);
   }
 
@@ -120,15 +150,35 @@ function LoginForm() {
 
       {showCustomerOAuth ? (
         <div className={styles.oauthBlock}>
-          <p className={styles.oauthDivider} role="presentation"><span>or continue with</span></p>
-          <button type="button" className={styles.oauthGoogle} disabled={busy} onClick={() => void onOAuth("google")}>Google</button>
-          <button type="button" className={styles.oauthApple} disabled={busy} onClick={() => void onOAuth("apple")}>Apple</button>
-          <p className={styles.oauthHint}>First Google or Apple sign-in creates your storefront account.</p>
+          <p className={styles.oauthDivider} role="presentation">
+            <span>or continue with</span>
+          </p>
+          <button
+            type="button"
+            className={styles.oauthGoogle}
+            disabled={busy}
+            onClick={() => void onOAuth("google")}
+          >
+            Google
+          </button>
+          <p className={styles.oauthHint}>
+            First Google sign-in creates your storefront account.
+          </p>
         </div>
       ) : null}
 
       {message ? <p className={styles.message}>{message}</p> : null}
-      {method !== "employee" ? <p className={styles.alt}>No account? <Link href="/signup">Create one</Link></p> : null}
+      {method !== "employee" ? (
+        <p className={styles.alt}>
+          No account? <Link href="/signup">Create one</Link>
+          {" · "}
+          <Link href="/forgot-password">Forgot password?</Link>
+        </p>
+      ) : (
+        <p className={styles.alt}>
+          <Link href="/forgot-password">Forgot password?</Link>
+        </p>
+      )}
     </div>
   );
 }
