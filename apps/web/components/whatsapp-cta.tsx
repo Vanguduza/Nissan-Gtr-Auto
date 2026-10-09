@@ -1,6 +1,6 @@
 import styles from "./whatsapp-cta.module.css";
 
-const wa = process.env.NEXT_PUBLIC_WHATSAPP_E164?.replace(/\D/g, "") ?? "";
+const wa = process.env.NEXT_PUBLIC_WHATSAPP_E164?.replace(/\D/g, "") ?? ""; // nosemgrep: dial.no-client-secrets -- public wa.me phone number, not a token
 
 export function WhatsAppCta({
   oem,

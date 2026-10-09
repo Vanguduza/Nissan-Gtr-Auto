@@ -149,7 +149,7 @@ export async function requestAuthOtp(
   const required = body.verification_required as Record<string, unknown> | undefined;
   return {
     ok: true,
-    userId: typeof body.user_id === "string" ? body.user_id : undefined,
+    userId: typeof body.user_id === "string" ? body.user_id : undefined, // nosemgrep: dial.no-body-identity -- Edge function response body, not request input
     channels:
       body.channels && typeof body.channels === "object"
         ? (body.channels as Record<string, { sent?: boolean; error?: string }>)
@@ -308,7 +308,7 @@ async function readSessionResult(
   if (body.ok !== true) return authEdgeError(body, fallback);
   const accessToken = typeof body.access_token === "string" ? body.access_token : "";
   const refreshToken = typeof body.refresh_token === "string" ? body.refresh_token : "";
-  const userId = typeof body.user_id === "string" ? body.user_id : "";
+  const userId = typeof body.user_id === "string" ? body.user_id : ""; // nosemgrep: dial.no-body-identity -- Edge function response body, not request input
   if (!accessToken || !refreshToken || !userId) {
     return { ok: false, error: "Session tokens missing from Auth Edge response." };
   }

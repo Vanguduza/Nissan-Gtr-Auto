@@ -359,7 +359,7 @@ export async function createHrOnboardingAuthUser(
     return { ok: false, error: error.message };
   }
   const body = data as Record<string, unknown> | null;
-  if (!body || body.ok !== true || typeof body.user_id !== "string") {
+  if (!body || body.ok !== true || typeof body.user_id !== "string") { // nosemgrep: dial.no-body-identity -- Edge function response body, not request input
     const errMsg =
       typeof body?.error === "string"
         ? body.error
@@ -370,7 +370,7 @@ export async function createHrOnboardingAuthUser(
     ok: true,
     data: {
       employee_id: String(body.employee_id ?? employeeId),
-      user_id: body.user_id,
+      user_id: body.user_id, // nosemgrep: dial.no-body-identity -- Edge function response body, not request input
       created: Boolean(body.created),
       must_change_password: Boolean(body.must_change_password ?? true),
       staff_role:
