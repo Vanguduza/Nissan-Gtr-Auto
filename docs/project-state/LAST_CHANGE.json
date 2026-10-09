@@ -1,16 +1,16 @@
 {
   "actor": "unknown",
   "branch_at_record": "ccr-8c44a0d0-msyynq",
-  "change_id": "cfd67765f732b49b31dd",
+  "change_id": "0a191d2e35e01cb25ebb",
   "changed_files": [
-    ".github/workflows/android-pos.yml"
+    ".github/workflows/project-truth-autolog.yml"
   ],
-  "diff_sha256": "cfd67765f732b49b31ddc39796fa8c9a27ba1ff788706154b4293f888a701789",
+  "diff_sha256": "0a191d2e35e01cb25ebb7a780f6fb8b27d4214ad88ecd679439c231f5098e6f8",
   "domains": [
     "ci"
   ],
   "intent": "automatic-file-level-record",
-  "recorded_at_utc": "2026-10-09T06:51:30.118174+00:00",
+  "recorded_at_utc": "2026-10-09T08:15:54.429107+00:00",
   "schema_version": 1,
-  "source_parent": "f11109c9931513e56b4a3a62a5ad94c8e764477c"
+  "source_parent": "a57f4d6bee53d6620e19d4931678bbecc564fad9"
 }
