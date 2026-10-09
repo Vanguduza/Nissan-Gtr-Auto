@@ -15,6 +15,11 @@
   padding: 1.35rem clamp(0.85rem, 3vw, 1.5rem) 2.75rem;
 }
 
+/* Wide desk tools (master stock report, dense tables) */
+.shellWide {
+  width: min(1440px, 100%);
+}
+
 @media (max-width: 800px) {
   .shell {
     grid-template-columns: 1fr;

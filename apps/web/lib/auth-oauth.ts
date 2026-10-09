@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@gtr/supabase-client";
 import { siteUrl } from "@/lib/supabase";
 
-export type CustomerOAuthProvider = "google" | "apple";
+export type CustomerOAuthProvider = "google";
 
 export type OAuthStartResult =
   | { ok: true }
@@ -37,14 +37,14 @@ export function friendlyOAuthError(
     lower.includes("unsupported provider") ||
     (lower.includes("provider") && lower.includes("not enabled"))
   ) {
-    const label = provider === "google" ? "Google" : "Apple";
-    return `${label} sign-in is not enabled yet. Ask an admin to turn on the provider in Supabase Auth (see docs/CUSTOMER_OAUTH_SETUP.md).`;
+    return "Google sign-in is not enabled yet. Ask an admin to turn on the provider in Supabase Auth (see docs/CUSTOMER_OAUTH_SETUP.md).";
   }
+  void provider;
   return raw;
 }
 
 /**
- * Customer storefront OAuth (Google / Apple). Staff Employee # tab must not call this.
+ * Customer storefront OAuth (Google only). Staff Employee # tab must not call this.
  * Uses PKCE; session completes on `/auth/callback` via exchangeCodeForSession.
  */
 export async function startCustomerOAuth(

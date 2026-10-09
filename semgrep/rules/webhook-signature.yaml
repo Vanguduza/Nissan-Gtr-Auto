@@ -1,0 +1,75 @@
+# D-48 — webhook handlers should verify signatures (heuristic)
+rules:
+  - id: dial.webhook-missing-signature-verify
+    message: >-
+      Webhook handler reads a request body without an obvious signature verification
+      call in the same function. Verify PSP/Meta/FDMS signatures and idempotency before
+      mutating (Appendix A.1). Heuristic — tune as handlers land.
+    severity: ERROR
+    languages: [typescript, javascript]
+    metadata:
+      dial: D-48
+      category: security
+      cwe: "CWE-345"
+      confidence: LOW
+      license: MIT
+    patterns:
+      - pattern-either:
+          - pattern: |
+              async function $H($REQ, ...) {
+                ...
+                $REQ.body
+                ...
+              }
+          - pattern: |
+              export async function POST($REQ, ...) {
+                ...
+                await $REQ.json()
+                ...
+              }
+      - pattern-not: |
+          async function $H($REQ, ...) {
+            ...
+            verifySignature(...)
+            ...
+          }
+      - pattern-not: |
+          async function $H($REQ, ...) {
+            ...
+            verifyWebhookSignature(...)
+            ...
+          }
+      - pattern-not: |
+          async function $H($REQ, ...) {
+            ...
+            createHmac(...)
+            ...
+          }
+      - pattern-not: |
+          export async function POST($REQ, ...) {
+            ...
+            verifySignature(...)
+            ...
+          }
+      - pattern-not: |
+          export async function POST($REQ, ...) {
+            ...
+            verifyWebhookSignature(...)
+            ...
+          }
+      - pattern-not: |
+          export async function POST($REQ, ...) {
+            ...
+            createHmac(...)
+            ...
+          }
+    paths:
+      include:
+        - "**/webhooks/**"
+        - "**/*webhook*"
+      exclude:
+        - "**/*.test.ts"
+        - "**/*.spec.ts"
+        - "**/semgrep/**"
+        - "**/docs/**"
+        - "**/ThreatDragonModels/**"

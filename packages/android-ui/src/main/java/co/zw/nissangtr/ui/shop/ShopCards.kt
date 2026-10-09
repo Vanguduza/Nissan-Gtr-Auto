@@ -293,7 +293,9 @@ fun ShopOrderBox(
     onToggleExpand: (() -> Unit)? = null,
     expandedContent: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
+    // Surface(onClick) — reliable card hit target (inner Column.clickable was easy to miss / nest-fight).
     Surface(
+        onClick = onClick,
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surface,
@@ -304,7 +306,6 @@ fun ShopOrderBox(
             modifier = Modifier
                 .fillMaxWidth()
                 .border(1.dp, GtrColors.Mist, MaterialTheme.shapes.medium)
-                .clickable(onClick = onClick)
                 .padding(vertical = 10.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {

@@ -49,8 +49,26 @@ bridge.printReceiptLines(
     ),
 )
 bridge.printRaw(customEscPosBytes)
+
+// Cash drawer (RJ11 on printer) — ESC p pulse; requires connect()
+bridge.openCashDrawer() // pin 2 default
+// or narrow surface:
+val drawer: CashDrawerBridge = BluetoothCashDrawerBridge(bridge)
+drawer.openDrawer(CashDrawerPin.PIN_2)
+// tests/debug only:
+// FakeCashDrawerBridge().openDrawer()
+
 bridge.disconnect()
 ```
+
+## Cash drawer
+
+| API | Bytes | Notes |
+|-----|-------|-------|
+| `EscPosCommands.cashDrawerPulse` / `openCashDrawer` | `ESC p m t1 t2` (`1B 70 …`) | Default for Bluetooth thermal + drawer |
+| `EscPosCommands.cashDrawerPulseDleDc4` | `DLE DC4 1 m t` (`10 14 01 …`) | Alternate real-time form; send via `printRaw` if needed |
+
+Fake: `FakeCashDrawerBridge` — unit tests / debug only. No Web Bluetooth.
 
 ## Permissions
 
@@ -60,7 +78,9 @@ bridge.disconnect()
 | `BLUETOOTH_CONNECT` / `BLUETOOTH_SCAN` (neverForLocation) | Android 12+ |
 
 Printer must already be **bonded** in system Bluetooth settings; this bridge
-opens an RFCOMM socket to the configured MAC (does not run a discovery UX).
+opens an RFCOMM socket to the configured MAC. Host apps (POS utilities /
+management POS) list bonded devices and call [configurePrinterAddress] —
+MAC is persisted; no Web Bluetooth discovery UX.
 
 ## Hard rules
 

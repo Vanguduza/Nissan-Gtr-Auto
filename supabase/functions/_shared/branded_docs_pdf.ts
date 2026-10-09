@@ -46,6 +46,8 @@ export type BrandedIdCardPdfInput = {
   storeName: string;
   fullName: string;
   roleTitle: string;
+  /** Coarse staff_roles enum label (e.g. driver). */
+  staffRole?: string | null;
   employeeCode: string;
   verifyUrl?: string | null;
 };
@@ -434,6 +436,30 @@ export async function buildIdCardPdf(
     font,
     color: Brand.muted,
   });
+
+  const staffRoleRaw = String(input.staffRole ?? "").trim();
+  if (staffRoleRaw) {
+    const staffLabel = staffRoleRaw
+      .toLowerCase()
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+    const badgeText = staffLabel.slice(0, 14).toUpperCase();
+    const badgeW = Math.min(72, 10 + badgeText.length * 4.2);
+    page.drawRectangle({
+      x: textX,
+      y: h - 72,
+      width: badgeW,
+      height: 11,
+      color: Brand.primary,
+    });
+    page.drawText(badgeText, {
+      x: textX + 3,
+      y: h - 69,
+      size: 6,
+      font: fontBold,
+      color: Brand.white,
+    });
+  }
 
   // Opaque staff verify mark (not fiscal). Draw a simple square frame when URL present.
   if (input.verifyUrl) {

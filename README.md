@@ -3,16 +3,23 @@
 **Production domain:** [nissangtrauto.co.zw](https://nissangtrauto.co.zw)  
 (Decision: `docs/decisions/2026-07-23-company-domain.md`)
 
-Multi-platform, composable ERP for Nissan spare-parts distribution. One Supabase (PostgreSQL) backend, four client surfaces:
+Multi-platform, composable ERP for Nissan spare-parts distribution (**principal / first-party distributor** — not a multi-vendor marketplace). One Supabase (PostgreSQL) backend, five client surfaces:
 
 | Surface | Stack | Path |
 |---------|-------|------|
 | Customer Web App | Next.js (App Router) | `apps/web/` |
 | Customer Mobile (iOS) | Swift/SwiftUI + native bridges | `apps/ios/` |
 | Customer Mobile (Android) | Kotlin + native bridges | `apps/android-customer/` |
-| Management & Sales (Android) | Kotlin (POS, warehouse, HR, finance) | `apps/android-management/` |
+| Management & Sales (Android) | Kotlin (POS, warehouse, HR, finance, dispatch) | `apps/android-management/` |
+| Delivery (Android) | Kotlin driver app (jobs, POD, GPS, routing) | `apps/android-delivery/` |
 
-Shared packages live under `packages/`. Supabase schema, migrations, and edge functions live under `supabase/`. Catalog scraping/parsing infrastructure lives under `data-pipeline/` (independent of client builds).
+**Dial-a-Spare adoption:** engineering patterns from DIAL (money minor units, MapLibre+OSRM delivery SoR, Resend/Brevo split, Temporal dispatch contracts) — see [`docs/DIAL_SPARE_ADOPTION_PLAN.md`](docs/DIAL_SPARE_ADOPTION_PLAN.md) and ADR [`docs/decisions/2026-08-12-principal-vs-dial-agency.md`](docs/decisions/2026-08-12-principal-vs-dial-agency.md). Living docs: [`CHANGELOG.md`](CHANGELOG.md), [`ENHANCEMENTS.md`](ENHANCEMENTS.md), [`BUGS.md`](BUGS.md).
+
+Shared packages live under `packages/` (`shared`, `supabase-client`, `ui`, `documents`, `notifications`, `delivery`, `procurement`, `payments`). Supabase schema, migrations, and edge functions live under `supabase/`. Catalog scraping/parsing infrastructure lives under `data-pipeline/` (independent of client builds).
+
+**Procurement / dual-WH:** relationship preferred suppliers (not RFQ-win), WH1 receive / WH2 storefloor, master stock, PO fund release — [`docs/PROCUREMENT_WAREHOUSE_POS_SECURITY_PLAN.md`](docs/PROCUREMENT_WAREHOUSE_POS_SECURITY_PLAN.md).
+
+**AppSec CI:** Semgrep (`semgrep/rules`, root `semgrep.yml`, job `semgrep-gtr`) + Checkov (`.github/workflows/checkov.yml`). Promptfoo outline: `promptfoo/`.
 
 ## Hard Exclusions
 
@@ -29,9 +36,12 @@ These are **permanently out of scope** — no scaffolding, no TODOs, no referenc
 │   ├── web/                    # Next.js storefront, My Garage, visual catalog, B2B portal
 │   ├── ios/                    # iOS customer app + AVFoundation bridges
 │   ├── android-customer/       # Android customer app + CameraX bridges
-│   └── android-management/     # Internal POS, receiving, warehouse, HR, finance, dispatch
+│   ├── android-management/     # Internal POS, receiving, warehouse, HR, finance, dispatch
+│   └── android-delivery/       # Driver-only jobs, POD, GPS, OSRM/Google routing
 ├── packages/
-│   ├── shared/                 # Cart/pricing math, core-charge splitting, ledger helpers
+│   ├── shared/                 # Cart/pricing math, amountMinor money, ledger helpers
+│   ├── notifications/          # Resend (transactional) + Brevo (promo) adapters
+│   ├── delivery/               # Dispatch workflow contracts + OSRM helpers
 │   ├── supabase-client/        # Typed Supabase client (generated + hand-written)
 │   └── ui/                     # Cross-platform design tokens (web-first)
 ├── bridges/

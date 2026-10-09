@@ -13,14 +13,15 @@ Meilisearch CE is already scaffolded in `docker-compose.satellites.yml`.
 
 ## Decision
 
-1. **Supabase remains SoR** — catalog tables unchanged; Meili is a **derived index**.
-2. **Sync** — `python -m data_pipeline.meili_sync --full` (batch; run after import or on schedule). Metadata in `catalog_meili_sync_state` (RLS).
-3. **Search proxy** — Edge Function `catalog-search-meili`:
+1. **Supabase remains SoR** — catalog tables unchanged; Meili is a **derived discovery index**.
+2. **Meili never invents qty** (Stock/WMS §8) — documents and search hits carry catalog identity + facets only. Saleable / on-hand qty comes from Postgres (`stock_levels` / saleable RPCs). Client `stripInventedAvailabilityFromResults` removes any leaked inventory keys; Edge `mapHit` does not project qty fields.
+3. **Sync** — `python -m data_pipeline.meili_sync --full` (batch; run after import or on schedule). Metadata in `catalog_meili_sync_state` (RLS).
+4. **Search proxy** — Edge Function `catalog-search-meili`:
    - Caller JWT required (same audience as `search_catalog`).
    - `MEILI_HOST` + **search-only** `MEILI_SEARCH_KEY` in Edge secrets (master key dev-only fallback).
    - Returns `SearchCatalogResponse`-compatible JSON + optional `facetDistribution`.
    - **Dual-read:** `CATALOG_SEARCH_BACKEND=fts` or Meili error → `search_catalog` RPC (SECURITY INVOKER / RLS).
-4. **Clients** — prefer `searchCatalogMeili()` from `@gtr/supabase-client`; direct Meili from browser/mobile **forbidden**.
+5. **Clients** — prefer `searchCatalog()` / `searchCatalogMeili()` from `@gtr/supabase-client`; direct Meili from browser/mobile **forbidden**. Storefront/POS must join stock SoR for availability.
 
 ## Consequences
 

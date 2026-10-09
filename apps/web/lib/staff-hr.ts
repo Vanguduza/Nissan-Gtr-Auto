@@ -163,6 +163,7 @@ export type HrRoleOption = {
   grade_id: string;
   pay_frequency: string;
   module_access: unknown;
+  default_staff_role?: string | null;
   is_active: boolean;
   hr_grades?: { code: string; title: string } | null;
 };
@@ -185,7 +186,7 @@ export async function listHrRoles(
   const { data, error } = await client
     .from("hr_roles")
     .select(
-      "id, title, department, parent_role_id, grade_id, pay_frequency, module_access, is_active, hr_grades ( code, title )",
+      "id, title, department, parent_role_id, grade_id, pay_frequency, module_access, default_staff_role, is_active, hr_grades ( code, title )",
     )
     .eq("is_active", true)
     .order("title");
@@ -222,6 +223,7 @@ export async function createHrRole(
     department?: string | null;
     payFrequency?: string;
     moduleAccess?: string[];
+    defaultStaffRole?: string | null;
   },
 ): Promise<StorefrontResult<string>> {
   const { data, error } = await client.rpc("create_hr_role", {
@@ -231,6 +233,7 @@ export async function createHrRole(
     p_department: args.department || undefined,
     p_pay_frequency: args.payFrequency || "monthly",
     p_module_access: args.moduleAccess ?? [],
+    p_default_staff_role: args.defaultStaffRole || undefined,
   });
   if (error) return { ok: false, error: error.message };
   if (!data) return { ok: false, error: "create_hr_role returned no id." };
@@ -336,6 +339,7 @@ export type HrOnboardingCreateAuthResult = {
   user_id: string;
   created: boolean;
   must_change_password: boolean;
+  staff_role?: string | null;
   channels: HrOnboardingAuthChannel[];
 };
 
@@ -369,6 +373,8 @@ export async function createHrOnboardingAuthUser(
       user_id: body.user_id,
       created: Boolean(body.created),
       must_change_password: Boolean(body.must_change_password ?? true),
+      staff_role:
+        typeof body.staff_role === "string" ? body.staff_role : null,
       channels: Array.isArray(body.channels)
         ? (body.channels as HrOnboardingAuthChannel[])
         : [],

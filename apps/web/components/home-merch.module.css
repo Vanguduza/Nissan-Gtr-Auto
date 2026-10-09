@@ -19,10 +19,6 @@
   color: var(--gtr-red);
 }
 
-.flashWrap {
-  margin-top: 1.5rem;
-}
-
 .rails {
   display: grid;
   gap: 2rem;

@@ -21,6 +21,7 @@ geolocation APIs directly.
 |---------|---------------------------|--------------|----------|--------------|
 | QR scan | `contracts/qr-inventory.ts` → `QrScannerBridge` | `bridges/android/qr-scanner/` | `bridges/ios/QRScanner/` (stub) | CameraX+ML Kit / AVFoundation |
 | ESC/POS print | `contracts/qr-inventory.ts` → `EscPosPrinterBridge` | `bridges/android/escpos-printer/` | `bridges/ios/escpos-printer/` (stub) | BluetoothAdapter / CoreBluetooth |
+| Cash drawer kick | `contracts/qr-inventory.ts` → `CashDrawerBridge` | same module (`BluetoothCashDrawerBridge` / ESC p) | via printer RFCOMM | ESC p / DLE DC4 pulse |
 | Biometric auth | `contracts/biometric.ts` → `BiometricBridge` | `bridges/android/biometric-auth/` (stub) | `bridges/ios/BiometricAuth/` | BiometricPrompt / LocalAuthentication |
 | Biometric photo (HR) | `contracts/biometric.ts` → `BiometricPhotoCaptureBridge` | `bridges/android/biometric-photo/` | — | CameraX ImageCapture (profile photo only) |
 | GPS / delivery ingest | `contracts/gps.ts` → `GpsBridge` | `bridges/android/location-tracker/` | `bridges/ios/LocationTracker/` | FusedLocationProvider / CoreLocation |
@@ -41,7 +42,8 @@ geolocation APIs directly.
 | `:escpos-printer` | `android/escpos-printer/` | Implemented — RFCOMM ESC/POS |
 | `:pod-camera` | `android/pod-camera/` | **P0** — CameraX still capture → local JPEG path |
 | `:pod-signature` | `android/pod-signature/` | **P0** — Compose Canvas ink pad → local PNG path |
-| `:maps-nav` | `android/maps-nav/` | **Delivery** — Maps Compose + Directions polyline (display only; no ingest) |
+| `:maps-nav` | `android/maps-nav/` | **MapLibre SoR** (address pick + shared helpers); OSRM prefer; Google deprecated fallback |
+| `MapsNav` (SPM) | `ios/MapsNav/` | **MapLibre SoR** (address pick + track last-point); MapKit deprecated fallback |
 | `:biometric-photo` | `android/biometric-photo/` | **P0** — HR onboarding profile photo (CameraX; no matching) |
 
 Include from `apps/android-delivery/settings.gradle.kts` (scaffold lane):

@@ -298,6 +298,9 @@ export function CatalogBrowse({
   }
 
   const facetCats = status.categoryFacets;
+  const catalogEmpty =
+    status.items.length === 0 && facetCats.length === 0 && !category;
+
   const displayItems = applyCatalogFiltersAndSort(status.items, {
     sort,
     minUsd: Number.isFinite(minUsd as number) ? minUsd : null,
@@ -316,6 +319,13 @@ export function CatalogBrowse({
           <>Browse live stock. Select your vehicle to verify compatibility against the hosted Nissan catalog before purchase.</>
         )}
       </p>
+      {catalogEmpty ? (
+        <p className={styles.lede} role="status">
+          No in-stock priced items yet. Receive stock, set a retail price on
+          Product pages, then refresh. EPC search still finds unpriced catalog
+          parts.
+        </p>
+      ) : null}
 
       <div className={styles.plp}>
         <aside className={styles.facets} aria-label="Filters">
@@ -376,7 +386,9 @@ export function CatalogBrowse({
                 {displayItems.length === 0 ? (
                   <tr>
                     <td colSpan={5} className={styles.muted}>
-                      {filterLabel
+                      {catalogEmpty
+                        ? "No in-stock priced items yet — set price on Product pages after receiving stock."
+                        : filterLabel
                         ? `No saleable parts match “${filterLabel}” for the current filters.`
                         : fitmentVerified
                           ? "No saleable stock from the hosted catalog matches your selected vehicle."

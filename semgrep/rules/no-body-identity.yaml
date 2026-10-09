@@ -1,0 +1,36 @@
+# D-47 — never trust userId / email / role from request body or query for AuthZ
+rules:
+  - id: dial.no-body-identity
+    message: >-
+      Do not use userId, email, or role from request body/query for authorization.
+      Authenticated identity must come from JWT/session only (D-47).
+    severity: ERROR
+    languages: [typescript, javascript]
+    metadata:
+      dial: D-47
+      category: security
+      cwe: "CWE-807"
+      license: MIT
+    patterns:
+      - pattern-either:
+          - pattern: req.body.userId
+          - pattern: req.body.user_id
+          - pattern: req.body.email
+          - pattern: req.body.role
+          - pattern: req.query.userId
+          - pattern: req.query.user_id
+          - pattern: req.query.email
+          - pattern: req.query.role
+          - pattern: body.userId
+          - pattern: body.user_id
+          - pattern: searchParams.get("userId")
+          - pattern: searchParams.get("user_id")
+          - pattern: searchParams.get("role")
+    paths:
+      exclude:
+        - "**/*.test.ts"
+        - "**/*.test.tsx"
+        - "**/*.spec.ts"
+        - "**/semgrep/**"
+        - "**/ThreatDragonModels/**"
+        - "**/docs/**"

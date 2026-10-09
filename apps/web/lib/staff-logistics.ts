@@ -169,6 +169,19 @@ export async function submitDeliveryNote(
   return { ok: true, data };
 }
 
+/** Cancels draft/submitted DN; authz via RPC `_require_logistics_staff` (admin|warehouse|dispatcher|sales). */
+export async function cancelDeliveryNote(
+  client: SupabaseClient,
+  deliveryNoteId: string,
+): Promise<StorefrontResult<string>> {
+  const { data, error } = await client.rpc("cancel_delivery_note", {
+    p_delivery_note_id: deliveryNoteId,
+  });
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "cancel_delivery_note returned no id." };
+  return { ok: true, data };
+}
+
 export async function createDeliveryJob(
   client: SupabaseClient,
   args: {

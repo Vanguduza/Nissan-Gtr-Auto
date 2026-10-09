@@ -44,8 +44,13 @@ agents:
     paths:
       - apps/android-management/**
     shared_read:
+      - apps/web/lib/staff-auth.ts
+      - apps/web/lib/staff-*.ts
+      - apps/web/app/(staff)/**
+      - apps/web/app/(b2b)/procurement/**
       - packages/shared/**
       - packages/supabase-client/**
+      - packages/ui/brand-tokens.json
       - bridges/android/**
       - .cursorrules
       - AGENTS.md
@@ -92,6 +97,18 @@ agents:
       - .cursorrules
       - AGENTS.md
 
+  catalog_apk_agent:
+    description: Standalone Megazip/PartSouq catalog crawl APK (Compose, WorkManager, Room)
+    paths:
+      - apps/catalog-apk/**
+    shared_read:
+      - data-pipeline/**
+      - docs/plans/**
+      - docs/guides/**
+      - .claude/skills/parts_catalog_ingestion.md
+      - .cursorrules
+      - AGENTS.md
+
   finance_agent:
     description: Ledger schema, financial statements, reporting logic (cross-cutting)
     paths:
@@ -119,6 +136,7 @@ routing:
   chart_of_accounts: finance_agent
   nissan_fast_parse: data_pipeline_agent
   catalog_scrape: data_pipeline_agent
+  catalog_apk: catalog_apk_agent
 
 context_discipline:
   - Load skills only when trigger conditions match (see .claude/skills/ headers)

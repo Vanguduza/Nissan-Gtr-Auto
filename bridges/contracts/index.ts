@@ -14,6 +14,7 @@ export type {
   EscPosReceiptLine,
   BluetoothPermissionStatus,
   EscPosPrinterBridge,
+  CashDrawerBridge,
 } from "./qr-inventory.ts";
 
 export type {

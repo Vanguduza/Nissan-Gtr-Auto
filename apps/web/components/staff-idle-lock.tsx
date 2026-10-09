@@ -9,6 +9,11 @@ import {
   type ReactNode,
 } from "react";
 import { STAFF_IDLE_LOCK_MS } from "@/lib/staff-auth";
+import {
+  evaluateStaffIdleLock,
+  readStaffIdleLockStorage,
+  writeStaffIdleLockStorage,
+} from "@/lib/staff-idle-lock-state";
 import { createWebClient } from "@/lib/supabase";
 import styles from "./staff-idle-lock.module.css";
 
@@ -20,11 +25,18 @@ const ACTIVITY_EVENTS = [
 ] as const;
 
 const POLL_MS = 5_000;
+/** Throttle sessionStorage writes on activity (still update in-memory immediately). */
+const PERSIST_ACTIVITY_MS = 5_000;
+
+type Phase = "boot" | "active" | "locked";
 
 /**
  * Staff-shell idle lock (web parity with Android IdleSessionHost).
  * After {@link STAFF_IDLE_LOCK_MS} of inactivity: remount children (clear
  * sensitive in-memory UI) and show in-app password reauth — never leave staff shell.
+ *
+ * Idle / locked state is persisted in sessionStorage so a full page reload cannot
+ * silently reopen staff UI while GoTrue still auto-refreshes the access token.
  */
 export function StaffIdleLock({
   enabled,
@@ -33,21 +45,56 @@ export function StaffIdleLock({
   enabled: boolean;
   children: ReactNode;
 }) {
-  const [locked, setLocked] = useState(false);
+  const [phase, setPhase] = useState<Phase>(enabled ? "boot" : "active");
   const [contentGeneration, setContentGeneration] = useState(0);
   const lastActiveAt = useRef(Date.now());
+  const lastPersistAt = useRef(0);
 
-  const bump = useCallback(() => {
-    if (!locked) lastActiveAt.current = Date.now();
-  }, [locked]);
-
-  const lock = useCallback(() => {
-    setLocked(true);
-    setContentGeneration((g) => g + 1);
+  const persist = useCallback((locked: boolean, at: number) => {
+    writeStaffIdleLockStorage({ lastActiveAt: at, locked });
   }, []);
 
+  const bump = useCallback(() => {
+    if (phase !== "active") return;
+    const now = Date.now();
+    lastActiveAt.current = now;
+    if (now - lastPersistAt.current >= PERSIST_ACTIVITY_MS) {
+      lastPersistAt.current = now;
+      persist(false, now);
+    }
+  }, [phase, persist]);
+
+  const lock = useCallback(() => {
+    setPhase("locked");
+    setContentGeneration((g) => g + 1);
+    persist(true, lastActiveAt.current);
+  }, [persist]);
+
+  // Boot: restore persisted idle/lock across reload (same tab).
   useEffect(() => {
-    if (!enabled || locked) return;
+    if (!enabled) {
+      setPhase("active");
+      return;
+    }
+    const now = Date.now();
+    const next = evaluateStaffIdleLock(
+      readStaffIdleLockStorage(),
+      now,
+      STAFF_IDLE_LOCK_MS,
+    );
+    lastActiveAt.current = next.lastActiveAt;
+    lastPersistAt.current = now;
+    persist(next.locked, next.lastActiveAt);
+    if (next.locked) {
+      setContentGeneration((g) => g + 1);
+      setPhase("locked");
+    } else {
+      setPhase("active");
+    }
+  }, [enabled, persist]);
+
+  useEffect(() => {
+    if (!enabled || phase !== "active") return;
 
     const onActivity = () => bump();
     for (const ev of ACTIVITY_EVENTS) {
@@ -66,20 +113,28 @@ export function StaffIdleLock({
       }
       window.clearInterval(timer);
     };
-  }, [enabled, locked, bump, lock]);
+  }, [enabled, phase, bump, lock]);
 
   if (!enabled) {
     return <>{children}</>;
   }
 
+  // Avoid flashing staff UI before sessionStorage idle check completes.
+  if (phase === "boot") {
+    return <div className={styles.host} aria-busy="true" />;
+  }
+
   return (
     <div className={styles.host}>
       <div key={contentGeneration}>{children}</div>
-      {locked ? (
+      {phase === "locked" ? (
         <IdleLockOverlay
           onUnlocked={() => {
-            setLocked(false);
-            lastActiveAt.current = Date.now();
+            const now = Date.now();
+            lastActiveAt.current = now;
+            lastPersistAt.current = now;
+            persist(false, now);
+            setPhase("active");
           }}
         />
       ) : null}

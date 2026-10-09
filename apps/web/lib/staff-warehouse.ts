@@ -1,11 +1,17 @@
 import type { Database, SupabaseClient } from "@gtr/supabase-client";
 import {
+  categoryFilterNeedles,
+  effectiveCategoryFilter,
+  MERCHANDISING_TAXONOMY,
+} from "@gtr/shared";
+import {
   requireSession,
   zigExchangeRate,
   type StorefrontResult,
 } from "@/lib/customer-storefront";
+import { downloadCsv } from "@/lib/staff-finance";
 
-export { requireSession, zigExchangeRate };
+export { requireSession, zigExchangeRate, downloadCsv };
 
 export type CurrencyCode = Database["public"]["Enums"]["currency_code"];
 export type ValuationMethod = Database["public"]["Enums"]["valuation_method"];
@@ -26,6 +32,199 @@ export type StockItemOption = {
   base_uom_id: string | null;
   requires_serial: boolean;
 };
+
+export type MasterStockRow = {
+  stock_item_id: string;
+  oem_part_number: string;
+  description: string | null;
+  qty_total: number;
+  qty_wh1: number;
+  qty_wh2: number;
+  chassis_codes: string | null;
+  category_name: string | null;
+  subcategory_name: string | null;
+};
+
+export type MasterStockFilters = {
+  query?: string;
+  chassisCode?: string;
+  categorySlug?: string;
+  subcategorySlug?: string;
+};
+
+export type MasterStockChassisOption = {
+  chassisCode: string;
+  label: string;
+};
+
+export type MasterStockCategoryOption = {
+  slug: string;
+  label: string;
+};
+
+/** Browse page size; export uses MASTER_STOCK_EXPORT_LIMIT. */
+export const MASTER_STOCK_PAGE_LIMIT = 500;
+export const MASTER_STOCK_EXPORT_LIMIT = 5000;
+
+export const MASTER_STOCK_CSV_HEADERS = [
+  "OEM",
+  "Description",
+  "Model (chassis)",
+  "Category",
+  "Subcategory",
+  "Total",
+  "WH1",
+  "WH2",
+] as const;
+
+export function masterStockCategoryOptions(): MasterStockCategoryOption[] {
+  return MERCHANDISING_TAXONOMY.map((p) => ({
+    slug: p.slug,
+    label: p.label,
+  }));
+}
+
+export function masterStockSubcategoryOptions(
+  categorySlug: string | null | undefined,
+): MasterStockCategoryOption[] {
+  const slug = categorySlug?.trim();
+  if (!slug) return [];
+  const parent = MERCHANDISING_TAXONOMY.find((p) => p.slug === slug);
+  if (!parent) return [];
+  return parent.subcategories.map((s) => ({
+    slug: s.slug,
+    label: s.label,
+  }));
+}
+
+/** Pure CSV row builder (formula-safe via downloadCsv). */
+export function masterStockToCsvRows(
+  rows: MasterStockRow[],
+): (string | number)[][] {
+  return rows.map((r) => [
+    r.oem_part_number,
+    r.description ?? "",
+    r.chassis_codes ?? "",
+    r.category_name ?? "",
+    r.subcategory_name ?? "",
+    Number(r.qty_total) || 0,
+    Number(r.qty_wh1) || 0,
+    Number(r.qty_wh2) || 0,
+  ]);
+}
+
+export function sumMasterStockQty(rows: MasterStockRow[]): {
+  total: number;
+  wh1: number;
+  wh2: number;
+} {
+  return rows.reduce(
+    (acc, r) => ({
+      total: acc.total + (Number(r.qty_total) || 0),
+      wh1: acc.wh1 + (Number(r.qty_wh1) || 0),
+      wh2: acc.wh2 + (Number(r.qty_wh2) || 0),
+    }),
+    { total: 0, wh1: 0, wh2: 0 },
+  );
+}
+
+function needlesForSlug(slug: string | null | undefined): string[] | undefined {
+  const s = slug?.trim();
+  if (!s) return undefined;
+  const needles = categoryFilterNeedles(s);
+  return needles.length ? needles : undefined;
+}
+
+export function masterStockRpcArgs(
+  filters: MasterStockFilters,
+  limit: number,
+): {
+  p_limit: number;
+  p_query?: string;
+  p_chassis_code?: string;
+  p_category_needles?: string[];
+  p_subcategory_needles?: string[];
+} {
+  const q = filters.query?.trim() || undefined;
+  const chassis = filters.chassisCode?.trim() || undefined;
+  const cat = filters.categorySlug?.trim() || undefined;
+  const sub = filters.subcategorySlug?.trim() || undefined;
+  // When only a parent category is set, use parent needles; leaf uses subcategory needles.
+  const effective = effectiveCategoryFilter(cat, sub);
+  const categoryNeedles =
+    cat && !sub ? needlesForSlug(cat) : undefined;
+  const subcategoryNeedles = sub
+    ? needlesForSlug(effective)
+    : undefined;
+
+  return {
+    p_limit: limit,
+    ...(q ? { p_query: q } : {}),
+    ...(chassis ? { p_chassis_code: chassis } : {}),
+    ...(categoryNeedles?.length
+      ? { p_category_needles: categoryNeedles }
+      : {}),
+    ...(subcategoryNeedles?.length
+      ? { p_subcategory_needles: subcategoryNeedles }
+      : {}),
+  };
+}
+
+export async function listMasterStockChassisOptions(
+  client: SupabaseClient,
+): Promise<StorefrontResult<MasterStockChassisOption[]>> {
+  const { data, error } = await client
+    .from("vehicle_master")
+    .select("chassis_code, model_variant")
+    .order("chassis_code", { ascending: true })
+    .limit(800);
+  if (error) return { ok: false, error: error.message };
+
+  const byCode = new Map<string, string>();
+  for (const row of data ?? []) {
+    const code = String(row.chassis_code ?? "").trim();
+    if (!code || byCode.has(code)) continue;
+    const variant = String(row.model_variant ?? "").trim();
+    byCode.set(code, variant ? `${code} — ${variant}` : code);
+  }
+  return {
+    ok: true,
+    data: [...byCode.entries()].map(([chassisCode, label]) => ({
+      chassisCode,
+      label,
+    })),
+  };
+}
+
+export async function listMasterStock(
+  client: SupabaseClient,
+  filters: MasterStockFilters = {},
+  opts?: { limit?: number },
+): Promise<StorefrontResult<MasterStockRow[]>> {
+  const limit = opts?.limit ?? MASTER_STOCK_PAGE_LIMIT;
+  const { data, error } = await client.rpc(
+    "list_master_stock",
+    masterStockRpcArgs(filters, limit),
+  );
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: (data as MasterStockRow[]) ?? [] };
+}
+
+export function exportMasterStockCsv(
+  rows: MasterStockRow[],
+  scope: "filtered" | "all",
+): void {
+  const stamp = new Date().toISOString().slice(0, 10);
+  const filename =
+    scope === "all"
+      ? `master-stock-all-${stamp}.csv`
+      : `master-stock-filtered-${stamp}.csv`;
+  downloadCsv(
+    filename,
+    [...MASTER_STOCK_CSV_HEADERS],
+    masterStockToCsvRows(rows),
+  );
+}
 
 export type StockEntryOption = {
   id: string;

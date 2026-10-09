@@ -52,4 +52,5 @@ Prefer **`@android_delivery_agent`** with path `apps/android-delivery/**` in `ru
 - No HTML5 / browser geolocation or camera for delivery or staff web maps.
 - No iOS driver app in this decision.
 - Customer full GPS trail / historical stalking remains **Never**.
+- **POD evidence (2026-08-14 verify):** CameraX `pod-camera` + Compose `pod-signature` are **WORKING** (not stubs). App uploads to Storage `delivery-pods` then `submit_delivery_pod`. Gallery ImagePicker intentionally skipped (camera-only Bridge-First).
 - Former P1/P2 delivery features (OTP POD, geofence suggestions, multi-stop optimizer, panic, offline POD queue, `/track/[token]`, fail/reattempt) are **Required** under the 2026-07-25 mandate — see plan matrix; not backlog.

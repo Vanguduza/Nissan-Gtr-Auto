@@ -180,8 +180,7 @@
   white-space: nowrap;
 }
 
-.oauthGoogle,
-.oauthApple {
+.oauthGoogle {
   border: 1px solid rgba(255, 255, 255, 0.35);
   border-radius: 2px;
   padding: 0.65rem 1rem;
@@ -193,22 +192,14 @@
 }
 
 .oauthGoogle:hover,
-.oauthGoogle:focus-visible,
-.oauthApple:hover,
-.oauthApple:focus-visible {
+.oauthGoogle:focus-visible {
   border-color: rgba(255, 255, 255, 0.55);
   background: rgba(255, 255, 255, 0.14);
 }
 
-.oauthGoogle:disabled,
-.oauthApple:disabled {
+.oauthGoogle:disabled {
   opacity: 0.7;
   cursor: wait;
-}
-
-.oauthApple {
-  background: #000;
-  border-color: rgba(255, 255, 255, 0.4);
 }
 
 .oauthHint {
