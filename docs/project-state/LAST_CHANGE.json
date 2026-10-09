@@ -1,16 +1,29 @@
 {
   "actor": "unknown",
   "branch_at_record": "ccr-8c44a0d0-msyynq",
-  "change_id": "aca4bd56c529d8cc37ab",
+  "change_id": "fcdac08cac11a15b8393",
   "changed_files": [
-    ".gitignore"
+    ".github/workflows/project-truth-guard.yml",
+    "apps/android-management/feature/pos-ui/src/main/java/co/zw/nissangtr/pos/ui/sale/PosLetters.kt",
+    "apps/web/components/pos/PaymentLetters.tsx",
+    "apps/web/components/pos/StockDialog.tsx",
+    "apps/web/components/pos/pos.module.css",
+    "packages/pos-design/src/main/java/co/zw/nissangtr/pos/design/tokens/PosTokens.kt",
+    "packages/ui/brand-tokens.json",
+    "packages/ui/scripts/build-tokens.mjs",
+    "packages/ui/src/tokens.css",
+    "packages/ui/src/tokens.ts",
+    "scripts/test_vehicle_artwork_set.py"
   ],
-  "diff_sha256": "aca4bd56c529d8cc37ab58b38dc00d7c8f754cf0b7d836f2c7279303d02fa0a6",
+  "diff_sha256": "fcdac08cac11a15b83938371b09b6ae49e3630a8d055d665ac8e8686b579a0f3",
   "domains": [
-    "repository"
+    "ci",
+    "management-android",
+    "repository",
+    "web"
   ],
   "intent": "automatic-file-level-record",
-  "recorded_at_utc": "2026-10-09T06:31:30.987677+00:00",
+  "recorded_at_utc": "2026-10-09T06:38:33.343663+00:00",
   "schema_version": 1,
-  "source_parent": "ca5ac26a7538e376b5f4a966a681c7bd5389249b"
+  "source_parent": "5a9dac7630936dc08708e5bfed35b9a49fa9d1b9"
 }

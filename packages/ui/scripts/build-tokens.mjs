@@ -70,6 +70,14 @@ function generateKotlinTokens() {
     }
   }
 
+  if (tokens.color.paper) {
+    for (const [k, v] of Object.entries(tokens.color.paper)) {
+      if (typeof v === 'string' && !k.startsWith('$')) {
+        colorLines.push(`        val Paper_${k} = Color(${hexToArgbHex(v)})`);
+      }
+    }
+  }
+
   const spaceLines = [];
   for (const [k, v] of Object.entries(tokens.space)) {
     if (typeof v === 'number') {

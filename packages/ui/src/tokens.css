@@ -39,6 +39,18 @@
   --gtr-color-money-zig: #B45309;
   --gtr-color-neumorph-highlight: #FFFFFF;
   --gtr-color-neumorph-shade: #D2D7E0;
+  --gtr-color-paper-sheet: #FFFFFF;
+  --gtr-color-paper-ink: #111111;
+  --gtr-color-paper-inkMuted: #555555;
+  --gtr-color-paper-inkFaint: #777777;
+  --gtr-color-paper-rule: #999999;
+  --gtr-color-paper-ruleDashed: #AAAAAA;
+  --gtr-color-paper-signatureInk: #0B1D4A;
+  --gtr-color-paper-cardBackground: #111317;
+  --gtr-color-paper-cardInk: #FFFFFF;
+  --gtr-color-paper-cardBrand: #E5203A;
+  --gtr-color-paper-cardMeta: #C9CCD3;
+  --gtr-color-paper-cardFoot: #9AA0AA;
   --gtr-color-neutral-hero-backdrop: #0A0C0E;
   --gtr-space-0: 0px;
   --gtr-space-1: 4px;

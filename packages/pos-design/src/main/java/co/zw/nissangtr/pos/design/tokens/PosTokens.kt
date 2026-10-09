@@ -56,6 +56,18 @@ object PosTokens {
         val Neumorph_shade = Color(0xFFD2D7E0)
         val Neumorph_dark_highlight = Color(0xFF283040)
         val Neumorph_dark_shade = Color(0xFF0A0D12)
+        val Paper_sheet = Color(0xFFFFFFFF)
+        val Paper_ink = Color(0xFF111111)
+        val Paper_inkMuted = Color(0xFF555555)
+        val Paper_inkFaint = Color(0xFF777777)
+        val Paper_rule = Color(0xFF999999)
+        val Paper_ruleDashed = Color(0xFFAAAAAA)
+        val Paper_signatureInk = Color(0xFF0B1D4A)
+        val Paper_cardBackground = Color(0xFF111317)
+        val Paper_cardInk = Color(0xFFFFFFFF)
+        val Paper_cardBrand = Color(0xFFE5203A)
+        val Paper_cardMeta = Color(0xFFC9CCD3)
+        val Paper_cardFoot = Color(0xFF9AA0AA)
     }
 
     object SpaceTokens {

@@ -124,7 +124,7 @@ export function LetterDialog({ pos, letterId, onClose }: { pos: PosStore; letter
       {!letter && !error ? <div className={styles.emptyCard}>Loading…</div> : null}
       {letter ? (
         <>
-          <div style={{ border: "1px solid var(--gtr-color-neutral-border, #e5e7eb)", borderRadius: 8, padding: 4, background: "#fff" }}>
+          <div style={{ border: "1px solid var(--gtr-color-neutral-borderSubtle)", borderRadius: 8, padding: 4, background: "var(--gtr-color-paper-sheet)" }}>
             <LetterDocument letter={letter} />
           </div>
           <div className={styles.rowEnd}>
@@ -170,14 +170,14 @@ export function LetterDocument({ letter }: { letter: PaymentLetter }) {
     ["Detail", letter.failureDetail],
   ];
   return (
-    <article style={{ color: "#111", background: "#fff", padding: "28px 32px", fontSize: 13, lineHeight: 1.5, fontFamily: "inherit" }}>
-      <header style={{ display: "flex", justifyContent: "space-between", gap: 16, borderBottom: "2px solid #c8102e", paddingBottom: 12 }}>
+    <article style={{ color: "var(--gtr-color-paper-ink)", background: "var(--gtr-color-paper-sheet)", padding: "28px 32px", fontSize: 13, lineHeight: 1.5, fontFamily: "inherit" }}>
+      <header style={{ display: "flex", justifyContent: "space-between", gap: 16, borderBottom: "2px solid var(--gtr-color-brand-primary)", paddingBottom: 12 }}>
         <div>
           <div style={{ fontSize: 20, fontWeight: 800 }}>{b?.tradingName ?? "Nissan GTR Auto"}</div>
           {b && b.legalName !== b.tradingName ? <div>{b.legalName}</div> : null}
-          <div style={{ color: "#555" }}>{[b?.addressLine1, b?.addressLine2, b?.city, b?.country].filter(Boolean).join(", ")}</div>
+          <div style={{ color: "var(--gtr-color-paper-inkMuted)" }}>{[b?.addressLine1, b?.addressLine2, b?.city, b?.country].filter(Boolean).join(", ")}</div>
         </div>
-        <div style={{ textAlign: "right", color: "#555" }}>
+        <div style={{ textAlign: "right", color: "var(--gtr-color-paper-inkMuted)" }}>
           {[b?.phone, b?.email, b?.domain].filter(Boolean).map((x) => (
             <div key={x}>{x}</div>
           ))}
@@ -185,7 +185,7 @@ export function LetterDocument({ letter }: { letter: PaymentLetter }) {
         </div>
       </header>
       <h1 style={{ fontSize: 18, margin: "18px 0 4px" }}>Payment status letter</h1>
-      <div style={{ color: "#555" }}>
+      <div style={{ color: "var(--gtr-color-paper-inkMuted)" }}>
         {letter.documentNumber} · {when(letter.issuedAt)}
       </div>
       <p style={{ marginTop: 14 }}>
@@ -198,7 +198,7 @@ export function LetterDocument({ letter }: { letter: PaymentLetter }) {
             .filter(([, v]) => v)
             .map(([k, v]) => (
               <tr key={k}>
-                <td style={{ padding: "4px 12px 4px 0", color: "#555", width: "38%", verticalAlign: "top" }}>{k}</td>
+                <td style={{ padding: "4px 12px 4px 0", color: "var(--gtr-color-paper-inkMuted)", width: "38%", verticalAlign: "top" }}>{k}</td>
                 <td style={{ padding: "4px 0", fontWeight: 600 }}>{v}</td>
               </tr>
             ))}
@@ -210,11 +210,11 @@ export function LetterDocument({ letter }: { letter: PaymentLetter }) {
           // eslint-disable-next-line @next/next/no-img-element
           <img src={letter.signatureUrl} alt="Signature" style={{ height: 64, maxWidth: 260, objectFit: "contain", display: "block" }} />
         ) : (
-          <div style={{ height: 48, color: "#777", fontStyle: "italic" }}>Signature on file{letter.signatureSha256 ? ` (${letter.signatureSha256.slice(0, 12)}…)` : ""}</div>
+          <div style={{ height: 48, color: "var(--gtr-color-paper-inkFaint)", fontStyle: "italic" }}>Signature on file{letter.signatureSha256 ? ` (${letter.signatureSha256.slice(0, 12)}…)` : ""}</div>
         )}
-        <div style={{ borderTop: "1px solid #999", width: 260, paddingTop: 4 }}>
+        <div style={{ borderTop: "1px solid var(--gtr-color-paper-rule)", width: 260, paddingTop: 4 }}>
           <strong>{letter.managerName}</strong>
-          <div style={{ color: "#555" }}>{[letter.managerTitle, letter.managerEmployeeCode].filter(Boolean).join(" · ")}</div>
+          <div style={{ color: "var(--gtr-color-paper-inkMuted)" }}>{[letter.managerTitle, letter.managerEmployeeCode].filter(Boolean).join(" · ")}</div>
         </div>
       </footer>
     </article>
@@ -260,7 +260,7 @@ export function SignatureSetting({ pos }: { pos: PosStore }) {
           <p className={styles.muted}>Payment letters you issue carry this signature. Changing it does not change letters already issued.</p>
           {sig?.imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={sig.imageUrl} alt="Your signature on file" style={{ height: 72, maxWidth: 300, objectFit: "contain", background: "#fff", borderRadius: 8, padding: 6 }} />
+            <img src={sig.imageUrl} alt="Your signature on file" style={{ height: 72, maxWidth: 300, objectFit: "contain", background: "var(--gtr-color-paper-sheet)", borderRadius: 8, padding: 6 }} />
           ) : sig ? (
             <p className={styles.muted}>No signature on file yet.</p>
           ) : null}
@@ -269,7 +269,7 @@ export function SignatureSetting({ pos }: { pos: PosStore }) {
             width={600}
             height={180}
             aria-label="Sign here"
-            style={{ width: "100%", maxWidth: 480, height: 144, background: "#fff", borderRadius: 8, border: "1px dashed #aaa", touchAction: "none", marginTop: 10, display: "block" }}
+            style={{ width: "100%", maxWidth: 480, height: 144, background: "var(--gtr-color-paper-sheet)", borderRadius: 8, border: "1px dashed var(--gtr-color-paper-ruleDashed)", touchAction: "none", marginTop: 10, display: "block" }}
             onPointerDown={(e) => {
               const ctx = canvas.current?.getContext("2d");
               if (!ctx) return;
@@ -278,7 +278,8 @@ export function SignatureSetting({ pos }: { pos: PosStore }) {
               const p = point(e);
               ctx.lineWidth = 3;
               ctx.lineCap = "round";
-              ctx.strokeStyle = "#0b1d4a";
+              // Canvas cannot read CSS variables directly; take the paper ink token from the element.
+              ctx.strokeStyle = getComputedStyle(e.currentTarget).getPropertyValue("--gtr-color-paper-signatureInk").trim() || "black";
               ctx.beginPath();
               ctx.moveTo(p.x, p.y);
             }}

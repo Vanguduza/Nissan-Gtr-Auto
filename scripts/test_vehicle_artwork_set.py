@@ -67,16 +67,19 @@ class VehicleArtworkSetTest(unittest.TestCase):
         csv_path = REPO / "supabase" / "FITMENT_ART_MAPPING.csv"
         self.assertTrue(csv_path.is_file(), "pack mapping CSV must live in supabase/")
 
-    def test_kotlin_public_base_matches_bucket(self) -> None:
-        url_kt = (
-            REPO
-            / "apps/android-customer/core/visual/src/main/java"
-            / "co/zw/nissangtr/customer/visual/VehicleArtworkUrl.kt"
-        )
+    def test_android_bundles_the_set(self) -> None:
+        # The customer app ships the artwork in its assets (works offline, no bucket needed),
+        # so every canonical WebP must be bundled byte-for-byte.
+        visual = REPO / "apps/android-customer/core/visual/src/main"
+        url_kt = visual / "java/co/zw/nissangtr/customer/visual/VehicleArtworkUrl.kt"
         if not url_kt.is_file():
             self.skipTest("Android customer visual module not present")
-        text = url_kt.read_text(encoding="utf-8")
-        self.assertIn("/storage/v1/object/public/vehicle-artwork/", text)
+        self.assertIn("file:///android_asset/vehicles/", url_kt.read_text(encoding="utf-8"))
+        bundled = visual / "assets/vehicles"
+        for art in ART_DIR.glob("*.webp"):
+            copy = bundled / art.name
+            self.assertTrue(copy.is_file(), f"{art.name} is not bundled in the Android app")
+            self.assertEqual(copy.read_bytes(), art.read_bytes(), f"{art.name} differs from the canonical set")
 
 
 if __name__ == "__main__":

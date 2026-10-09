@@ -51,7 +51,7 @@ export function StockDialog({ pos }: { pos: PosStore }) {
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.warehouseId} style={{ textAlign: "right", borderTop: "1px solid var(--gtr-color-neutral-border, #e5e7eb)" }}>
+              <tr key={r.warehouseId} style={{ textAlign: "right", borderTop: "1px solid var(--gtr-color-neutral-borderSubtle)" }}>
                 <td style={{ textAlign: "left", padding: "8px 0" }}>
                   <div className={styles.listTitle}>{r.name || r.code}</div>
                   <div className={styles.muted}>

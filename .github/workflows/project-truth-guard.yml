@@ -16,6 +16,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # On a pull request verify the branch head itself; GitHub's synthetic merge commit
+          # carries no ledger entry of its own.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Show canonical state
         run: python3 scripts/project_truth_guard.py status
       - name: Verify automatic change ledger

@@ -82,6 +82,21 @@
         "highlight": "#283040",
         "shade": "#0A0D12"
       }
+    },
+    "paper": {
+      "$description": "Printed documents (payment letters, signature pad, badge ID card): fixed ink on paper in every theme.",
+      "sheet": "#FFFFFF",
+      "ink": "#111111",
+      "inkMuted": "#555555",
+      "inkFaint": "#777777",
+      "rule": "#999999",
+      "ruleDashed": "#AAAAAA",
+      "signatureInk": "#0B1D4A",
+      "cardBackground": "#111317",
+      "cardInk": "#FFFFFF",
+      "cardBrand": "#E5203A",
+      "cardMeta": "#C9CCD3",
+      "cardFoot": "#9AA0AA"
     }
   },
   "font": {

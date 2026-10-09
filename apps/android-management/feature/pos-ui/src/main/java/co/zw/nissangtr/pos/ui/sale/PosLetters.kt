@@ -28,7 +28,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -41,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import co.zw.nissangtr.pos.design.theme.PosTheme
+import co.zw.nissangtr.pos.design.tokens.PosTokens
 import co.zw.nissangtr.pos.domain.model.BusinessProfile
 import co.zw.nissangtr.pos.domain.model.LetterSource
 import co.zw.nissangtr.pos.domain.model.PaymentLetter
@@ -182,21 +182,21 @@ fun LetterDialog(state: PosState, dispatch: (PosIntent) -> Unit, print: SignedDo
     val image = remember(letter) { letter.signature?.let { BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap() } }
     val signer = listOfNotNull(letter.summary.managerName, listOfNotNull(letter.summary.managerTitle, letter.managerEmployeeCode).joinToString(" · ").ifBlank { null })
     PosModal(stringResource(R.string.pos_letter_title), onDismiss = { dispatch(LetterIntent.Close) }, width = 620.dp) {
-        Column(Modifier.fillMaxWidth().clip(PosTheme.shape.sm).background(Color.White).border(1.dp, palette.borderSubtle, PosTheme.shape.sm).padding(18.dp)) {
+        Column(Modifier.fillMaxWidth().clip(PosTheme.shape.sm).background(PosTokens.ColorTokens.Paper_sheet).border(1.dp, palette.borderSubtle, PosTheme.shape.sm).padding(18.dp)) {
             val factLabels = labels.filterKeys { it != "title" && it != "intro" }.values
             lines.forEachIndexed { i, line ->
                 // Detail rows are padded for the printer's fixed-width text; on screen they are two columns.
                 val label = factLabels.firstOrNull { line.length > 28 && line.startsWith(it) && line.substring(it.length, 28).isBlank() }
                 if (label != null) {
                     Row(Modifier.fillMaxWidth().padding(vertical = 1.dp)) {
-                        PosText(label, PosTheme.type.bodySecondary, Color(0xFF555555), modifier = Modifier.width(200.dp))
-                        PosText(line.substring(28), PosTheme.type.bodySecondary.copy(fontWeight = FontWeight.SemiBold), Color(0xFF111111), modifier = Modifier.weight(1f))
+                        PosText(label, PosTheme.type.bodySecondary, PosTokens.ColorTokens.Paper_inkMuted, modifier = Modifier.width(200.dp))
+                        PosText(line.substring(28), PosTheme.type.bodySecondary.copy(fontWeight = FontWeight.SemiBold), PosTokens.ColorTokens.Paper_ink, modifier = Modifier.weight(1f))
                     }
                 } else {
                     PosText(
                         line,
                         if (i == 0 || line == labels["title"]) PosTheme.type.bodyPrimary.copy(fontWeight = FontWeight.Bold) else PosTheme.type.bodySecondary,
-                        Color(0xFF111111),
+                        PosTokens.ColorTokens.Paper_ink,
                     )
                 }
             }
@@ -204,10 +204,10 @@ fun LetterDialog(state: PosState, dispatch: (PosIntent) -> Unit, print: SignedDo
             if (image != null) {
                 Image(image, contentDescription = stringResource(R.string.pos_letter_signature), modifier = Modifier.height(56.dp).widthIn(max = 220.dp), contentScale = ContentScale.Fit)
             } else {
-                PosText(stringResource(R.string.pos_letter_signature_on_file, letter.signatureSha256?.take(12).orEmpty()), PosTheme.type.bodySecondary, Color(0xFF777777))
+                PosText(stringResource(R.string.pos_letter_signature_on_file, letter.signatureSha256?.take(12).orEmpty()), PosTheme.type.bodySecondary, PosTokens.ColorTokens.Paper_inkFaint)
             }
-            Spacer(Modifier.height(2.dp).width(220.dp).background(Color(0xFF999999)))
-            signer.forEach { PosText(it, PosTheme.type.bodySecondary, Color(0xFF111111)) }
+            Spacer(Modifier.height(2.dp).width(220.dp).background(PosTokens.ColorTokens.Paper_rule))
+            signer.forEach { PosText(it, PosTheme.type.bodySecondary, PosTokens.ColorTokens.Paper_ink) }
         }
         PosRowEnd {
             SoftButton(stringResource(R.string.pos_close), null, enabled = true, onClick = { dispatch(LetterIntent.Close) }, modifier = Modifier.widthIn(max = 140.dp))
@@ -236,14 +236,14 @@ internal fun SignatureSettingsRow(state: PosState, dispatch: (PosIntent) -> Unit
     )
     if (sig == null) return
     Column(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        onFile?.let { Image(it, contentDescription = stringResource(R.string.pos_letter_signature), modifier = Modifier.height(64.dp).widthIn(max = 260.dp).background(Color.White), contentScale = ContentScale.Fit) }
+        onFile?.let { Image(it, contentDescription = stringResource(R.string.pos_letter_signature), modifier = Modifier.height(64.dp).widthIn(max = 260.dp).background(PosTokens.ColorTokens.Paper_sheet), contentScale = ContentScale.Fit) }
         Canvas(
             Modifier
                 .fillMaxWidth()
                 .heightIn(min = 140.dp)
                 .height(140.dp)
                 .clip(PosTheme.shape.sm)
-                .background(Color.White)
+                .background(PosTokens.ColorTokens.Paper_sheet)
                 .border(1.dp, palette.borderStrong, PosTheme.shape.sm)
                 .onSizeChanged { size = it }
                 .pointerInput(Unit) {
@@ -263,7 +263,7 @@ internal fun SignatureSettingsRow(state: PosState, dispatch: (PosIntent) -> Unit
                     moveTo(pts.first().x, pts.first().y)
                     pts.drop(1).forEach { lineTo(it.x, it.y) }
                 }
-                drawPath(path, Color(0xFF0B1D4A), style = Stroke(width = 4f, cap = StrokeCap.Round))
+                drawPath(path, PosTokens.ColorTokens.Paper_signatureInk, style = Stroke(width = 4f, cap = StrokeCap.Round))
             }
         }
         PosText(stringResource(R.string.pos_sig_hint), PosTheme.type.bodySecondary, palette.textMuted)
