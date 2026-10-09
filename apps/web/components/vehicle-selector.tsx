@@ -13,7 +13,7 @@ import {
   type VehicleMasterRow,
 } from "@/lib/vehicle-catalog";
 import { saveCustomerVehicle } from "@/lib/customer-vehicle-session";
-import { createWebClient } from "@/lib/supabase";
+import { createWebClient, friendlyError } from "@/lib/supabase";
 import styles from "./vehicle-selector.module.css";
 
 type VehicleSelectorProps = {
@@ -56,7 +56,7 @@ export function VehicleSelector({ showNote = true }: VehicleSelectorProps) {
         if (!cancelled) {
           setLoad({
             kind: "error",
-            message: "Vehicle catalog is not configured on this environment.",
+            message: "The shop is being set up. Please check back soon.",
           });
         }
         return;
@@ -65,7 +65,7 @@ export function VehicleSelector({ showNote = true }: VehicleSelectorProps) {
       const result = await listVehicleMaster(client);
       if (cancelled) return;
       if (!result.ok) {
-        setLoad({ kind: "error", message: result.error });
+        setLoad({ kind: "error", message: friendlyError(result.error) });
         return;
       }
       setLoad({ kind: "ready", rows: result.data });
@@ -98,7 +98,7 @@ export function VehicleSelector({ showNote = true }: VehicleSelectorProps) {
       const resolved = VehicleCascade.resolveVin(rows, vinTrim);
       if (!resolved) {
         setFormError(
-          "VIN not found in the published vehicle master. Choose the vehicle manually instead.",
+          "We couldn't identify that VIN. Please choose your vehicle from the lists instead.",
         );
         return;
       }
@@ -123,7 +123,7 @@ export function VehicleSelector({ showNote = true }: VehicleSelectorProps) {
       rows,
     );
     if (!selected) {
-      setFormError("Selection not found in the published vehicle master.");
+      setFormError("That vehicle isn't available. Please check your selection.");
       return;
     }
     completeSelection(selected);
@@ -132,7 +132,7 @@ export function VehicleSelector({ showNote = true }: VehicleSelectorProps) {
   if (load.kind === "loading") {
     return (
       <div className={styles.form} aria-busy="true" aria-live="polite">
-        <p className={styles.note}>Loading Nissan vehicle master…</p>
+        <p className={styles.note}>Loading vehicles…</p>
       </div>
     );
   }
@@ -140,7 +140,7 @@ export function VehicleSelector({ showNote = true }: VehicleSelectorProps) {
   if (load.kind === "error") {
     return (
       <div className={styles.form} role="alert">
-        <p className={styles.note}>Vehicle catalog unavailable: {load.message}</p>
+        <p className={styles.note}>Vehicle list unavailable. {load.message}</p>
       </div>
     );
   }
@@ -174,8 +174,7 @@ export function VehicleSelector({ showNote = true }: VehicleSelectorProps) {
         Use this vehicle
       </button>
       <p className={styles.note}>
-        Your vehicle is used to verify fitment against the hosted Nissan catalog and filter live
-        saleable stock. Technical EPC data stays internal.
+        We use your vehicle to show only parts that fit it.
       </p>
     </form>
   );

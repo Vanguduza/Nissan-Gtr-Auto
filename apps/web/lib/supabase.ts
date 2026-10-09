@@ -26,3 +26,16 @@ export function createWebClient() {
 export function siteUrl() {
   return publicSiteUrl();
 }
+
+/**
+ * Customer-safe error text. Network failures (browser "Failed to fetch",
+ * Node "fetch failed") mean the backend could not be reached; never show the
+ * raw TypeError to shoppers.
+ */
+export function friendlyError(message: string | null | undefined): string {
+  const text = (message ?? "").trim();
+  if (!text || /failed to fetch|fetch failed|networkerror|load failed|network request failed/i.test(text)) {
+    return "We couldn't reach the shop right now. Check your connection and try again.";
+  }
+  return text;
+}

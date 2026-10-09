@@ -5104,6 +5104,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           default_landing: string | null
+          default_staff_role: Database["public"]["Enums"]["staff_role"] | null
           department: string | null
           duties_md: string | null
           grade_id: string
@@ -5125,6 +5126,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           default_landing?: string | null
+          default_staff_role?: Database["public"]["Enums"]["staff_role"] | null
           department?: string | null
           duties_md?: string | null
           grade_id: string
@@ -5145,6 +5147,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           default_landing?: string | null
+          default_staff_role?: Database["public"]["Enums"]["staff_role"] | null
           department?: string | null
           duties_md?: string | null
           grade_id?: string
@@ -11373,6 +11376,8 @@ export type Database = {
           discount_description: string | null
           discount_kind: string
           discount_value: number
+          home_carousel_caption: string | null
+          home_carousel_rank: number | null
           stock_item_id: string
           updated_at: string
           updated_by: string | null
@@ -11382,6 +11387,8 @@ export type Database = {
           discount_description?: string | null
           discount_kind?: string
           discount_value?: number
+          home_carousel_caption?: string | null
+          home_carousel_rank?: number | null
           stock_item_id: string
           updated_at?: string
           updated_by?: string | null
@@ -11390,6 +11397,8 @@ export type Database = {
           discount_description?: string | null
           discount_kind?: string
           discount_value?: number
+          home_carousel_caption?: string | null
+          home_carousel_rank?: number | null
           stock_item_id?: string
           updated_at?: string
           updated_by?: string | null
@@ -12520,12 +12529,16 @@ export type Database = {
           delivery_notes: string | null
           ecocash_payer_mode: string | null
           ecocash_payer_msisdn: string | null
+          fx_rate_id: string | null
           id: string
           lines: NonNullable<Json>
           payment_link: string | null
           payment_provider: string
           payment_reference: string | null
           payment_source_reference: string | null
+          settle_amount_minor: number | null
+          settle_currency: Database["public"]["Enums"]["currency_code"] | null
+          settle_total: number | null
           status: string
           subtotal: number
           total: number
@@ -12542,12 +12555,16 @@ export type Database = {
           delivery_notes?: string | null
           ecocash_payer_mode?: string | null
           ecocash_payer_msisdn?: string | null
+          fx_rate_id?: string | null
           id?: string
           lines?: NonNullable<Json>
           payment_link?: string | null
           payment_provider?: string
           payment_reference?: string | null
           payment_source_reference?: string | null
+          settle_amount_minor?: number | null
+          settle_currency?: Database["public"]["Enums"]["currency_code"] | null
+          settle_total?: number | null
           status?: string
           subtotal?: number
           total?: number
@@ -12563,19 +12580,31 @@ export type Database = {
           delivery_notes?: string | null
           ecocash_payer_mode?: string | null
           ecocash_payer_msisdn?: string | null
+          fx_rate_id?: string | null
           id?: string
           lines?: NonNullable<Json>
           payment_link?: string | null
           payment_provider?: string
           payment_reference?: string | null
           payment_source_reference?: string | null
+          settle_amount_minor?: number | null
+          settle_currency?: Database["public"]["Enums"]["currency_code"] | null
+          settle_total?: number | null
           status?: string
           subtotal?: number
           total?: number
           updated_at?: string
           wa_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_flow_orders_fx_rate_id_fkey"
+            columns: ["fx_rate_id"]
+            isOneToOne: false
+            referencedRelation: "daily_exchange_rates"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -13036,6 +13065,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      _parse_staff_role_text: {
+        Args: { p_raw: string }
+        Returns: Database["public"]["Enums"]["staff_role"]
+      }
       _payments_rpc_active: {
         Args: Record<PropertyKey, never>
         Returns: boolean
@@ -13306,6 +13339,13 @@ export type Database = {
       allocate_payment: {
         Args: { p_allocations: Json; p_payment_entry_id: string }
         Returns: string
+      }
+      apply_hr_onboarding_staff_role: {
+        Args: {
+          p_role: Database["public"]["Enums"]["staff_role"]
+          p_user_id: string
+        }
+        Returns: undefined
       }
       apply_pos_cart_discount: {
         Args: {
@@ -14142,6 +14182,7 @@ export type Database = {
         Args: {
           p_clause_template_ids?: string[]
           p_comms_preferences?: Json
+          p_default_staff_role?: Database["public"]["Enums"]["staff_role"]
           p_department?: string
           p_duties_md?: string
           p_grade_id: string
@@ -15610,6 +15651,21 @@ export type Database = {
           unit_price: number
         }[]
       }
+      list_storefront_home_carousel: {
+        Args: { p_limit?: number }
+        Returns: {
+          caption: string
+          currency: Database["public"]["Enums"]["currency_code"]
+          discount_description: string
+          discount_kind: string
+          discount_value: number
+          image_path: string
+          qty_saleable: number
+          stock_item_id: string
+          title: string
+          unit_price: number
+        }[]
+      }
       list_storefront_home_rails: {
         Args: { p_limit?: number }
         Returns: {
@@ -15623,6 +15679,7 @@ export type Database = {
           qty_saleable: number
           rail: string
           reorder_point: number
+          stock_item_id: string
           unit_price: number
         }[]
       }
@@ -16195,6 +16252,10 @@ export type Database = {
         }
         Returns: string
       }
+      resolve_hr_onboarding_staff_role: {
+        Args: { p_hr_role_id?: string; p_payload: Json }
+        Returns: Database["public"]["Enums"]["staff_role"]
+      }
       resolve_item_price: {
         Args: { p_customer_id: string; p_stock_item_id: string }
         Returns: {
@@ -16456,6 +16517,10 @@ export type Database = {
           p_stock_item_id: string
           p_warehouse_id: string
         }
+        Returns: string
+      }
+      set_storefront_home_carousel: {
+        Args: { p_caption?: string; p_rank: number; p_stock_item_id: string }
         Returns: string
       }
       set_wishlist_notify_when_in_stock: {

@@ -1,19 +1,18 @@
 {
   "actor": "unknown",
   "branch_at_record": "ccr-8c44a0d0-msyynq",
-  "change_id": "3285930507182894e0c2",
+  "change_id": "9e552b8d8b35e8eb1978",
   "changed_files": [
-    "apps/web/components/whatsapp-cta.tsx",
-    "apps/web/lib/auth-otp.ts",
-    "apps/web/lib/auth-password-reset.ts",
-    "apps/web/lib/staff-hr.ts"
+    "apps/android-customer/feature/catalog/src/main/java/co/zw/nissangtr/customer/catalog/InlineSearch.kt",
+    "docs/decisions/2026-10-10-customer-catalogue-visibility.md"
   ],
-  "diff_sha256": "3285930507182894e0c2577ccf2628257d8a26f50efce36e38d58fde3240c70b",
+  "diff_sha256": "9e552b8d8b35e8eb1978605281a015cf2466941b172ccaca00ff6eb8df538b7a",
   "domains": [
-    "web"
+    "customer-android",
+    "documentation"
   ],
   "intent": "automatic-file-level-record",
-  "recorded_at_utc": "2026-10-09T09:19:47.792150+00:00",
+  "recorded_at_utc": "2026-10-09T13:47:20.247084+00:00",
   "schema_version": 1,
-  "source_parent": "47689cbe1ecc9aac5a16ef4813d23b92de227926"
+  "source_parent": "569a8ba39b11b0e5925f2fceeb2b8d1bbe72eeba"
 }

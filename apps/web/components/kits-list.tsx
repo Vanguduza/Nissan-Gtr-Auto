@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { partHref } from "@/lib/catalog-product";
 import { useCallback, useEffect, useState } from "react";
 import {
   listActiveKits,
@@ -65,8 +66,7 @@ export function KitsList() {
   if (status.kits.length === 0) {
     return (
       <p className={styles.sectionLede}>
-        No active kits in the catalog yet. Staff can define BOMs on{" "}
-        <code>item_kits</code>.
+        No service kits available yet.
       </p>
     );
   }
@@ -75,18 +75,14 @@ export function KitsList() {
     <ul className={styles.simpleList}>
       {status.kits.map((kit) => (
         <li key={kit.kitId}>
-          <Link href={`/parts/${encodeURIComponent(kit.oem)}`}>
+          <Link href={partHref({ id: kit.stockItemId, oem: kit.oem })}>
             {kit.name}
           </Link>
-          {" — "}
-          <span>
-            {kit.oem} · {kit.sellMode}
-          </span>
           {kit.components.length > 0 ? (
             <ul className={styles.simpleList}>
               {kit.components.map((c) => (
                 <li key={`${kit.kitId}-${c.oem}`}>
-                  {c.qty}× {c.name} ({c.oem})
+                  {c.qty}× {c.name}
                 </li>
               ))}
             </ul>

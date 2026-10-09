@@ -483,10 +483,6 @@ export function CartCheckout() {
               lines.map((line) => (
                 <tr key={line.id}>
                   <td>
-                    <code className={styles.sku}>
-                      {line.stock_items?.oem_part_number ?? line.stock_item_id}
-                    </code>
-                    <br />
                     {line.is_core_charge
                       ? "Core / deposit"
                       : (line.stock_items?.description ?? "Part")}

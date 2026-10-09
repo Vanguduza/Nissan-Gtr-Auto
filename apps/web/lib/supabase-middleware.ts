@@ -66,7 +66,10 @@ export function isStaffSurfacePath(pathname: string): boolean {
     pathname === "/staff" ||
     pathname.startsWith("/staff/") ||
     pathname === "/procurement" ||
-    pathname.startsWith("/procurement/")
+    pathname.startsWith("/procurement/") ||
+    // EPC catalogue (diagrams, part numbers, fitment) is staff-only (owner decision 2026-10-10).
+    pathname === "/catalog" ||
+    pathname.startsWith("/catalog/")
   );
 }
 

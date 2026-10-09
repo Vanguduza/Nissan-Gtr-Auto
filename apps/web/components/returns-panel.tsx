@@ -205,9 +205,7 @@ export function ReturnsPanel() {
             </p>
             <ul className={styles.list}>
               {picks.map((p, idx) => {
-                const oem =
-                  p.line.stock_items?.oem_part_number ?? p.line.stock_item_id;
-                const name = p.line.stock_items?.description?.trim() || oem;
+                const name = p.line.stock_items?.description?.trim() || "Nissan part";
                 return (
                   <li key={p.line.id}>
                     <label className={styles.checkField}>
@@ -224,7 +222,7 @@ export function ReturnsPanel() {
                           );
                         }}
                       />
-                      <strong>{oem}</strong> — {name}
+                      <strong>{name}</strong>
                     </label>
                     <p className={styles.muted}>
                       Invoiced qty {p.line.qty} ·{" "}

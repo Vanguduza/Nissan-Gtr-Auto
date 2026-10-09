@@ -6,11 +6,14 @@ import styles from "@/components/account.module.css";
 import imgStyles from "@/components/staff-product-pages-panel.module.css";
 import {
   deleteStaffProductImage,
+  listStaffHomeCarousel,
   listStaffProductImages,
   listStaffProductPages,
   saveStaffProductPage,
+  setStaffHomeCarousel,
   setStaffProductPrimaryImage,
   uploadStaffProductImage,
+  type StaffHomeCarouselEntry,
   type StaffProductImage,
   type StaffProductPageRow,
 } from "@/lib/staff-product-pages";
@@ -35,6 +38,9 @@ export function StaffProductPagesPanel() {
   const [discountValue, setDiscountValue] = useState("0");
   const [discountDescription, setDiscountDescription] = useState("");
   const [images, setImages] = useState<StaffProductImage[]>([]);
+  const [carousel, setCarousel] = useState<StaffHomeCarouselEntry[]>([]);
+  const [carouselRank, setCarouselRank] = useState("");
+  const [carouselCaption, setCarouselCaption] = useState("");
 
   const selected =
     status.kind === "ready"
@@ -65,9 +71,61 @@ export function StaffProductPagesPanel() {
     if (imgs.ok) setImages(imgs.data);
   }, []);
 
+  const reloadCarousel = useCallback(async () => {
+    const client = createWebClient();
+    if (!client) return;
+    const res = await listStaffHomeCarousel(client);
+    if (res.ok) setCarousel(res.data);
+  }, []);
+
   useEffect(() => {
     void refresh("");
-  }, [refresh]);
+    void reloadCarousel();
+  }, [refresh, reloadCarousel]);
+
+  useEffect(() => {
+    const entry = carousel.find((c) => c.stock_item_id === selectedId);
+    setCarouselRank(entry ? String(entry.rank) : "");
+    setCarouselCaption(entry?.caption ?? "");
+  }, [carousel, selectedId]);
+
+  async function onSaveCarousel(rankOverride?: number | null) {
+    if (!selected) return;
+    const rank =
+      rankOverride !== undefined
+        ? rankOverride
+        : carouselRank === ""
+          ? null
+          : Number(carouselRank);
+    if (rank != null && (!Number.isInteger(rank) || rank < 1 || rank > 12)) {
+      setMessage("Carousel position must be 1 to 12.");
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    const client = createWebClient();
+    if (!client) {
+      setMessage("Supabase is not configured.");
+      setBusy(false);
+      return;
+    }
+    const res = await setStaffHomeCarousel(client, {
+      stockItemId: selected.stock_item_id,
+      rank,
+      caption: rank == null ? null : carouselCaption.trim() || null,
+    });
+    setBusy(false);
+    if (!res.ok) {
+      setMessage(res.error);
+      return;
+    }
+    setMessage(
+      rank == null
+        ? "Removed from the home carousel."
+        : `Home carousel updated (position ${rank}). Items need a retail price to show.`,
+    );
+    await reloadCarousel();
+  }
 
   useEffect(() => {
     if (!selected) {
@@ -388,6 +446,80 @@ export function StaffProductPagesPanel() {
               Save price & discount
             </button>
           </div>
+
+          <section
+            className={imgStyles.section}
+            aria-labelledby="home-carousel-heading"
+          >
+            <h3 id="home-carousel-heading" className={imgStyles.sectionTitle}>
+              Home page carousel
+            </h3>
+            <p className={imgStyles.hint}>
+              Feature this product in the carousel at the top of the storefront
+              home page. Lower positions show first; customers see the name,
+              caption, main image and price only.
+            </p>
+            <label className={styles.field}>
+              Position
+              <select
+                value={carouselRank}
+                onChange={(e) => setCarouselRank(e.target.value)}
+                disabled={busy}
+              >
+                <option value="">Not in carousel</option>
+                {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className={styles.field}>
+              Caption (optional)
+              <input
+                value={carouselCaption}
+                onChange={(e) => setCarouselCaption(e.target.value)}
+                maxLength={120}
+                placeholder="e.g. Weekend brake promo"
+                disabled={busy || carouselRank === ""}
+              />
+            </label>
+            <div className={styles.formActions}>
+              <button
+                type="button"
+                className={styles.btn}
+                disabled={busy}
+                onClick={() => void onSaveCarousel()}
+              >
+                Save carousel
+              </button>
+              {carousel.some((c) => c.stock_item_id === selected.stock_item_id) ? (
+                <button
+                  type="button"
+                  className={styles.btnGhost}
+                  disabled={busy}
+                  onClick={() => void onSaveCarousel(null)}
+                >
+                  Remove from carousel
+                </button>
+              ) : null}
+            </div>
+            {carousel.length > 0 ? (
+              <ul className={imgStyles.hint}>
+                {carousel.map((c) => (
+                  <li key={c.stock_item_id}>
+                    {c.rank}. {c.title}
+                    {c.caption ? ` — ${c.caption}` : ""}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className={imgStyles.hint}>
+                Nothing curated yet — the home page shows featured stock until
+                you add items.
+              </p>
+            )}
+          </section>
 
           <section
             className={imgStyles.section}

@@ -102,11 +102,8 @@ export function SiteHeader() {
 
       <nav className={styles.categories} aria-label="Parts categories">
         <div className={styles.categoriesInner}>
-          <Link href="/catalog" className={styles.catAll}>
+          <Link href="/shop" className={styles.catAll}>
             <LayoutGrid size={iconSizeSm} strokeWidth={iconStroke} aria-hidden />
-            EPC catalog
-          </Link>
-          <Link href="/shop" className={styles.cat}>
             Shop stock
           </Link>
           {categories.map((c) => (
@@ -117,7 +114,7 @@ export function SiteHeader() {
           ))}
           <Link href="/search" className={styles.catSearch}>
             <Search size={iconSizeSm} strokeWidth={iconStroke} aria-hidden />
-            Advanced search
+            Search
           </Link>
         </div>
       </nav>

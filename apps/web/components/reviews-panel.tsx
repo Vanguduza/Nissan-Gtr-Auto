@@ -1,13 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { partHref } from "@/lib/catalog-product";
+import { useCallback, useEffect, useState } from "react";
 import styles from "@/components/account.module.css";
 import {
   listOwnReviews,
   reviewStatusLabel,
-  submitProductReview,
-  uploadReviewPhoto,
   type ProductReviewRow,
 } from "@/lib/customer-reviews";
 import { requireSession } from "@/lib/customer-storefront";
@@ -21,12 +20,6 @@ type Status =
 
 export function ReviewsPanel() {
   const [status, setStatus] = useState<Status>({ kind: "loading" });
-  const [oem, setOem] = useState("");
-  const [rating, setRating] = useState("5");
-  const [body, setBody] = useState("");
-  const [photo, setPhoto] = useState<File | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const client = createWebClient();
@@ -54,58 +47,6 @@ export function ReviewsPanel() {
     void refresh();
   }, [refresh]);
 
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setMessage(null);
-    const client = createWebClient();
-    if (!client) {
-      setMessage("Supabase is not configured.");
-      setBusy(false);
-      return;
-    }
-    const n = Number(rating);
-    if (!Number.isInteger(n) || n < 1 || n > 5) {
-      setMessage("Rating must be 1–5.");
-      setBusy(false);
-      return;
-    }
-    if (!oem.trim()) {
-      setMessage("OEM part number required.");
-      setBusy(false);
-      return;
-    }
-    const result = await submitProductReview(client, {
-      rating: n,
-      body: body.trim(),
-      oem: oem.trim(),
-    });
-    if (!result.ok) {
-      setBusy(false);
-      setMessage(result.error);
-      return;
-    }
-    if (photo) {
-      const up = await uploadReviewPhoto(client, {
-        reviewId: result.data,
-        file: photo,
-      });
-      if (!up.ok) {
-        setBusy(false);
-        setMessage(`Review saved, photo failed: ${up.error}`);
-        setBody("");
-        setPhoto(null);
-        await refresh();
-        return;
-      }
-    }
-    setBusy(false);
-    setMessage("Review submitted for moderation.");
-    setBody("");
-    setPhoto(null);
-    await refresh();
-  }
-
   if (status.kind === "loading") {
     return <p className={styles.muted}>Loading reviews…</p>;
   }
@@ -130,60 +71,10 @@ export function ReviewsPanel() {
 
   return (
     <div>
-      <form className={styles.form} onSubmit={(e) => void onSubmit(e)}>
-        <fieldset className={styles.fieldset}>
-          <legend className={styles.legend}>Write a review</legend>
-          <div className={styles.formGrid}>
-            <label className={styles.field}>
-              OEM
-              <input
-                value={oem}
-                onChange={(e) => setOem(e.target.value)}
-                placeholder="e.g. 15208-65F0C"
-                disabled={busy}
-                required
-              />
-            </label>
-            <label className={styles.field}>
-              Rating
-              <select
-                value={rating}
-                onChange={(e) => setRating(e.target.value)}
-                disabled={busy}
-              >
-                {[5, 4, 3, 2, 1].map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className={styles.field} style={{ gridColumn: "1 / -1" }}>
-              Comments
-              <input
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                placeholder="Optional"
-                disabled={busy}
-              />
-            </label>
-            <label className={styles.field} style={{ gridColumn: "1 / -1" }}>
-              Photo (optional · jpeg/png/webp)
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                disabled={busy}
-                onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
-              />
-            </label>
-          </div>
-          <div className={styles.formActions}>
-            <button type="submit" className={styles.btn} disabled={busy}>
-              Submit review
-            </button>
-          </div>
-        </fieldset>
-      </form>
+      <p className={styles.muted}>
+        To review a part, open it from the shop or your orders and use the
+        review form on the product page.
+      </p>
 
       {status.reviews.length === 0 ? (
         <p className={styles.muted}>You have not reviewed any parts yet.</p>
@@ -192,33 +83,27 @@ export function ReviewsPanel() {
           {status.reviews.map((r) => {
             const oemNum =
               r.stock_items?.oem_part_number ?? r.stock_item_id.slice(0, 8);
-            const name = r.stock_items?.description?.trim() || oemNum;
+            const name = r.stock_items?.description?.trim() || "Nissan part";
             return (
               <li key={r.id}>
                 <strong>{name}</strong> · {r.rating}/5 ·{" "}
                 {reviewStatusLabel(r.status)}
                 <br />
-                <span className={styles.muted}>
-                  OEM <code>{oemNum}</code>
-                  {r.body ? ` — ${r.body}` : ""}
-                </span>
+                {r.body ? (
+                  <span className={styles.muted}>{r.body}</span>
+                ) : null}
                 <br />
                 <Link
-                  href={`/parts/${encodeURIComponent(oemNum)}`}
+                  href={partHref({ id: r.stock_item_id, oem: oemNum })}
                   className={styles.btn}
                 >
-                  Open PDP
+                  View part
                 </Link>
               </li>
             );
           })}
         </ul>
       )}
-      {message ? (
-        <p className={styles.formStatus} role="status">
-          {message}
-        </p>
-      ) : null}
     </div>
   );
 }

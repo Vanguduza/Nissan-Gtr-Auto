@@ -1,43 +1,45 @@
-import { SearchFourWay } from "@/components/search-four-way";
-import { SearchResults } from "@/components/search-results";
-import { normalizeSearchMode } from "@/lib/catalog-search";
-import { hasSupabaseEnv } from "@/lib/supabase";
+import { redirect } from "next/navigation";
 import styles from "../page.module.css";
 
 export const metadata = { title: "Search" };
 
+/**
+ * Customer search is plain product search over stock. Part numbers, VIN
+ * decoding, PNC and EPC lookups run in the background only and are never
+ * shown to customers (owner decision 2026-10-10); staff use /catalog.
+ */
 export default async function SearchPage({
   searchParams,
 }: {
-  searchParams: Promise<{ mode?: string; q?: string }>;
+  searchParams: Promise<{ q?: string }>;
 }) {
   const sp = await searchParams;
-  const mode = normalizeSearchMode(sp.mode);
   const q = sp.q?.trim() ?? "";
-  const supabaseReady = hasSupabaseEnv();
+  if (q) redirect(`/shop?q=${encodeURIComponent(q)}`);
 
   return (
     <div className={styles.page}>
-      <h1 className={styles.title}>Search</h1>
+      <h1 className={styles.title}>Search parts</h1>
       <p className={styles.lede}>
-        Four-way catalog lookup by part number, VIN, model, or PNC. Live
-        results use Meilisearch via Edge proxy with Postgres FTS fallback.
+        Search by what you need, for example “brake pads” or “oil filter”.
       </p>
-      <SearchFourWay initialMode={mode} initialQuery={q} />
-      {q ? (
-        supabaseReady ? (
-          <SearchResults mode={mode} query={q} />
-        ) : (
-          <div className={styles.resultStub}>
-            <p className={styles.muted}>
-              Query <strong>{q}</strong> via <strong>{mode}</strong> — catalog
-              search is unavailable until{" "}
-              <code>NEXT_PUBLIC_SUPABASE_URL</code> and{" "}
-              <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code> are configured.
-            </p>
-          </div>
-        )
-      ) : null}
+      <form action="/shop" method="get" role="search" className={styles.searchForm}>
+        <label htmlFor="search-q" className={styles.srOnly}>
+          Search parts
+        </label>
+        <input
+          id="search-q"
+          name="q"
+          type="search"
+          required
+          placeholder="Search parts"
+          autoComplete="off"
+          className={styles.searchInput}
+        />
+        <button type="submit" className={styles.rowCta}>
+          Search
+        </button>
+      </form>
     </div>
   );
 }

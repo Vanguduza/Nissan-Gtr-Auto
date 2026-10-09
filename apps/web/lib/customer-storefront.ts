@@ -1602,7 +1602,7 @@ export async function listPriceListSample(
       unit_price: Number(row.unit_price),
       core_charge: Number(row.core_charge ?? 0),
       oem: item?.oem_part_number ?? row.stock_item_id,
-      name: item?.description?.trim() || item?.oem_part_number || "Part",
+      name: item?.description?.trim() || "Nissan part",
     };
   });
   return { ok: true, data: rows };
@@ -1637,7 +1637,7 @@ export async function listActiveKits(
     const list = byKit.get(c.kit_id) ?? [];
     list.push({
       oem: item?.oem_part_number ?? "—",
-      name: item?.description?.trim() || item?.oem_part_number || "Component",
+      name: item?.description?.trim() || "Component",
       qty: Number(c.qty),
     });
     byKit.set(c.kit_id, list);
@@ -1649,7 +1649,7 @@ export async function listActiveKits(
       kitId: k.id,
       stockItemId: k.stock_item_id,
       oem: item?.oem_part_number ?? k.stock_item_id,
-      name: item?.description?.trim() || item?.oem_part_number || "Kit",
+      name: item?.description?.trim() || "Service kit",
       sellMode: k.sell_mode,
       components: byKit.get(k.id) ?? [],
     };

@@ -60,7 +60,8 @@ data class SearchSuggestion(
     val filterQuery: String? = null,
 )
 
-private val meiliFacets = listOf("category_name", "pnc_code", "chassis_code", "model_variant")
+// Customer-facing facets only: no PNC / part-number facets (owner decision 2026-10-10).
+private val meiliFacets = listOf("category_name", "chassis_code", "model_variant")
 
 /**
  * Editable inline search under the shell top bar.
@@ -298,18 +299,12 @@ private suspend fun fetchSuggestions(rpc: RpcClient, query: String): FetchResult
         out.putIfAbsent(key, s)
     }
 
+    // Catalogue hits are matched in the background only: customers see the
+    // category and vehicle they map to, never part numbers or PNC codes
+    // (owner decision 2026-10-10).
+    @Suppress("UNUSED_PARAMETER")
     fun absorbParts(hits: List<CatalogPartHit>, asParts: Boolean) {
         for (hit in hits.take(8)) {
-            if (asParts) {
-                put(
-                    SearchSuggestion(
-                        kind = SuggestKind.Part,
-                        title = hit.oemPartNumber,
-                        subtitle = listOfNotNull(hit.categoryName, hit.pncCode).joinToString(" · ").ifBlank { null },
-                        oem = hit.oemPartNumber,
-                    ),
-                )
-            }
             hit.categoryName?.trim()?.takeIf { it.isNotEmpty() }?.let { cat ->
                 put(
                     SearchSuggestion(
@@ -320,16 +315,6 @@ private suspend fun fetchSuggestions(rpc: RpcClient, query: String): FetchResult
                     ),
                 )
             }
-            hit.pncCode?.trim()?.takeIf { it.isNotEmpty() }?.let { pnc ->
-                put(
-                    SearchSuggestion(
-                        kind = SuggestKind.Category,
-                        title = pnc,
-                        subtitle = "PNC",
-                        filterQuery = pnc,
-                    ),
-                )
-            }
             listOfNotNull(hit.chassisCode, hit.engineCode).forEach { model ->
                 val m = model.trim()
                 if (m.isNotEmpty()) {
@@ -337,7 +322,7 @@ private suspend fun fetchSuggestions(rpc: RpcClient, query: String): FetchResult
                         SearchSuggestion(
                             kind = SuggestKind.Model,
                             title = m,
-                            subtitle = hit.oemPartNumber,
+                            subtitle = null,
                             filterQuery = m,
                         ),
                     )

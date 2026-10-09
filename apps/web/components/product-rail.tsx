@@ -4,7 +4,7 @@ import Link from "next/link";
 import { PriceDual } from "@/components/price-dual";
 import { StockBadge } from "@/components/stock-badge";
 import { ArrowRight, iconSizeSm, iconStroke } from "@/components/icons";
-import type { CatalogListItem } from "@/lib/catalog-product";
+import { partHref, type CatalogListItem } from "@/lib/catalog-product";
 import styles from "./product-rail.module.css";
 
 export function ProductRail({
@@ -37,17 +37,11 @@ export function ProductRail({
       ) : (
         <ul className={styles.track}>
           {items.map((item) => (
-            <li key={item.oem}>
-              <Link
-                href={`/parts/${encodeURIComponent(item.oem)}`}
-                className={styles.card}
-              >
+            <li key={item.id ?? item.oem}>
+              <Link href={partHref(item)} className={styles.card}>
                 <div className={styles.thumb} aria-hidden>
-                  <span>{item.oem.slice(0, 6)}</span>
+                  <span>{(item.category ?? "Part").slice(0, 10)}</span>
                 </div>
-                <p className={styles.oem}>
-                  <code>{item.oem}</code>
-                </p>
                 <p className={styles.name}>{item.name}</p>
                 <StockBadge state={item.stock} />
                 <div className={styles.price}>

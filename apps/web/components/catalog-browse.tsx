@@ -9,6 +9,7 @@ import { StockBadge } from "@/components/stock-badge";
 import {
   applyCatalogFiltersAndSort,
   listCatalogProducts,
+  partHref,
   type CatalogListItem,
   type CatalogSort,
 } from "@/lib/catalog-product";
@@ -21,7 +22,7 @@ import {
   loadCustomerVehicle,
 } from "@/lib/customer-vehicle-session";
 import type { SelectedFitmentVehicle } from "@/lib/vehicle-catalog";
-import { createWebClient } from "@/lib/supabase";
+import { createWebClient, friendlyError } from "@/lib/supabase";
 import styles from "@/app/(storefront)/page.module.css";
 import filterStyles from "./plp-filters.module.css";
 
@@ -51,7 +52,8 @@ function vehicleScopedItems(payload: CustomerStockResponse): CatalogListItem[] {
   return payload.results
     .filter((row) => Boolean(row.internal_catalog_ref))
     .map((row) => ({
-      // Internal catalog identity is used only for routing/cart identity. It is never rendered.
+      id: row.stock_item_id,
+      // Internal catalog identity is used only for cart identity. It is never rendered.
       oem: row.internal_catalog_ref as string,
       name: row.name,
       stock: row.stock.state,
@@ -87,12 +89,15 @@ type Status =
     };
 
 export function CatalogBrowse({
+  query,
   category,
   subcategory,
   sort: sortParam,
   minUsd: minParam,
   maxUsd: maxParam,
 }: {
+  /** Plain-text product search (matched against names and, in the background, part numbers). */
+  query?: string;
   category?: string;
   subcategory?: string;
   sort?: string;
@@ -152,7 +157,7 @@ export function CatalogBrowse({
 
       const selected = loadCustomerVehicle();
       const vehicleId = selected?.vehicleMasterId?.trim();
-      if (vehicleId) {
+      if (vehicleId && !query) {
         try {
           const payload = await catalogGatewayGet<CustomerStockResponse>(
             client,
@@ -179,7 +184,7 @@ export function CatalogBrowse({
               kind: "error",
               message:
                 error instanceof Error && error.message.includes("CATALOG_REPUBLISH_REQUIRED")
-                  ? "The live EPC fitment index for this vehicle is being published. Fitment has not been guessed."
+                  ? "Fitment for this vehicle is being updated. Please try again shortly."
                   : error instanceof Error
                     ? error.message
                     : "Vehicle fitment catalog is unavailable.",
@@ -191,6 +196,7 @@ export function CatalogBrowse({
 
       // No vehicle context: commercial browse is allowed, but no compatibility claim is made.
       const result = await listCatalogProducts(client, {
+        query: query ?? null,
         category: category ?? null,
         subcategory: subcategory ?? null,
         sort,
@@ -215,15 +221,16 @@ export function CatalogBrowse({
     return () => {
       cancelled = true;
     };
-  }, [category, subcategory, sort, minUsd, maxUsd, vehicleEpoch]);
+  }, [query, category, subcategory, sort, minUsd, maxUsd, vehicleEpoch]);
 
   const nextQuery = useMemo(() => {
     const q = new URLSearchParams();
+    if (query) q.set("q", query);
     if (category) q.set("cat", category);
     if (subcategory) q.set("sub", subcategory);
     if (sort && sort !== "name") q.set("sort", sort);
     return q;
-  }, [category, subcategory, sort]);
+  }, [query, category, subcategory, sort]);
 
   function pushFilters(e: FormEvent) {
     e.preventDefault();
@@ -238,6 +245,7 @@ export function CatalogBrowse({
 
   function setSort(next: CatalogSort) {
     const q = new URLSearchParams();
+    if (query) q.set("q", query);
     if (category) q.set("cat", category);
     if (subcategory) q.set("sub", subcategory);
     if (next !== "name") q.set("sort", next);
@@ -271,7 +279,7 @@ export function CatalogBrowse({
     return (
       <div className={styles.page}>
         <h1 className={styles.title}>Shop</h1>
-        <p className={styles.lede}>Checking live inventory and catalog fitment…</p>
+        <p className={styles.lede}>Checking live stock…</p>
       </div>
     );
   }
@@ -292,7 +300,7 @@ export function CatalogBrowse({
     return (
       <div className={styles.page}>
         <h1 className={styles.title}>Shop</h1>
-        <p className={styles.lede} role="alert">{status.message}</p>
+        <p className={styles.lede} role="alert">{friendlyError(status.message)}</p>
       </div>
     );
   }
@@ -311,19 +319,18 @@ export function CatalogBrowse({
 
   return (
     <div className={styles.page}>
-      <h1 className={styles.title}>Shop</h1>
+      <h1 className={styles.title}>{query ? `Results for “${query}”` : "Shop"}</h1>
       <p className={styles.lede}>
         {fitmentVerified ? (
-          <>Showing live saleable stock referenced against the hosted Nissan catalog for {vehicle?.model ?? "your selected vehicle"}.</>
+          <>Showing parts in stock that fit your {vehicle?.model ?? "selected vehicle"}.</>
         ) : (
-          <>Browse live stock. Select your vehicle to verify compatibility against the hosted Nissan catalog before purchase.</>
+          <>Browse parts in stock. <Link href="/vehicle">Select your vehicle</Link> to see only parts that fit.</>
         )}
       </p>
       {catalogEmpty ? (
         <p className={styles.lede} role="status">
-          No in-stock priced items yet. Receive stock, set a retail price on
-          Product pages, then refresh. EPC search still finds unpriced catalog
-          parts.
+          No parts in stock right now. Ask the counter on WhatsApp and we will
+          source it for you.
         </p>
       ) : null}
 
@@ -387,17 +394,19 @@ export function CatalogBrowse({
                   <tr>
                     <td colSpan={5} className={styles.muted}>
                       {catalogEmpty
-                        ? "No in-stock priced items yet — set price on Product pages after receiving stock."
+                        ? "No parts in stock right now."
+                        : query
+                        ? `No parts in stock match “${query}”.`
                         : filterLabel
                         ? `No saleable parts match “${filterLabel}” for the current filters.`
                         : fitmentVerified
-                          ? "No saleable stock from the hosted catalog matches your selected vehicle."
+                          ? "No parts in stock match your selected vehicle yet."
                           : "No stock matches the current filters."}
                     </td>
                   </tr>
                 ) : (
                   displayItems.map((p) => (
-                    <tr key={p.oem}>
+                    <tr key={p.id ?? p.oem}>
                       <td>{p.name}</td>
                       <td>{fitmentVerified ? "Verified for selected vehicle" : "Select vehicle to confirm"}</td>
                       <td><StockBadge state={p.stock} /></td>
@@ -405,7 +414,7 @@ export function CatalogBrowse({
                         {p.usd != null ? <PriceDual usd={p.usd} zig={p.zig} /> : <span className={styles.muted}>On request</span>}
                       </td>
                       <td>
-                        <Link href={`/parts/${encodeURIComponent(p.oem)}`} className={styles.rowCta}>View</Link>
+                        <Link href={partHref(p)} className={styles.rowCta}>View</Link>
                       </td>
                     </tr>
                   ))
