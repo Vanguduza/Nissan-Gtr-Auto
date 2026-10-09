@@ -11,6 +11,8 @@
 .container {
   width: min(var(--gtr-shop-max), 100%);
   margin-inline: auto;
+  /* Same inset as the header so hero copy lines up with the logo. */
+  padding-inline: clamp(0.85rem, 3vw, 1.5rem);
   display: flex;
   flex-direction: column;
   align-items: center;

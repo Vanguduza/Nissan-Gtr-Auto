@@ -22,7 +22,7 @@ import {
   loadCustomerVehicle,
 } from "@/lib/customer-vehicle-session";
 import type { SelectedFitmentVehicle } from "@/lib/vehicle-catalog";
-import { createWebClient } from "@/lib/supabase";
+import { createWebClient, friendlyError } from "@/lib/supabase";
 import styles from "@/app/(storefront)/page.module.css";
 import filterStyles from "./plp-filters.module.css";
 
@@ -300,7 +300,7 @@ export function CatalogBrowse({
     return (
       <div className={styles.page}>
         <h1 className={styles.title}>Shop</h1>
-        <p className={styles.lede} role="alert">{status.message}</p>
+        <p className={styles.lede} role="alert">{friendlyError(status.message)}</p>
       </div>
     );
   }

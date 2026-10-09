@@ -22,7 +22,7 @@ import {
   listHomeMerchRails,
   type CatalogListItem,
 } from "@/lib/catalog-product";
-import { createWebClient } from "@/lib/supabase";
+import { createWebClient, friendlyError } from "@/lib/supabase";
 import styles from "@/app/(storefront)/page.module.css";
 import chipStyles from "./home-merch.module.css";
 
@@ -171,7 +171,7 @@ export function HomeMerch() {
           ) : null}
           {rails.kind === "error" ? (
             <p className={styles.muted} role="alert">
-              {rails.message}
+              {friendlyError(rails.message)}
             </p>
           ) : null}
           {rails.kind === "ready" ? (

@@ -968,6 +968,8 @@ export async function listHomeMerchRails(
 
 export type HomeCarouselItem = {
   id: string;
+  /** Customer link: product page by stock id, or a shop search by name. */
+  href: string;
   name: string;
   caption: string | null;
   imageUrl: string | null;
@@ -1026,6 +1028,7 @@ export async function listHomeCarousel(
       );
       return {
         id: row.stock_item_id,
+        href: partHref({ id: row.stock_item_id }),
         name: row.title?.trim() || "Nissan part",
         caption: row.caption,
         imageUrl: row.image_path
@@ -1049,11 +1052,13 @@ export async function listHomeCarousel(
   if (!rails.ok) {
     return { ok: false, error: rpc.error?.message ?? rails.error };
   }
-  const data = rails.featured
-    .filter((item): item is CatalogListItem & { id: string } => Boolean(item.id))
-    .slice(0, limit)
-    .map((item) => ({
-      id: item.id,
+  // Older rails RPC has no stock id: link to a shop search by name instead of
+  // putting the part number in the URL.
+  const data = rails.featured.slice(0, limit).map((item, i) => ({
+      id: item.id ?? `featured-${i}`,
+      href: item.id
+        ? partHref({ id: item.id })
+        : `/shop?q=${encodeURIComponent(item.name)}`,
       name: item.name,
       caption: item.discountDescription ?? null,
       imageUrl: null,

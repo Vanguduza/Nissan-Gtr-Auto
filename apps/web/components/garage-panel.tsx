@@ -20,7 +20,7 @@ import {
   VehicleCascade,
   type VehicleMasterRow,
 } from "@/lib/vehicle-catalog";
-import { createWebClient } from "@/lib/supabase";
+import { createWebClient, friendlyError } from "@/lib/supabase";
 import accountStyles from "@/components/account.module.css";
 import cascadeStyles from "@/components/vehicle-selector.module.css";
 
@@ -70,7 +70,7 @@ export function GaragePanel() {
     ]);
 
     if (!vehicles.ok) {
-      setStatus({ kind: "error", message: vehicles.error });
+      setStatus({ kind: "error", message: friendlyError(vehicles.error) });
       return;
     }
 

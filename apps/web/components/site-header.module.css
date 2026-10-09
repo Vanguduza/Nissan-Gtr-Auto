@@ -147,7 +147,23 @@
     display: none;
   }
 
+  /* Icon-only actions on phones so the header never widens the page;
+     labels stay available to screen readers. */
   .actionLabel {
-    font-size: 0.8rem;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .action {
+    padding: 0 0.55rem;
+  }
+
+  .actions {
+    gap: 0.1rem;
+    min-width: 0;
   }
 }

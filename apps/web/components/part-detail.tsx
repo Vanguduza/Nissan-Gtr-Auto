@@ -39,7 +39,7 @@ import {
   isOemOnWishlist,
   removeWishlistItem,
 } from "@/lib/customer-wishlist";
-import { createWebClient } from "@/lib/supabase";
+import { createWebClient, friendlyError } from "@/lib/supabase";
 import styles from "@/app/(storefront)/parts/[oem]/pdp.module.css";
 
 type Status =
@@ -129,7 +129,7 @@ export function PartDetail({ oem: ref }: { oem: string }) {
           setStatus({ kind: "missing" });
           return;
         }
-        setStatus({ kind: "error", message: result.error });
+        setStatus({ kind: "error", message: friendlyError(result.error) });
         return;
       }
 

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { PriceDual } from "@/components/price-dual";
-import { listHomeCarousel, partHref, type HomeCarouselItem } from "@/lib/catalog-product";
+import { listHomeCarousel, type HomeCarouselItem } from "@/lib/catalog-product";
 import { createWebClient } from "@/lib/supabase";
 import styles from "./home-showcase-carousel.module.css";
 
@@ -142,7 +142,7 @@ export function HomeShowcaseCarousel() {
             return slot === "active" ? (
               <Link
                 key={item.id}
-                href={partHref(item)}
+                href={item.href}
                 className={`${styles.card} ${styles.active}`}
                 id={`song-${i + 1}`}
                 aria-label={`${item.name}: view part`}
@@ -182,7 +182,7 @@ export function HomeShowcaseCarousel() {
               )}
             </button>
             <div className={styles.infoArea} aria-live="polite">
-              <Link href={partHref(current)} className={styles.songInfo}>
+              <Link href={current.href} className={styles.songInfo}>
                 <span className={styles.title}>{current.name}</span>
                 <span className={styles.subLine}>
                   <span className={styles.subtitle}>
