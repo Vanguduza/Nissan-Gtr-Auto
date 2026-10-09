@@ -35,10 +35,17 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - uses: android-actions/setup-android@v3
+      # The hosted Ubuntu image ships an Android SDK at $ANDROID_HOME; use it directly
+      # (android-actions/setup-android@v3 fails during setup on the current runners).
+      - name: Use the runner's Android SDK
+        run: |
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
       - uses: gradle/actions/setup-gradle@v4
       - name: Install Android SDK 34
         run: |
+          yes | sdkmanager --licenses > /dev/null || true
           sdkmanager "platforms;android-34" "build-tools;34.0.0"
       - name: POS unit tests
         working-directory: apps/android-management
