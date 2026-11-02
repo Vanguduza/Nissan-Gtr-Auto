@@ -12,7 +12,7 @@
     "unique_branch_exclusive_commits": 45,
     "refetch_before_integration": "All 25 audited remote heads unchanged at final source preparation; symbolic origin/HEAD excluded."
   },
-  "integration_source_commit": null,
+  "integration_source_commit": "e2dc178f6cd9a9989c9fb400e2b85c4c3039c682",
   "branches": [
     {
       "branch": "apk-builds",

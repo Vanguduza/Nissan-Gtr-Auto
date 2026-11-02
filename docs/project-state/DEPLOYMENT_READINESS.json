@@ -4,7 +4,7 @@
   "assessment_date_utc": "2026-11-02",
   "assessment_base_commit": "e1eaea88ac9e904118d57c439579e1549622f5d9",
   "implementation_branch": "cursor/deployment-reconciliation-ad25",
-  "integration_source_commit": null,
+  "integration_source_commit": "e2dc178f6cd9a9989c9fb400e2b85c4c3039c682",
   "release_verdict": "HOLD_FOR_NATIVE_CI_AND_HOSTED_DEVICE_QUALIFICATION",
   "source_integration": "IN_PROGRESS",
   "findings": [

@@ -3,7 +3,7 @@
   "repository": "Vanguduza/Nissan-Gtr-Auto",
   "assessed_base_commit": "e1eaea88ac9e904118d57c439579e1549622f5d9",
   "implementation_branch": "cursor/deployment-reconciliation-ad25",
-  "integration_source_commit": null,
+  "integration_source_commit": "e2dc178f6cd9a9989c9fb400e2b85c4c3039c682",
   "observed_at_utc": "2026-11-02T08:25:34.157563+00:00",
   "workspace_checks": [
     {
