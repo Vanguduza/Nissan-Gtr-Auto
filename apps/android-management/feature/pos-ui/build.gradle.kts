@@ -9,7 +9,7 @@ plugins {
 
 android {
     namespace = "co.zw.nissangtr.pos.ui"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 26
@@ -39,8 +39,8 @@ dependencies {
     implementation(project(":feature:pos-data"))
 
     // Hilt DI (ARCH-02)
-    implementation("com.google.dagger:hilt-android:2.51.1")
-    ksp("com.google.dagger:hilt-compiler:2.51.1")
+    implementation("com.google.dagger:hilt-android:2.57.2")
+    ksp("com.google.dagger:hilt-compiler:2.57.2")
 
     val composeBom = platform("androidx.compose:compose-bom:2024.06.00")
     implementation(composeBom)

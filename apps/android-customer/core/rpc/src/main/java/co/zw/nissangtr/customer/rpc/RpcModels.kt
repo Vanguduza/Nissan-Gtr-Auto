@@ -105,6 +105,10 @@ data class GarageVehicle(
     val engine: String?,
     val vin: String?,
     val isPrimary: Boolean,
+    /** Canonical fitment identity; never derived from a display-label slug. */
+    val chassisCode: String? = null,
+    val modelSlug: String? = null,
+    val vehicleMasterId: String? = null,
 )
 
 data class GarageVehicleInput(
@@ -115,6 +119,10 @@ data class GarageVehicleInput(
     val engine: String? = null,
     val vin: String? = null,
     val isPrimary: Boolean = false,
+    /** Canonical fitment identity; never derived from a display-label slug. */
+    val chassisCode: String? = null,
+    val modelSlug: String? = null,
+    val vehicleMasterId: String? = null,
 )
 
 /** Human-readable "make · model · generation · engine" summary, falling back to VIN/id. */

@@ -1,6 +1,6 @@
 -- Web / tablet POS sale flow as a signed-in sales cashier, using the same named-argument calls the
 -- web gateway (apps/web/lib/pos/supabase-gateway.ts) and tablet RPC client make:
--- open cart -> add line -> set customer vehicle -> park / resume -> split-tender checkout.
+-- open cart -> add line -> set a published vehicle -> park / resume -> reserve-first split settlement.
 -- Asserts: invoice posted, tenders settle the balance, stock issued, every journal entry balances.
 DO $$
 DECLARE
@@ -16,6 +16,11 @@ DECLARE
   v_qty_after numeric;
   v_unbalanced int;
   v_err text;
+  v_vehicle record;
+  v_till uuid;
+  v_order uuid;
+  v_request uuid := gen_random_uuid();
+  v_settled jsonb;
 BEGIN
   SELECT id INTO v_main FROM public.warehouses WHERE code = 'MAIN';
   SELECT id INTO v_uom FROM public.uoms WHERE code = 'EA';
@@ -49,9 +54,21 @@ BEGIN
   v_cart := public.create_pos_cart(
     p_warehouse_id => v_main, p_currency => 'USD', p_fulfillment_mode => 'immediate');
   PERFORM public.add_cart_line(p_cart_id => v_cart, p_stock_item_id => v_item, p_uom_id => v_uom, p_qty => 3);
+  SELECT * INTO v_vehicle FROM public.catalog_r2_vehicle_master
+  WHERE maker_slug='nissan' ORDER BY r2_scope_key LIMIT 1;
+  IF NOT FOUND THEN RAISE EXCEPTION 'smoke requires published Nissan vehicle master'; END IF;
   PERFORM public.set_pos_cart_vehicle(
-    p_cart_id => v_cart, p_model_slug => 'navara', p_model_name => 'Navara',
-    p_generation => 'D40', p_chassis_code => 'D40', p_engine_code => 'YD25');
+    p_cart_id => v_cart,
+    p_model_slug => btrim(regexp_replace(lower(btrim(v_vehicle.model)), '[^a-z0-9]+', '-', 'g'), '-'),
+    p_model_name => v_vehicle.model, p_generation => v_vehicle.chassis_code,
+    p_chassis_code => v_vehicle.chassis_code, p_engine_code => v_vehicle.engine_code);
+  BEGIN
+    PERFORM public.set_pos_cart_vehicle(v_cart,'not-a-published-model','Unknown','FAKE','FAKE','FAKE');
+    RAISE EXCEPTION 'smoke fail: unrecognized vehicle selection was accepted';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM LIKE 'smoke fail:%' THEN RAISE; END IF;
+    IF SQLERRM <> 'selected Nissan model/generation/engine is not in the catalog' THEN RAISE; END IF;
+  END;
 
   PERFORM public.park_pos_cart(p_cart_id => v_cart);
   PERFORM public.resume_pos_cart(p_cart_id => v_cart);
@@ -61,23 +78,49 @@ BEGIN
     RAISE EXCEPTION 'smoke fail: cart total expected 144.75, got %', v_total;
   END IF;
 
+  v_till := public.open_pos_till_session(v_main,'webpos-smoke-tablet',0,'USD');
+  PERFORM public.attach_pos_cart_till_session(v_cart,v_till);
+  v_order := public.prepare_pos_commerce_checkout_v2(v_cart,gen_random_uuid(),'20 minutes',NULL,NULL,NULL);
+  IF EXISTS (SELECT 1 FROM public.commerce_orders WHERE id=v_order AND sales_invoice_id IS NOT NULL) THEN
+    RAISE EXCEPTION 'smoke fail: unpaid reserved sale created an invoice';
+  END IF;
+
   -- Tenders must equal the balance exactly; change due is UI-only.
   BEGIN
-    PERFORM public.checkout_pos_cart_with_tenders(
-      p_cart_id => v_cart,
+    PERFORM public.settle_pos_commerce_tenders(
+      p_order_id => v_order, p_payment_request_id => gen_random_uuid(),
       p_tenders => jsonb_build_array(jsonb_build_object('tender', 'cash', 'amount', 200)));
     RAISE EXCEPTION 'smoke fail: over-tender was accepted';
   EXCEPTION WHEN OTHERS THEN
     GET STACKED DIAGNOSTICS v_err = MESSAGE_TEXT;
     IF v_err LIKE 'smoke fail%' THEN RAISE; END IF;
   END;
+  IF public._pos_posting_active() THEN
+    RAISE EXCEPTION 'smoke fail: rejected over-tender leaked posting context';
+  END IF;
+  BEGIN
+    PERFORM public.settle_pos_commerce_tenders(v_order,gen_random_uuid(),
+      jsonb_build_array(jsonb_build_object('tender','ecocash','amount',144.75)));
+    RAISE EXCEPTION 'smoke fail: unverified manual digital tender was accepted';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM LIKE 'smoke fail:%' THEN RAISE; END IF;
+    IF SQLERRM NOT LIKE 'digital tender % must use provider intent/webhook settlement' THEN RAISE; END IF;
+  END;
 
-  v_inv := public.checkout_pos_cart_with_tenders(
-    p_cart_id => v_cart,
+  v_settled := public.settle_pos_commerce_tenders(
+    p_order_id => v_order, p_payment_request_id => v_request,
     p_tenders => jsonb_build_array(
       jsonb_build_object('tender', 'cash', 'amount', 100),
-      jsonb_build_object('tender', 'ecocash', 'amount', 44.75)),
-    p_receipt_email => NULL, p_receipt_whatsapp_e164 => NULL, p_receipt_phone_e164 => NULL);
+      jsonb_build_object('tender', 'bank', 'amount', 44.75)));
+  v_inv := (v_settled->>'invoice_id')::uuid;
+  IF jsonb_array_length(v_settled->'payment_entry_ids') <> 2 THEN
+    RAISE EXCEPTION 'smoke fail: distinct manual tender legs were not posted';
+  END IF;
+  IF public.settle_pos_commerce_tenders(v_order,v_request,
+      jsonb_build_array(jsonb_build_object('tender','cash','amount',100),
+        jsonb_build_object('tender','bank','amount',44.75)))->>'invoice_id' IS DISTINCT FROM v_inv::text THEN
+    RAISE EXCEPTION 'smoke fail: retry did not return the original sale';
+  END IF;
 
   -- The internal-posting flag must not outlive the call, and the ledger stays closed to direct calls.
   IF public._pos_posting_active() THEN

@@ -4,10 +4,10 @@
  * Local unverified settle: CONTIPAY_ALLOW_UNVERIFIED_LOCAL=1 only when secret unset.
  * Does not trust webhook allocations for AR — ledger uses DB intent amount.
  *
- * Webhook signature: no public ContiPay merchant doc found for header name.
- * Implemented as HMAC-SHA256 over raw body; compare to x-contipay-signature
- * (also accepts x-signature / signature, optional sha256= prefix).
- * Confirm with ContiPay when merchant keys arrive.
+ * Real callbacks require an explicitly confirmed merchant contract:
+ * CONTIPAY_WEBHOOK_CONTRACT=hmac-sha256-raw-body-v1 and
+ * CONTIPAY_WEBHOOK_SIGNATURE_HEADER=<merchant-documented header>.
+ * No header/algorithm is assumed from the acquire API's webhookUrl field.
  * Source note: https://github.com/njzw/contipay-js-client (acquire auth only).
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
@@ -15,6 +15,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   contipayHmacSha256Hex,
   contipaySignatureFromHeaders,
+  contipayWebhookContract,
   isLocalUnverifiedAllowed,
   jsonResponse,
   sha256Hex,
@@ -42,6 +43,12 @@ Deno.serve(async (req) => {
         "contipay-webhook: unverified local stub (CONTIPAY_ALLOW_UNVERIFIED_LOCAL=1)",
       );
     } else {
+      if (!contipayWebhookContract()) {
+        return jsonResponse({
+          error: "Confirmed ContiPay webhook contract and signature header required",
+          code: "CONTIPAY_WEBHOOK_CONTRACT_REQUIRED",
+        }, 503);
+      }
       const sig = contipaySignatureFromHeaders(req).toLowerCase();
       if (!sig) {
         return jsonResponse({ error: "missing signature" }, 401);

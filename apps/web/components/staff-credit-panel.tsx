@@ -57,6 +57,22 @@ export function StaffCreditPanel() {
 
   useEffect(() => {
     if (boot.kind !== "ready") return;
+    const id = new URLSearchParams(window.location.search).get("customer");
+    if (!id || !/^[0-9a-f-]{36}$/i.test(id)) return;
+    const client = createWebClient();
+    if (!client) return;
+    let active = true;
+    void loadCustomerCredit(client, id).then((res) => {
+      if (!active) return;
+      if (!res.ok || !res.data) { setMessage("This customer is unavailable."); return; }
+      setSelected(res.data); setLimitInput(String(res.data.credit_limit));
+      setHold(res.data.credit_hold); setMarketingOptIn(res.data.marketing_opt_in);
+    });
+    return () => { active = false; };
+  }, [boot.kind]);
+
+  useEffect(() => {
+    if (boot.kind !== "ready") return;
     const q = query.trim();
     if (q.length < 2) {
       setHits([]);

@@ -3,6 +3,7 @@
  * Fail closed when WHATSAPP_APP_SECRET unset (unless local unverified flag).
  * Kept free of payment_edge imports so smoke tests stay isolated.
  */
+import { allowUnverifiedLocal } from "../_shared/local_env.ts";
 
 function timingSafeEqualStr(a: string, b: string): boolean {
   const enc = new TextEncoder();
@@ -17,7 +18,7 @@ function timingSafeEqualStr(a: string, b: string): boolean {
 }
 
 export function allowWhatsAppUnverifiedLocal(): boolean {
-  return Deno.env.get("WHATSAPP_ALLOW_UNVERIFIED_LOCAL") === "1";
+  return allowUnverifiedLocal("WHATSAPP_ALLOW_UNVERIFIED_LOCAL");
 }
 
 /** Extract hex digest from X-Hub-Signature-256 (sha256=<hex>). */

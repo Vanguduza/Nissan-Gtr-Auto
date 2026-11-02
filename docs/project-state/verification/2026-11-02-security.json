@@ -1,0 +1,680 @@
+{
+  "state": "PASS_FOR_REVIEWED_SOURCE",
+  "reviewer": "independent security_review specialist; read-only source review",
+  "baseline_commit": "e1eaea88ac9e904118d57c439579e1549622f5d9",
+  "branch": "cursor/deployment-reconciliation-ad25",
+  "observed_at_utc": "2026-11-02T08:27:47.435974+00:00",
+  "blocking_findings": [],
+  "nonblocking_correction": {
+    "area": "staff finance search",
+    "status": "corrected source",
+    "finding": "Finance invoice search was incorrectly nested under the CRM module condition.",
+    "correction": "Independent finance role/module branch; result links use journal IDs."
+  },
+  "positive_controls": [
+    "Payment settlement wrappers service_role-only; allocation fallback binds customer, invoice type/status and currency.",
+    "Garage changes serialize own-customer primary selection and verify requested vehicle ownership before changing another row.",
+    "Employee card payload comes from an own/HR/admin authorized RPC, with private Storage photo authorization.",
+    "Provider unknown callback contract disables real ContiPay initiation and settlement before side effects.",
+    "Production/remote local-unverified bypasses refused; debug-only fake transports are explicit.",
+    "iOS Keychain stores session atomically, logout tombstone prevents stale credential resurrection, and refresh uses generation/cancellation fencing.",
+    "Provenance merge carry requires exact full-tree equality, contained target history and independent reviewed-head ledger verification; source mutation and ledger-prefix tampering fail.",
+    "Native bootstrap direct grants cannot silently broaden the regenerated baseline; expanded source contract binds function capabilities, all application/Storage policies and relation privileges.",
+    "Reserved POS tender posting enters/restores an existing scoped context around a private, owner-only, originally guarded core; direct cashier journal posting remains refused.",
+    "Final positive callback proofs bind exact minor-unit amounts, currency, provider and registered references to the same atomic financial snapshot.",
+    "Authenticated Storage policies can execute their existing read-only requester/staff predicate without restoring anonymous execution or permissive bootstrap defaults. Baseline contract asserts every authenticated Storage policy function dependency is callable and the receipt helper remains anonymous-denied.",
+    "Retained sale/return/deposit/card/driver workflows enter the existing posting scope only after actor checks and retain original resource/amount/status/till checks. Generic create_journal_draft/post_journal/post_journal_entry definitions exactly match baseline in the native DB; authenticated internal context helpers and all client private cores remain non-executable.",
+    "Cashier, non-finance POS manager and driver remain unable to post arbitrary journals after success/error or by setting the three legacy accounting flags. New wrappers expose no arbitrary setting/key/value RPC and restore all four accounting contexts."
+  ],
+  "qualification_limits": [
+    "This is a pass for the reviewed source changes, not production deployment approval or proof of native service acceptance.",
+    "No live provider, production secret, signed-device or physical-hardware acceptance was established. Local callback tests use fake DB queries and mocked provider/network effects.",
+    "Provider callback field/auth contracts, merchant currency/account binding, query-response reference binding and native UAT remain release qualification requirements; unknown or incomplete settlement evidence is refused.",
+    "Fresh native database tests are local source-contract acceptance only; existing hosted schema/ACL/migration-ledger adoption still requires read-only inventory, backup and restored-staging acceptance described in the baseline runbook.",
+    "Opaque publishable keys and parsed legacy JWT structure do not prove real tenant ownership, signature validity or backend acceptance.",
+    "Private trigger EXECUTE defaults alone do not establish public exposure when private schema USAGE is revoked.",
+    "iOS invalid-release factory preconditions made the initial non-live shortcut concern unreachable in release; explicit usesFake guards defend injected APIs and are not a confirmed release bypass.",
+    "Parent delivery must bind the final commit/merge to the unchanged reviewed file hashes and run project-truth verification and required final checks.",
+    "Original eight scenario execution predates the final request-ID serialization guard. Final post-lock native regression, two-session lock/peer-denial probe and 17/59 SQL acceptance validate that bounded final delta; the original scenarios were not re-provisioned/re-run solely for the added lock.",
+    "Context/role denial evidence uses native PostgreSQL role/JWT-claim contexts. New RPCs do not expose arbitrary configuration setters; this is not a claim that custom GUCs form an authentication boundary for an attacker already able to execute arbitrary database SQL."
+  ],
+  "reviewed_file_fingerprints": [
+    {
+      "path": ".github/workflows/android-release.yml",
+      "sha256": "673b740ffcb1d958005acc9a5c2be6946293950b64e90a9ca9542fa81b341439"
+    },
+    {
+      "path": "apps/android-customer/core/rpc/src/main/java/co/zw/nissangtr/customer/rpc/RpcClientFactory.kt",
+      "sha256": "3271043760b3953dc01300c61ee919def679544220263ac88e34fe34f9dbc9f1"
+    },
+    {
+      "path": "apps/android-delivery/core/rpc/src/main/java/co/zw/nissangtr/delivery/rpc/RpcClientFactory.kt",
+      "sha256": "f282d3dd3bcb3c6270b7a2462665ca2d5078f42e3ff9a2a465786a5d433f98c0"
+    },
+    {
+      "path": "apps/android-management/core/rpc/src/main/java/co/zw/nissangtr/management/rpc/RpcClientFactory.kt",
+      "sha256": "5e79ebf8fee51179586cd200f04217f5615ae7d020bc50dc396e0cbea1012c17"
+    },
+    {
+      "path": "apps/ios/GTRCustomer/StorefrontSession.swift",
+      "sha256": "60becca0c8ac909ca373e95e293b644144ad3462dad32684a13b1340355e4d28"
+    },
+    {
+      "path": "apps/ios/Sources/GTRCustomerCore/AppEnv.swift",
+      "sha256": "204cbdfaebb6d501425c9d0ecba41ed905d669ab471b8082ee300ac3b4ecc46e"
+    },
+    {
+      "path": "apps/ios/Sources/GTRCustomerCore/AuthSessionCoordinator.swift",
+      "sha256": "9aaa14391aac2f08c34539eb72e581421a7d6b20bf5a827e7659b6a928e29378"
+    },
+    {
+      "path": "apps/ios/Sources/GTRCustomerCore/AuthTokenStore.swift",
+      "sha256": "bd79e2caa68e958a243ebd127db3b923a7237ed0f3ce1ca2866b6a38fa439359"
+    },
+    {
+      "path": "apps/ios/Sources/GTRCustomerCore/PostgrestClient.swift",
+      "sha256": "fc2cf213dc609fc4571da10280f044b3dc676a3e7a09eb0545b9078cdf14964a"
+    },
+    {
+      "path": "apps/ios/Tests/GTRCustomerCoreTests/AuthLifecycleTests.swift",
+      "sha256": "a471a0bc49511e6f81b8d356c1928e6d9ba038c8d84144d21a6afd1b39b7b76f"
+    },
+    {
+      "path": "apps/ios/scripts/validate-release-config.py",
+      "sha256": "0e85a31cfbe239b39ac9605b7a9673bbaf672d215f323869be5f92ee62d26807"
+    },
+    {
+      "path": "apps/web/lib/staff-auth.ts",
+      "sha256": "16fff0eb5be6e635f4995f37594434eade82df3da26d2cdf6e1728240a06fae9"
+    },
+    {
+      "path": "scripts/android-release.gradle",
+      "sha256": "7ebb2fcf87f39546d237b7d77938e2e5573d19560a56c9bb421bc1e8ab7cc535"
+    },
+    {
+      "path": "scripts/android_artifact_manifest.py",
+      "sha256": "b680f1dc574ed7027688bd6602233dd1011c174279c486a50e33d4aadf4d02b1"
+    },
+    {
+      "path": "scripts/android_release_check.py",
+      "sha256": "6f626e38e5d964f013073415dc3757ca1372fc234659ae4086698d7f501acb2c"
+    },
+    {
+      "path": "scripts/project_truth_guard.py",
+      "sha256": "10cece9ebe2425dfbfcfa75091ee389ebf1ea3c3198ccd5ba2d26ac4a22870c3"
+    },
+    {
+      "path": "scripts/test-web-environment.mjs",
+      "sha256": "0f88b668f1ef8cddbbeb86338d0a07933f01d4aed66f760277329975cca869e3"
+    },
+    {
+      "path": "scripts/test_project_truth_guard.py",
+      "sha256": "e4905b0fe1e5c31a50b4f55e5eaddfdcd69062582f7cfc22fcd160dc3de44dda"
+    },
+    {
+      "path": "scripts/tests/test_android_release_check.py",
+      "sha256": "94dca4642da95204278452baae45bb6aced8f071264011b0be28342fd3202039"
+    },
+    {
+      "path": "scripts/verify-database-baseline.py",
+      "sha256": "40859e88f58b0b9f2df95bc99ee81c5f4c9bbd3321170c00101b546720abe443"
+    },
+    {
+      "path": "scripts/web-environment.mjs",
+      "sha256": "d5ab86f585adc57da1cfc9c5981f3debce3c53e941a50038349e5efa2bf288ca"
+    },
+    {
+      "path": "services/whatsapp-flows/app/api/v1/ecocash_webhook.py",
+      "sha256": "b6d9395aa8c67858d55a7f2e436398b6a77689fd63ce82933253d8c9ac0b26a1"
+    },
+    {
+      "path": "services/whatsapp-flows/app/api/v1/flow_endpoint.py",
+      "sha256": "c6643c0f9ca872c2e67b750a2576700071481a5bb13a510b4d0459f45e434091"
+    },
+    {
+      "path": "services/whatsapp-flows/app/api/v1/payment_webhook.py",
+      "sha256": "57c9532162e5d323959436773a6eaf5027d0abed5c39999beac97d9e524f908d"
+    },
+    {
+      "path": "services/whatsapp-flows/app/core/config.py",
+      "sha256": "51a4bd7d5bbaa078d8564645c9050bbf7d6830415f21589744b1d1622d3b4d29"
+    },
+    {
+      "path": "services/whatsapp-flows/app/core/webhook_auth.py",
+      "sha256": "bbcb98ccbf864e1b63ef8ae1a56a28b7976aa388228dc5ffc76b9b5edf4531e2"
+    },
+    {
+      "path": "services/whatsapp-flows/app/services/payment_state.py",
+      "sha256": "b1601ecbbd32f0cab26ecfd912598948352863b5fe23030c740e0d874e039726"
+    },
+    {
+      "path": "services/whatsapp-flows/tests/test_flow_origin_auth.py",
+      "sha256": "1456a31fb527310451a1e91523bd34fde6c8fe1331e8d669e3874e5215c43bea"
+    },
+    {
+      "path": "services/whatsapp-flows/tests/test_payment_callback_ordering.py",
+      "sha256": "48b95d2bbbc4011180bcd03cc5e974112e0d06a4b41db373fb0e2e38bbf2fd7d"
+    },
+    {
+      "path": "services/whatsapp-flows/tests/test_payment_callback_security.py",
+      "sha256": "c6fbfb28362faa52a1b22fbdfc57481a467bacc0511c76f1d99ec4bca0b8b1dd"
+    },
+    {
+      "path": "supabase/baseline/README.md",
+      "sha256": "25a73f123f7c0201039a9e63f64a65d01c7c42d39055149f735e3601a294bfc4"
+    },
+    {
+      "path": "supabase/baseline/manifest.json",
+      "sha256": "e63bbf3ef3f57d6cf4750879e2aceb5b0fdf794d20fcaf562616b8065cd9f3cc"
+    },
+    {
+      "path": "supabase/baseline/source-contract.json",
+      "sha256": "44e791daf3750a3f1f6a9a76f4f2f0d4ff11c166f04a67a54feeb9a2f84f8976"
+    },
+    {
+      "path": "supabase/functions/_shared/auth_otp_proof.ts",
+      "sha256": "e3184857c0e897ecf22c6a18d15124dbbc88d01d6894898f8e8dbd07953c2a65"
+    },
+    {
+      "path": "supabase/functions/_shared/branded_docs_pdf.ts",
+      "sha256": "968cb893a73c571a466aeeba3e1a68af829bff6e814237c3032f16d09cfd6b88"
+    },
+    {
+      "path": "supabase/functions/_shared/channel_env.ts",
+      "sha256": "54c06c8e318c5b9b583894c22cf3f218d9e8c2e3214c2ab2ab828a9c2d53426e"
+    },
+    {
+      "path": "supabase/functions/_shared/local_env.ts",
+      "sha256": "ba640d76a57b7f321a214d15baa19e9666cd28618a8ade2d7d162fabd6da6538"
+    },
+    {
+      "path": "supabase/functions/_shared/payment_edge.ts",
+      "sha256": "f34ecd3080ba1b47abfed2cfa00eebea4ff5f9c8f17e9fe0b3bb8ef72799fd2b"
+    },
+    {
+      "path": "supabase/functions/_shared/worker_auth.ts",
+      "sha256": "6fe0166879a85d053b46d26a38b04adbccedbab4ee6204813a8d2d4b76c5aadb"
+    },
+    {
+      "path": "supabase/functions/contipay-initiate/index.ts",
+      "sha256": "a1e064690e9d214433a81ed1ec09d20652df01f05ff05a2c57766bf11bf1b59b"
+    },
+    {
+      "path": "supabase/functions/contipay-webhook/index.ts",
+      "sha256": "c940ec94a4a16146c132aba38b7b1c4a0d20c0ebe67dc21fd61a1996da670ecd"
+    },
+    {
+      "path": "supabase/functions/ecocash-webhook/index.ts",
+      "sha256": "0bcef093d833802edd3a3b0bb497bc83b24c15eeb32a75322acaa6c2c7f43344"
+    },
+    {
+      "path": "supabase/functions/render-branded-doc/index.ts",
+      "sha256": "5190a426e0245bf8294f7778ce8d45d2c4fd7bb18822b6fee4629b16f5629f39"
+    },
+    {
+      "path": "supabase/functions/whatsapp-webhook/meta_auth.ts",
+      "sha256": "5ad8d3fbd7f94e2308b59a7e4edf3774a71c3329321d1b8795007bb776a02fe8"
+    },
+    {
+      "path": "supabase/migrations/20261102080000_reconciled_erp_baseline.sql",
+      "sha256": "2502826ee08e67d7bcee3f7bdacdc31d944ccbb1bf9c3d86090b79b938ea016c"
+    },
+    {
+      "path": "supabase/migrations/20261102085000_baseline_runtime_contracts.sql",
+      "sha256": "c4e2791d640b1c4e72f0ba5bd2a4be28ac5ad9e7c499ffc57471c4def04329f1"
+    },
+    {
+      "path": "supabase/migrations/20261102085100_pos_published_vehicle_validation.sql",
+      "sha256": "bd3ca928583aa9a0fd44bea028f457e93009d87d953fb55b605a945f2eb44dc0"
+    },
+    {
+      "path": "supabase/migrations/20261102085200_cashier_reserved_settlement_posting.sql",
+      "sha256": "a52f97b42101481d744d824da9e88c878c79faa60094d87ef5598862f1fdd581"
+    },
+    {
+      "path": "supabase/migrations/20261102085300_storage_policy_helper_execution.sql",
+      "sha256": "355e863086c17a1691df2f9e56b347215a86ffa91d31d1515094a8b29315f4a2"
+    },
+    {
+      "path": "supabase/migrations/20261102085400_retained_workflow_posting_scopes.sql",
+      "sha256": "f4636eafd3345f0aa4b343ae6a814fed79f466b19ca81ebadecd155748a72cdd"
+    },
+    {
+      "path": "supabase/migrations/20261102090000_payment_settlement_reconciliation.sql",
+      "sha256": "f52b0b5f301df0abc63b034f4a14b9a079cc9ab8db0e95684c502ca52205eee4"
+    },
+    {
+      "path": "supabase/migrations/20261102091000_customer_garage_identity.sql",
+      "sha256": "d89dc414fa09961dd49bf865823d99f6b5a294b85362bd0f327ca1a5f90b5d3b"
+    },
+    {
+      "path": "supabase/migrations/20261102092000_customer_order_projection_reconciliation.sql",
+      "sha256": "32f528b58a6603cffe422ca5db5107beacc62be901a3c440973fcb4d6c69cc96"
+    },
+    {
+      "path": "supabase/migrations/20261102100000_staff_self_service_reconciliation.sql",
+      "sha256": "3ef739b8c361f5d7a4b0aff2bc21353c0f2bf6ecf6d532fc83207fc1f1e5d271"
+    },
+    {
+      "path": "supabase/migrations/20261102100100_staff_payroll_reconciliation.sql",
+      "sha256": "362699bd03a8753336a26aef1fb5b3c72a595a9610683a7e707a4c22810ca615"
+    },
+    {
+      "path": "supabase/migrations/20261102100200_staff_merchandising_reconciliation.sql",
+      "sha256": "77b6d8b1575b950210d75d756b7bec3d2529adf8dd44cb8740290918214b37c0"
+    },
+    {
+      "path": "supabase/migrations/20261102100300_staff_overview_reconciliation.sql",
+      "sha256": "d392ff6f364a7df69b4190b15160f769ead0af45bdfe924371afefe53aa56979"
+    },
+    {
+      "path": "supabase/sim/ci/run.sh",
+      "sha256": "21af34af98df5a3564e4a30e288350f89d4592d4594b0bba9cf1344b4d57d74c"
+    },
+    {
+      "path": "supabase/tests/baseline_contract_smoke.sql",
+      "sha256": "0deb73feb2ba9079176987caf2cdc52c7bc020fe2f7ba3a38ee33b6440d29119"
+    },
+    {
+      "path": "supabase/tests/retained_workflow_posting_smoke.sql",
+      "sha256": "cde3109c25ce7444a6155c24b238913bfed7fee78562b55a756d4f260c414f94"
+    },
+    {
+      "path": "supabase/tests/sim_role_rules_smoke.sql",
+      "sha256": "44045cbdc3a62b440f286e5e9091542cfa9c308d5f15c7b852f12b3f0cc1e2fd"
+    },
+    {
+      "path": "supabase/tests/staff_overview_merchandising_reconciliation_smoke.sql",
+      "sha256": "09e348c8b0167408dd08735d4c018783ceae5b5fb6b8286da1b3dedb5acc8ab5"
+    },
+    {
+      "path": "supabase/tests/staff_payroll_reconciliation_smoke.sql",
+      "sha256": "99c9a3c123c6e9b28882de2037ee8e5488cd0d993f3148fbe47b23cdd91147da"
+    }
+  ],
+  "source_edits_by_reviewer": false,
+  "network_calls_by_reviewer": 0,
+  "database_mutations_by_reviewer": 0,
+  "resolved_findings": [
+    {
+      "id": "SEC-01",
+      "severity": "high",
+      "area": "payroll schedule finance authority",
+      "status": "corrected and native SQL smoke passed",
+      "path": "supabase/migrations/20261102100100_staff_payroll_reconciliation.sql:160",
+      "finding": "HR could change funding account/currency/FX or accelerate an existing auto-funded schedule without finance authority.",
+      "correction": "Finance/admin control funding terms and finance-enabled cadence/activation; direct authenticated schedule DML revoked; per-frequency advisory and row locks serialize changes.",
+      "evidence": "database/critical-smokes/staff_payroll_reconciliation_smoke.log; seven direct-RPC denials, direct funding denial, effective authenticated table UPDATE denial, gross200/net160/manual40 funding and repeat idempotency."
+    },
+    {
+      "id": "SEC-02",
+      "severity": "medium",
+      "area": "mobile/web release URL-key pairing",
+      "status": "corrected source re-read; owners report native runtime/unit checks",
+      "finding": "Wrong-project/expired legacy anon JWTs passed new guards; web accepted malformed publishable prefix.",
+      "correction": "Canonical HTTPS/ref, anon role, mandatory numeric finite future exp, and opaque publishable-key format are checked.",
+      "qualification": "JWT signature and opaque-key tenant ownership remain native backend acceptance, not established by structural parsing."
+    },
+    {
+      "id": "SEC-03",
+      "severity": "high",
+      "area": "WhatsApp callback ordering/idempotency",
+      "status": "corrected and independently tested",
+      "paths": [
+        "services/whatsapp-flows/app/api/v1/payment_webhook.py",
+        "services/whatsapp-flows/app/api/v1/ecocash_webhook.py",
+        "services/whatsapp-flows/app/services/payment_state.py"
+      ],
+      "finding": "Late authenticated failure regressed PAID and erased payment reference; repeat success queued receipts repeatedly.",
+      "correction": "Atomic conditional update from eligible states; only transition winner queues initial receipt; negative callbacks update PENDING only and preserve references.",
+      "evidence": [
+        "security-callback-ordering-reproduction.json",
+        "Independent test_payment_callback_ordering.py:55 passed; combined Flow+ordering:62 passed."
+      ]
+    },
+    {
+      "id": "SEC-04",
+      "severity": "high",
+      "area": "Meta Flow request origin",
+      "status": "corrected and independently tested",
+      "path": "services/whatsapp-flows/app/api/v1/flow_endpoint.py",
+      "finding": "Public-key encryption permitted unsigned callers to reach privileged checkout logic.",
+      "correction": "Official Meta raw-body HMAC-SHA256 contract via WHATSAPP_APP_SECRET checked before crypto/action. Production/remote flag cannot bypass missing secret; invalid signature432.",
+      "evidence": [
+        "security-flow-origin-reproduction.json",
+        "test_flow_origin_auth.py real RSA/AES+HMAC:7 cases; combined with ordering62 passed.",
+        "Official reference retained in backend/meta-official-flow-server.js lines94-109."
+      ]
+    },
+    {
+      "id": "SEC-05",
+      "severity": "high",
+      "area": "Authenticated generic callback financial binding",
+      "status": "corrected source re-read and independently full-suite tested",
+      "path": "services/whatsapp-flows/app/api/v1/payment_webhook.py:160",
+      "finding": "Validly hashed synthetic Paynow form with0.01USD marks stored100USD order PAID because signed amount/currency/provider are discarded.",
+      "evidence": "security-callback-amount-reproduction.json",
+      "exploit_limit": "No evidence established that an attacker can obtain a mismatched live provider signature; actual-handler reproduction proves absent binding only.",
+      "correction": "Positive callbacks require exact finite positive Decimal minor units, matching provider/currency/merchant source/registered provider reference; atomic transition also predicates on all financial snapshot fields. Incomplete evidence fails closed. Paynow form consumes the same verified fields and absent signed currency requires explicit merchant account binding. EcoCash proof enforces authoritative ZiG settlement."
+    },
+    {
+      "id": "SEC-07",
+      "severity": "high",
+      "area": "Native bootstrap ACL contamination of fresh baseline",
+      "status": "corrected source re-read; native default-grant roundtrip and final forward chain verified",
+      "path": "supabase/migrations/20261102080000_reconciled_erp_baseline.sql:15",
+      "finding": "A normal native Supabase public schema grants future postgres-created functions directly to anon/authenticated/service_role. Dumped service-only function ACLs only REVOKE PUBLIC, so applying under those defaults can retain unintentional direct client grants. Existing native reset dropped/recreatedpublic, removing defaults and hiding the projection difference. R2 presign/current-release-key functions rely on ACL rather than in-body role checks.",
+      "evidence": [
+        "database/roundtrip-result.json: native defaults restored before apply; exact definitions/grants/policies equality; 769 functions, 212 tables including private, 5136 relation capabilities",
+        "database/final-fresh-apply.json: exact current baseline SHA-256 and all 11 forward migration hashes; all 12 applications exit 0",
+        "database/canonical-capability-denials.json: all 14 committed anonymous staff/money denial signatures and 6 R2 presign service-only checks pass",
+        "database/critical-smokes/receipt.json: final 16 critical native SQL smokes pass with no migration-source changes during run"
+      ],
+      "qualification": "Local native source-contract acceptance only; no hosted deployment, real Vault secret access or production provider/credential acceptance was attempted.",
+      "correction": "Baseline header clears native direct per-role table/sequence/function defaults before CREATEs and preserves normal source PUBLIC function defaults. Curated source reconstruction uses committed simulation bootstrap semantics. New native roundtrip explicitly restores bootstrap grants before apply and compares actual role capabilities, policies and function definitions."
+    },
+    {
+      "id": "SEC-08",
+      "severity": "medium",
+      "area": "Delivery cash cached retry ownership race",
+      "status": "corrected source re-read; native lock/wait and ownership-denial proof passed",
+      "path": "supabase/migrations/20261102085400_retained_workflow_posting_scopes.sql:317",
+      "finding": "The new outer ownership check could race with a peer collection committing before the retained core cached-result SELECT, which returned before its original ownership checks.",
+      "correction": "Reject NULL request IDs and acquire a namespaced per-request transaction advisory lock before both ownership check and retained core call. Only the owning driver/job can receive a cached result.",
+      "evidence": [
+        "database/cash-request-concurrency-proof.json",
+        "supabase/tests/retained_workflow_posting_smoke.sql: actual own retry, peer/wrong-job/null denial and unchanged counts",
+        "database/critical-smokes/receipt.json: final post-lock smoke passed"
+      ]
+    }
+  ],
+  "independent_validation": [
+    {
+      "command": "/workspace/scratch/nissan-gtr-review/venv/bin/python -m pytest -q",
+      "cwd": "services/whatsapp-flows",
+      "result": "150 passed;2 tool deprecation warnings; includes final financial-binding and snapshot-race regressions;2.32s"
+    },
+    {
+      "command": "pytest -q tests/test_flow_origin_auth.py tests/test_payment_callback_ordering.py",
+      "cwd": "services/whatsapp-flows",
+      "result": "62 passed;2 tool deprecation warnings; no live provider/database/network effects"
+    },
+    {
+      "command": "python3 -m unittest -q scripts/test_project_truth_guard.py",
+      "result": "8 tests passed in isolated temporary Git repositories"
+    },
+    {
+      "command": "python3 scripts/verify-database-baseline.py",
+      "result": "PASS173 immutable legacy+125 hosted histories;271 curated sources and baseline digest verified"
+    },
+    {
+      "receipt": "database/roundtrip-result.json",
+      "result": "native fresh baseline apply0; existing-schema refusal3; source/roundtrip contract exact210 tables/769functions equal; performed by DB specialist"
+    },
+    {
+      "command": "python3 -m unittest -q scripts/tests/test_android_release_check.py",
+      "result": "11 passed"
+    },
+    {
+      "receipt": "database/critical-smokes/receipt.json",
+      "result": "16/16 critical SQL smokes pass after regenerated baseline and actual forward chain. Includes RLS, payroll HR authority denials, idempotent gross funding, own-account/garage, settlement, POS, overview and merchandising."
+    },
+    {
+      "receipt": "database/final-fresh-apply.json",
+      "independent_hash_check": "Every one of 12 migration files matches its accepted native receipt; no mismatch. Baseline SHA-256 2502826ee08e67d7bcee3f7bdacdc31d944ccbb1bf9c3d86090b79b938ea016c."
+    },
+    {
+      "command": "Read-only native Docker psql capability query after final strict baseline/forwards",
+      "result": {
+        "public_private_tables_without_rls": 0,
+        "authenticated_schedule_update": false,
+        "anon_private_usage": false,
+        "authenticated_private_usage": false,
+        "provider_settlement_anon": false,
+        "provider_settlement_authenticated": false,
+        "presign_get_anon": false,
+        "presign_get_authenticated": false,
+        "current_release_secret_authenticated": false
+      }
+    },
+    {
+      "scope": "Final bounded Storage refresh",
+      "receipts": [
+        "database/final-fresh-apply.json",
+        "database/final-checkpoint.json",
+        "database/critical-smokes/receipt.json",
+        "database/all-smokes/receipt.json",
+        "database/all-smokes/delivery_pods_storage_smoke.log"
+      ],
+      "migration_file_count": 12,
+      "migration_hash_mismatches": [],
+      "critical_smokes_passed": 16,
+      "critical_smokes_failed": [],
+      "complete_sql_smokes_passed": 57,
+      "complete_sql_smokes_failed": [
+        "sim_role_rules_smoke.sql (simulation actors not yet seeded)"
+      ],
+      "source_changed_during_run": false,
+      "all_receipted_test_hash_mismatches": [],
+      "independent_read_only_native_check": {
+        "helper_anon": false,
+        "helper_authenticated": true,
+        "helper_service": true,
+        "authenticated_storage_predicates_without_execute": 0
+      }
+    },
+    {
+      "scope": "Final frozen retained-workflow review",
+      "receipts": [
+        "database/final-fresh-apply.json",
+        "database/final-checkpoint.json",
+        "database/final-ordered-transaction.json",
+        "database/critical-smokes/receipt.json",
+        "database/all-smokes/receipt.json",
+        "database/cash-request-concurrency-proof.json",
+        "simulation/native-scenario-results.json",
+        "security-workflow-native-check.json"
+      ],
+      "migration_count": 13,
+      "migration_hash_mismatches": [],
+      "critical_smokes_passed": 17,
+      "critical_smokes_failed": [],
+      "complete_sql_smokes_passed": 59,
+      "complete_sql_smokes_failed": [],
+      "all_receipted_test_hash_mismatches": [],
+      "source_changed_during_run": false,
+      "independent_metadata_result": {
+        "generic_ledger": [
+          [
+            "create_journal_draft",
+            "ee87836e43c53231b128bf9710120f45"
+          ],
+          [
+            "post_journal",
+            "c6211d8fb00eaf7c24b3ef4c5c77ef23"
+          ],
+          [
+            "post_journal_entry",
+            "5ec34c334b40a19cda70c19fb271de2e"
+          ]
+        ],
+        "private_cores_client_executable": 0,
+        "public_wrapper_anon_executable": 0,
+        "authenticated_internal_context_helpers_executable": 0,
+        "generic_ledger_definitions_match_baseline": {
+          "create_journal_draft": true,
+          "post_journal": true,
+          "post_journal_entry": true
+        }
+      },
+      "original_scenario_timing_limit": "Original eight scenario execution predates the final request-ID serialization guard. Final post-lock native regression, two-session lock/peer-denial probe and 17/59 SQL acceptance validate that bounded final delta; the original scenarios were not re-provisioned/re-run solely for the added lock."
+    }
+  ],
+  "review_corrections": [
+    {
+      "id": "SEC-06",
+      "status": "initial ordinary-cashier claim withdrawn; module boundary separately tightened",
+      "area": "Staff overview commercial module boundary",
+      "path": "supabase/migrations/20261102100300_staff_overview_reconciliation.sql:76",
+      "initial_observation": "Native negative fixture returned commercial data for a POS-only sales employee.",
+      "correction": "Fixture had selected senior A1 grade, which legitimately qualifies for shared POS approval; final baseline helper is not open to every employee. Corrected fixture uses C1. Dashboard sales branch now also requires analytics module. Native corrected C1 negative and A1 assigned-analytics positive passed."
+    }
+  ],
+  "database_read_only_queries_by_reviewer": 4,
+  "review_scope": "Diff-scoped security review of named reconciliation money, authorization, identity, mobile configuration and provenance surfaces; baseline preservation/grants/policies reviewed through source contracts and native receipts, not a line-by-line audit of every historical function.",
+  "reviewed_worktree_head": "e1eaea88ac9e904118d57c439579e1549622f5d9",
+  "remaining_source_blockers": [],
+  "reviewed_file_count": 63,
+  "reviewed_files_manifest_sha256": "edcc57759599d369083c045dcb232446459d4b5bfd235729961ebc0679832cb9",
+  "evidence_fingerprints": [
+    {
+      "path": "database/all-smokes/delivery_pods_storage_smoke.log",
+      "sha256": "5a71e1fcc06bfc86d923804dbe8be4ce9bd0c5c70fffa8cf4a2b83f1b051ff53"
+    },
+    {
+      "path": "database/all-smokes/receipt.json",
+      "sha256": "4c1afe820890555c83529424082750b615e43872771ec9a0a4e5af2f0a128370"
+    },
+    {
+      "path": "database/canonical-capability-denials.json",
+      "sha256": "f2e94d23504b42f8aefe622510416599fc3742abfb6ce479f5aa5b2aea23738f"
+    },
+    {
+      "path": "database/cash-request-concurrency-proof.json",
+      "sha256": "20a1b7d08b051cbf94b62f028242bbfc42879e6dee427eb51930c72e624f2767"
+    },
+    {
+      "path": "database/critical-smokes/receipt.json",
+      "sha256": "460e6b9c9d4810fcfaded83adb4472e327eba6f9e8b1088dbe382813ec37a083"
+    },
+    {
+      "path": "database/final-checkpoint.json",
+      "sha256": "f405b012068798ec175eca274a03353686957e3d6b0ba1541b8c6043d505484f"
+    },
+    {
+      "path": "database/final-fresh-apply.json",
+      "sha256": "f405b012068798ec175eca274a03353686957e3d6b0ba1541b8c6043d505484f"
+    },
+    {
+      "path": "database/final-ordered-transaction.json",
+      "sha256": "d030951ab24442861007ac75a12c14646c93442c225ecd08c66146093b8be623"
+    },
+    {
+      "path": "database/retained-workflow-posting-apply.json",
+      "sha256": "4ec038238d024b47bdeddfd5beb46f4b4b399ab7925ac907dee1e55687f87221"
+    },
+    {
+      "path": "database/roundtrip-result.json",
+      "sha256": "f480b4ba068389a3db49073ee0dc976ad6adb12fe61621d552d3fc9fa13787bd"
+    },
+    {
+      "path": "security-callback-amount-reproduction.json",
+      "sha256": "6e89b14e2392e6a071d0c256cec1c113ef2e594fd952a4f03eded4aba6c7bc10"
+    },
+    {
+      "path": "security-callback-ordering-reproduction.json",
+      "sha256": "32204eff97c9c45f6f146c183a5b6e0bd478167f36e4566c2bb551e77df1b800"
+    },
+    {
+      "path": "security-final-python-validation.json",
+      "sha256": "ea257dd4118c2775092d814db861f8c13f465b2d9a72972cc0d786de7aa67eda"
+    },
+    {
+      "path": "security-flow-origin-reproduction.json",
+      "sha256": "4ef8fdd7738709383cb7e65d615697202c784e9f8be19575c77f36f52f4eab0c"
+    },
+    {
+      "path": "security-storage-refresh.json",
+      "sha256": "31ef93642fddce298cd8db60dcaa096fd0ba27fe1bdd6d04dd62816cc8342688"
+    },
+    {
+      "path": "security-workflow-native-check.json",
+      "sha256": "52a3b9c48197b8792f57834d60a5b2401a007203e560bc94bd0b4abb9be38088"
+    },
+    {
+      "path": "security-workflow-refresh.json",
+      "sha256": "c74ce5a731f6938154bb1a2a7262812010d2d31c85c5d94b4d36b38b9b47604b"
+    },
+    {
+      "path": "simulation/native-scenario-results.json",
+      "sha256": "fd80c6ee297304ce2e57d69abc1e816a5474ced7afbd037f86f03303a5a59928"
+    }
+  ],
+  "bounded_refreshes": [
+    {
+      "observed_at_utc": "2026-11-02T08:05:41.699244+00:00",
+      "scope": "Bounded final Storage policy helper execution grant and baseline contract assertion; refreshed exact native migration/smoke receipts.",
+      "previous_report_sha256": "82879a86b8159692ebf7f43f5fa10f56a8f56547b40eb124f6c14439922e3ed3",
+      "new_source_path": "supabase/migrations/20261102085300_storage_policy_helper_execution.sql",
+      "new_source_sha256": "355e863086c17a1691df2f9e56b347215a86ffa91d31d1515094a8b29315f4a2",
+      "conclusion": "PASS; grant is limited to authenticated and service_role execution of existing stable read-only security-definer predicate. Requester/staff authorization body and Storage policies are unchanged; PUBLIC/anon remain denied.",
+      "independent_read_only_native_check": {
+        "helper_anon": false,
+        "helper_authenticated": true,
+        "helper_service": true,
+        "authenticated_storage_predicates_without_execute": 0
+      },
+      "native_acceptance": "All 12 sorted active migrations match source hashes and exit 0; critical receipt 16/16 passes; complete SQL receipt 57/58 passes, sole unseeded simulation-role fixture prerequisite pending separate lane.",
+      "artifact_checks": "Every migration/test hash in the critical and complete SQL receipts matches current files; source_changed_during_run=false in both."
+    },
+    {
+      "observed_at_utc": "2026-11-02T08:27:47.435974+00:00",
+      "scope": "Final bounded retained-workflow posting-scope migration and native regression; previously named vehicle SQL and verifier critical-list changes re-read.",
+      "previous_report_sha256": "d8289d6082b4e82f3bd83435b6a5845f7ce4105a900bd25fe851471b7162a970",
+      "code_freeze": "Root confirmed no further product edits; DB owner confirmed FINAL FROZEN source/receipts.",
+      "migration_sha256": "f4636eafd3345f0aa4b343ae6a814fed79f466b19ca81ebadecd155748a72cdd",
+      "regression_sha256": "cde3109c25ce7444a6155c24b238913bfed7fee78562b55a756d4f260c414f94",
+      "conclusion": "PASS; no open concrete source findings. Workflow actors authorize before posting scope; all original guarded bodies remain owner-only private cores; all four contexts restore on success and exceptions, including nested/recovery responses. No generic ledger definition or authority widening.",
+      "native_metadata_check": {
+        "generic_ledger": [
+          [
+            "create_journal_draft",
+            "ee87836e43c53231b128bf9710120f45"
+          ],
+          [
+            "post_journal",
+            "c6211d8fb00eaf7c24b3ef4c5c77ef23"
+          ],
+          [
+            "post_journal_entry",
+            "5ec34c334b40a19cda70c19fb271de2e"
+          ]
+        ],
+        "private_cores_client_executable": 0,
+        "public_wrapper_anon_executable": 0,
+        "authenticated_internal_context_helpers_executable": 0,
+        "generic_ledger_definitions_match_baseline": {
+          "create_journal_draft": true,
+          "post_journal": true,
+          "post_journal_entry": true
+        }
+      },
+      "concurrency_correction": "Non-null request UUID and namespaced transaction advisory lock serialize cached ownership check and retained core return. Actual two-session probe waits on lock, then denies peer after release without financial row-count changes.",
+      "current_chain_acceptance": {
+        "migration_count": 13,
+        "critical_passed": 17,
+        "all_sql_passed": 59,
+        "source_or_receipt_hash_mismatches": [],
+        "fresh_and_upgraded_definitions_grants_policies_equal": true,
+        "public_private_functions": 793,
+        "relation_capability_assertions": 5136
+      },
+      "original_scenario_acceptance": {
+        "verified_at": "2026-11-02T08:10:26.386862+00:00",
+        "passed": 10,
+        "total": 10,
+        "includes": "Seed, original eight native-database trading scenarios, and single-role rules. All original script hashes match current source.",
+        "timing_limit": "Original eight scenario execution predates the final request-ID serialization guard. Final post-lock native regression, two-session lock/peer-denial probe and 17/59 SQL acceptance validate that bounded final delta; the original scenarios were not re-provisioned/re-run solely for the added lock."
+      }
+    }
+  ],
+  "final_native_acceptance": {
+    "migration_count": 13,
+    "critical_passed": 17,
+    "all_sql_passed": 59,
+    "source_or_receipt_hash_mismatches": [],
+    "fresh_and_upgraded_definitions_grants_policies_equal": true,
+    "public_private_functions": 793,
+    "relation_capability_assertions": 5136
+  }
+}

@@ -1,0 +1,47 @@
+name: Web
+
+on:
+  pull_request:
+    paths: ["apps/web/**", "packages/**", "tests/web/**", "tests/staff/**", "playwright.config.ts", "playwright.staff.config.ts", "scripts/web-environment*", "scripts/test-web-environment.mjs", "package.json", "pnpm-lock.yaml", "eslint.config.mjs", ".github/workflows/web.yml"]
+  push:
+    branches: [main, cursor/erp-cursor-setup-ad25, cursor/deployment-reconciliation-ad25]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    name: Web build and browser boundaries
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://bicyjghgdnzlnjqxzoud.supabase.co
+      # Structural build fixture, not a deployed credential. Provider acceptance
+      # must use the actual matching public key in its native environment.
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_ci_fixture_only_not_for_deployment
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: python3 scripts/project_truth_guard.py release-check --app web
+      - run: node --test scripts/test-web-environment.mjs
+      - run: pnpm --filter @gtr/web build
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:web
+      - run: pnpm test:web:staff
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: web-browser-evidence
+          path: |
+            playwright-report*/
+            test-results*/

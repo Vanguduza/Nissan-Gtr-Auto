@@ -345,9 +345,18 @@ BEGIN
       'delivery-pods', v_job::text || '/signature.png', v_driver, v_driver::text,
       jsonb_build_object('mimetype', 'image/png')
     )
-  ON CONFLICT (bucket_id, name) DO NOTHING;
+  ON CONFLICT DO NOTHING;
 
+  IF public.generate_delivery_pod_otp(v_job) IS NOT NULL THEN
+    RAISE EXCEPTION 'smoke fail: assigned driver can read the customer POD code';
+  END IF;
+  -- Only the customer/back office receives the code. Simulate that independent
+  -- handover, then the real driver verify-before-submit sequence.
+  PERFORM public._test_set_auth_uid(v_admin);
   v_otp := public.generate_delivery_pod_otp(v_job);
+  IF v_otp IS NULL THEN RAISE EXCEPTION 'smoke fail: back office POD code missing'; END IF;
+  PERFORM public._test_set_auth_uid(v_driver);
+  PERFORM public.verify_delivery_pod_otp(v_job,v_otp);
   PERFORM public.submit_delivery_pod(
     v_job,
     v_job::text || '/photo.jpg',

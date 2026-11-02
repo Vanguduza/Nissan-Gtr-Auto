@@ -153,7 +153,7 @@ def generate_payment_link(
     settings = get_settings()
     base = settings.public_base_url.rstrip("/")
     path = settings.site_checkout_path
-    stub = "1" if settings.allow_payment_stub else "0"
+    stub = "1" if settings.is_local_development and settings.allow_payment_stub else "0"
     return (
         f"{base}{path}?order_id={order_id}"
         f"&amount={amount:.2f}&currency={currency}&psp={provider}&stub={stub}"

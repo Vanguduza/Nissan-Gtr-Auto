@@ -7,6 +7,7 @@ Never invents rates or payable amounts — callers supply usd_minor + ops rate.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Literal
 
@@ -123,7 +124,7 @@ def payable_amount_label(display: CheckoutDisplay) -> str:
 
 
 def _is_finite(value: float) -> bool:
-    return value == value and value not in (float("inf"), float("-inf"))
+    return math.isfinite(value)
 
 
 def _round_half_away(scaled: float) -> int:

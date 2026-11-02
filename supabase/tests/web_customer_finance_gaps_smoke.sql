@@ -33,6 +33,7 @@ DECLARE
   v_cart UUID;
   v_inv UUID;
   v_cn UUID;
+  v_return_request UUID;
   v_addr UUID;
   v_stmt UUID;
   v_line UUID;
@@ -269,7 +270,24 @@ BEGIN
     RAISE EXCEPTION 'smoke fail: no invoice lines';
   END IF;
 
-  v_cn := public.post_customer_return_credit_note(v_inv, v_lines);
+  -- Customer requests do not post a credit note or move stock. The canonical
+  -- staff review/receipt workflow is the only path into quarantine/accounting.
+  v_return_request := public.post_customer_return_credit_note(v_inv, v_lines);
+  IF NOT EXISTS (SELECT 1 FROM public.customer_return_requests
+      WHERE id=v_return_request AND source_invoice_id=v_inv
+        AND status='requested' AND credit_note_id IS NULL) THEN
+    RAISE EXCEPTION 'smoke fail: customer return was not staged for staff review';
+  END IF;
+  BEGIN
+    PERFORM public.review_customer_return(v_return_request,true,'customer attempted approval');
+    RAISE EXCEPTION 'smoke fail: customer approved own return';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM LIKE 'smoke fail:%' THEN RAISE; END IF;
+    IF SQLERRM <> 'sales or admin role required' THEN RAISE; END IF;
+  END;
+  PERFORM public._test_set_auth_uid(v_admin);
+  PERFORM public.review_customer_return(v_return_request,true,'smoke staff approval');
+  v_cn := public.receive_customer_return(v_return_request);
 
   SELECT warehouse_id INTO v_wh FROM public.sales_invoices WHERE id = v_cn;
   IF v_wh IS DISTINCT FROM v_quar THEN

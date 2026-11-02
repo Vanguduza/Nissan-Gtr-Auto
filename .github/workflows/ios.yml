@@ -1,0 +1,58 @@
+name: iOS
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths: ["apps/ios/**", "PROJECT_CANONICAL_STATE.json", "scripts/project_truth_guard.py", ".github/workflows/ios.yml"]
+  push:
+    branches: [main, cursor/erp-cursor-setup-ad25]
+    paths: ["apps/ios/**", "PROJECT_CANONICAL_STATE.json", "scripts/project_truth_guard.py", ".github/workflows/ios.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  auth-and-build:
+    name: iOS auth tests and simulator builds
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify canonical iOS lineage
+        run: python3 scripts/project_truth_guard.py release-check --app ios
+      - name: Test core authentication, Keychain and transport behavior
+        run: swift test --package-path apps/ios
+      - name: Select an available iPhone simulator
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess
+          devices = json.loads(subprocess.check_output(["xcrun", "simctl", "list", "devices", "available", "--json"]))["devices"]
+          choices = [d for runtime, rows in sorted(devices.items(), reverse=True) if ".iOS-" in runtime for d in rows if d.get("isAvailable") and d["name"].startswith("iPhone")]
+          if not choices:
+              raise SystemExit("No available iPhone simulator runtime")
+          with open(os.environ["GITHUB_ENV"], "a") as env:
+              env.write("SIMULATOR_ID=" + choices[0]["udid"] + "\n")
+          PY
+      - name: Test native iOS Keychain and auth on simulator
+        run: >-
+          xcodebuild -project apps/ios/GTRCustomer.xcodeproj -scheme GTRCustomer
+          -configuration Debug -sdk iphonesimulator
+          -destination "platform=iOS Simulator,id=${{ env.SIMULATOR_ID }}"
+          -derivedDataPath /tmp/gtr-ios-debug CODE_SIGNING_ALLOWED=NO test
+      - name: Compile Release simulator app with synthetic public configuration
+        # Compile fixtures are never production credentials and make no backend calls.
+        # Device signing, real Auth/provider acceptance and distribution are separate gates.
+        run: >-
+          xcodebuild -project apps/ios/GTRCustomer.xcodeproj -scheme GTRCustomer
+          -configuration Release -sdk iphonesimulator
+          -destination 'generic/platform=iOS Simulator'
+          -derivedDataPath /tmp/gtr-ios-release CODE_SIGNING_ALLOWED=NO
+          SUPABASE_URL=https://bicyjghgdnzlnjqxzoud.supabase.co
+          SUPABASE_ANON_KEY=sb_publishable_ci_compile_fixture_0000000000
+          STOREFRONT_FORCE_FAKE=0 build

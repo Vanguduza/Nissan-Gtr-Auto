@@ -43,7 +43,25 @@ A release is refused when:
 - `release_blocked_until_reconciled` is true; or
 - HEAD does not contain the recorded `required_ancestor`.
 
-The customer Android app is intentionally release-blocked until the illustrated/premium locked branch is reconciled with subsequent backend/catalog/auth work. This prevents another APK from being assembled from the legacy/shared-theme-only lineage.
+For distributable artifacts, also pass `--require-clean`. This checks the recorded
+HEAD and refuses staged, unstaged or untracked source changes. Debug verification
+can run during development while still checking the required lineage.
+
+The approved Illustrated/POS/Express customer implementation and benchmark POS
+remain required. The current application states and ancestors are recorded in
+`PROJECT_CANONICAL_STATE.json`.
+
+## Deployment reconciliation
+
+`BRANCH_RECONCILIATION.json` accounts for every remote branch observed in the
+November 2 audit, including selected ports and intentionally superseded work.
+`DEPLOYMENT_READINESS.json` separates source fixes and local verification from
+the hosted, provider, signing and device evidence required for release. Neither
+a passing build nor a lineage check establishes production acceptance.
+
+`CURRENT_STATE.json` is a dated observation of a named commit. Consult Git and
+the change ledger for later changes. CI uploads exact-commit observations as
+artifacts instead of making competing automated source commits.
 
 ## Rule for agents
 

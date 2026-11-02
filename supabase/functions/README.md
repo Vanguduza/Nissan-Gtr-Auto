@@ -1,5 +1,24 @@
 # Edge Functions
 
+## Local security checks
+
+Use the scoped Deno config/lock to avoid importing the pnpm workspace as a Deno workspace:
+
+```bash
+deno test --config supabase/functions/deno.json --frozen --allow-env \
+  supabase/functions/_shared/payment_security_test.ts \
+  supabase/functions/auth-otp/smoke_test.ts \
+  supabase/functions/whatsapp-webhook/smoke_test.ts
+deno check --config supabase/functions/deno.json --frozen \
+  supabase/functions/ecocash-webhook/index.ts \
+  supabase/functions/contipay-webhook/index.ts \
+  supabase/functions/contipay-initiate/index.ts \
+  supabase/functions/paynow-webhook/index.ts
+```
+
+The tests use synthetic credentials and make no provider/database calls. SQL settlement
+and garage smoke tests run against a local seeded database and roll their fixtures back.
+
 ## Worker AuthZ (`process-sms-outbox`, `process-customer-receipts`, `demand-forecast`, `delivery-dispatch-cycle`, `process-ai-reports`, `process-crm-promos`, `chat-notify-on-message`)
 
 These use `service_role` internally and **must not** be publicly callable without a shared secret.
@@ -8,6 +27,11 @@ These use `service_role` internally and **must not** be publicly callable withou
 |-----|--------|---------|
 | `WORKER_SHARED_SECRET` | `x-worker-secret` | Required in prod/staging. Constant-time compared; missing/wrong → **401**. |
 | `WORKER_ALLOW_UNVERIFIED_LOCAL=1` | — | Local stub only when `WORKER_SHARED_SECRET` is unset. Never enable in production. |
+
+All unverified Edge flags also require an exact local `SUPABASE_URL` hostname
+(`localhost`, `127.0.0.1`, IPv6 loopback, `host.docker.internal`, or local `kong`).
+Production/staging environment markers and `DENO_DEPLOYMENT_ID` always refuse them.
+Remote/unknown URLs are fail-closed; a port or hostname substring never establishes local use.
 
 Never commit real secret values. Set via Supabase Edge secrets / local Deno env.
 
@@ -372,12 +396,22 @@ Caller JWT (staff or customer). Creates intent via RPC, then:
 | `CONTIPAY_API_KEY` | ContiPay initiate | Basic Auth username (token) |
 | `CONTIPAY_API_SECRET` | ContiPay initiate | Basic Auth password; falls back to `CONTIPAY_WEBHOOK_HMAC_SECRET` if unset |
 | `CONTIPAY_MERCHANT_ID` | ContiPay initiate | Merchant code |
-| `CONTIPAY_WEBHOOK_HMAC_SECRET` | ContiPay webhook | HMAC-SHA256(raw body) → hex; compare `x-contipay-signature` |
+| `CONTIPAY_WEBHOOK_HMAC_SECRET` | ContiPay webhook | HMAC-SHA256(raw body) → hex in the explicitly configured signature header |
+| `CONTIPAY_WEBHOOK_CONTRACT` | Real ContiPay initiate + webhook | Set `hmac-sha256-raw-body-v1` **only after merchant documentation/UAT confirms that exact contract** |
+| `CONTIPAY_WEBHOOK_SIGNATURE_HEADER` | Real ContiPay initiate + webhook | Exact merchant-documented header carrying the hexadecimal digest (optional `sha256=` prefix); no assumed aliases |
 | `CONTIPAY_MODE` | ContiPay initiate | `live` (default) → `api-v2.contipay.co.zw`; `dev`/`uat`/`test` → `api2-test.contipay.co.zw` |
 | `CONTIPAY_API_BASE_URL` | ContiPay initiate | Optional override of base URL |
 | `CONTIPAY_ALLOW_UNVERIFIED_LOCAL` | Local only | `1` when secrets unset |
 
 **ContiPay initiate** also needs `phone` (or `metadata.phone` / `metadata.cell`) on the request body for redirect acquire.
+
+The public ContiPay client documents the acquire request's `webhookUrl`; it does
+not establish callback authentication. Real initiation returns 503 before a charge
+unless the callback secret and supported contract/header are explicitly configured.
+Callbacks also refuse an unconfigured/unsupported contract. Obtain the actual merchant
+callback specification and prove valid, invalid, duplicate and failed callbacks in UAT.
+If it differs from the supported raw-body HMAC contract, implement that documented
+adapter before enabling this rail. Setting these variables alone is no provider qualification.
 
 Algorithms live in `_shared/payment_edge.ts` (Paynow SHA512 per [Paynow docs](https://developers.paynow.co.zw/docs/paynow/generating_hash/); ContiPay Basic Auth PUT per [contipay-js-client](https://github.com/njzw/contipay-js-client)).
 

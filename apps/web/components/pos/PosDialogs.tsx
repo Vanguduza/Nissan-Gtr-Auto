@@ -412,6 +412,18 @@ export function PaymentDialog({
   const [msisdn, setMsisdn] = useState("");
   const [method, setMethod] = useState<string>("ecocash");
   const [now, setNow] = useState(() => Date.now());
+  const registered = Boolean(pos.cart?.customerId) && pos.cart?.customerName !== "POS Walk-in";
+  const [suspension, setSuspension] = useState<{ reason: string; owed: Owed } | null>(null);
+  const customerId = registered ? pos.cart?.customerId ?? null : null;
+  useEffect(() => {
+    setSuspension(null);
+    if (receipt || !customerId || !pos.online) return;
+    let live = true;
+    void pos.gateway.customerSuspension(customerId).then((r) => {
+      if (live && r.ok) setSuspension(r.data);
+    });
+    return () => { live = false; };
+  }, [receipt, customerId, pos.gateway, pos.online]);
   const contacts = { email: email.trim() || null, whatsappE164: whatsapp.trim() || null, phoneE164: null };
 
   // Reserve on open (idempotent); keep the first tender at the server's total once it is known.
@@ -509,21 +521,6 @@ export function PaymentDialog({
     if (await pos.cancelCheckout()) onClose();
   };
   const hold = remainingLabel(co?.status.reservationExpiresAt ?? null, now);
-  const registered = Boolean(pos.cart?.customerId) && pos.cart?.customerName !== "POS Walk-in";
-  // A customer suspended for failing to settle cannot buy on account (the server refuses it too).
-  const [suspension, setSuspension] = useState<{ reason: string; owed: Owed } | null>(null);
-  const customerId = registered ? pos.cart?.customerId ?? null : null;
-  useEffect(() => {
-    setSuspension(null);
-    if (!customerId || !pos.online) return;
-    let live = true;
-    void pos.gateway.customerSuspension(customerId).then((r) => {
-      if (live && r.ok) setSuspension(r.data);
-    });
-    return () => {
-      live = false;
-    };
-  }, [customerId, pos.gateway, pos.online]);
   const providerReason = (p: DigitalProvider): string | null => {
     if (!pos.online) return "Needs a connection.";
     if (!pos.providers) return "Checking…";

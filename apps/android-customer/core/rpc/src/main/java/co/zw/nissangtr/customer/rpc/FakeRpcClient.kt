@@ -696,10 +696,11 @@ class FakeRpcClient : RpcClient {
         )
 
     override suspend fun upsertCustomerGarageVehicle(input: GarageVehicleInput): String {
-        val hasFitment = listOf(input.make, input.model, input.generation, input.engine, input.vin)
+        val id = input.id?.takeIf { it.isNotBlank() } ?: UUID.randomUUID().toString()
+        val previous = garage.firstOrNull { it.id == id }
+        val hasFitment = previous != null || listOf(input.make, input.model, input.generation, input.engine, input.vin)
             .any { !it.isNullOrBlank() }
         require(hasFitment) { "vin or fitment required for ${RpcNames.UPSERT_CUSTOMER_GARAGE_VEHICLE}" }
-        val id = input.id?.takeIf { it.isNotBlank() } ?: UUID.randomUUID().toString()
         if (input.isPrimary) {
             for (i in garage.indices) {
                 garage[i] = garage[i].copy(isPrimary = false)
@@ -708,15 +709,17 @@ class FakeRpcClient : RpcClient {
         val idx = garage.indexOfFirst { it.id == id }
         val row = GarageVehicle(
             id = id,
-            make = input.make,
-            model = input.model,
-            generation = input.generation,
-            engine = input.engine,
-            vin = input.vin,
+            make = input.make ?: previous?.make,
+            model = input.model ?: previous?.model,
+            generation = input.generation ?: previous?.generation,
+            engine = input.engine ?: previous?.engine,
+            vin = input.vin ?: previous?.vin,
             isPrimary = input.isPrimary,
+            chassisCode = input.chassisCode ?: previous?.chassisCode ?: input.generation,
+            modelSlug = input.modelSlug ?: previous?.modelSlug,
+            vehicleMasterId = input.vehicleMasterId ?: previous?.vehicleMasterId,
         )
         if (idx >= 0) garage[idx] = row else garage.add(0, row)
-        // TODO(live): supabase.rpc(RpcNames.UPSERT_CUSTOMER_GARAGE_VEHICLE, …)
         return id
     }
 

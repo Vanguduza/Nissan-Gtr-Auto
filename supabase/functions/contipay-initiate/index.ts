@@ -11,6 +11,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   corsHeaders,
+  contipayWebhookContract,
   defaultWebhookUrl,
   initiateContipayRedirect,
   isLocalUnverifiedAllowed,
@@ -49,6 +50,13 @@ Deno.serve(async (req) => {
     const apiSecret = contipayApiSecret();
     const secretsMissing = !apiKey || !merchantId || !apiSecret;
     const localStub = isLocalUnverifiedAllowed("CONTIPAY_ALLOW_UNVERIFIED_LOCAL");
+    if (!secretsMissing && (!contipayWebhookContract() ||
+      !Deno.env.get("CONTIPAY_WEBHOOK_HMAC_SECRET")?.trim())) {
+      return jsonResponse({
+        error: "Configure the confirmed ContiPay callback contract before initiating payments",
+        code: "CONTIPAY_WEBHOOK_CONTRACT_REQUIRED",
+      }, 503, cors);
+    }
     if (secretsMissing) {
       if (!localStub) {
         return jsonResponse(

@@ -87,7 +87,9 @@ export function MasterStockPanel() {
   }, []);
 
   useEffect(() => {
-    void load({});
+    const initialQuery = new URLSearchParams(window.location.search).get("overview_q")?.slice(0, 128) ?? "";
+    setQuery(initialQuery);
+    void load(initialQuery ? { query: initialQuery } : {});
     const client = createWebClient();
     if (!client) return;
     void listMasterStockChassisOptions(client).then((res) => {

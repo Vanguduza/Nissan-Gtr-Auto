@@ -2,12 +2,14 @@
 
 Never point these scripts at the hosted project: the ledger is append-only and simulated sales
 would stay in the books. They target a **local** Supabase stack (`supabase start`, API on port
-55421, database on 55422) that has the same schema as hosted.
+55421, database on 55422) with the reconciled schema. For an empty database, use `ci/run.sh`:
+it builds a separate throwaway stack from the active migrations and adds synthetic stock.
 
 | Script | What it does |
 |--------|--------------|
 | `sim.py` | Helpers: run SQL as a signed-in user (RLS and `auth.uid()` apply), as the service role, create Auth users. |
 | `seed.py` | Staff (owner, manager/approver, two cashiers, warehouse, dispatch, finance, two drivers), trade and retail customers, opening stock at two branches, card machines. Writes `ids.json`. Password for every simulated user: `Sim-Passw0rd!`. |
+| `ci/fixtures.sql` | Simulation-only stock and RETAIL prices, resolved through the current `EA` UOM and `RETAIL` list codes. Six non-serial items cost USD 25 so the existing two-unit COD scenario collects USD 30 + 20; one serialized item exercises receipt serial generation. `seed.py` derives receipt costs, quantities and serials from these rows. |
 | `e2e_cod.py` | Customer checks out paying on delivery → warehouse picks → dispatcher assigns and dispatches → proof of delivery is refused while money is due → driver collects in two parts → proof of delivery with the customer's code. |
 | `e2e_day.py` | A trading day: till opens with a float → cash and split sales → short payment refused → sale on account (and refusals over the limit / with no credit) → cash refund, store credit and credit note returns posted by a manager → two refused pay-on-delivery orders suspend a new online customer → cashier cannot lift it, manager can → the customer can order again → till closes with no variance. |
 | `e2e_card.py` | Card payments: admin pairs the till tablet; counter charge approved (signed answer, replay changes nothing, same machine transaction refused on another sale), declined, forged/tampered answers refused, no answer → recovery → approved; driver pairs phone, card-only order refuses cash, card at the door settles the invoice; an approved charge voided on the machine before the sale is finished; a manager refunds a sale to the card (credit note, Dr 4110 / Cr 1170). `card.py` signs like the device and verifies like the `card-terminal-result` Edge Function (needs `pip install cryptography`). |
@@ -37,25 +39,32 @@ storage rows directly in place of the app's photo upload.
 Every pull request that touches `supabase/` runs `ci/run.sh` on a throwaway stack (project
 `gtr-sim-ci`, API 56421, database 56422, so it never collides with a developer's replica):
 
-1. Load `snapshot/schema.sql.gz` (schema-only dump of `public`, `private`, `rebuild_internal`),
-   `snapshot/managed_schemas.sql` (storage policies, the new-user trigger) and
-   `snapshot/reference.sql` (chart of accounts, number series, approval policies, branches,
-   price lists, stock items and other set-up tables; no customer or ledger data).
-2. Apply every migration newer than `snapshot/VERSION`, so a new migration is tested before
-   it reaches hosted.
-3. Seed, run every `e2e_*.py` scenario (any `FAIL`, finding or traceback fails the build), then
+1. Start an empty native Supabase platform using **CLI 2.120.0**. Automatic CLI migration replay
+   and default seeding are disabled in the CI config. Startup output and generated keys stay in
+   a private temporary file that is removed on exit; status is parsed as JSON without shell evaluation.
+   Only the fixed local API origin is accepted. The script always uses the fixed localhost database.
+2. Apply **every active file in `supabase/migrations/`**, in filename order and one transaction per
+   file, beginning with the fresh-install baseline. The baseline supplies reference data and grants.
+   No historical snapshot is restored before it, and no snapshot timestamp filters the chain.
+3. Apply `ci/fixtures.sql`, then `seed.py`. The fresh baseline deliberately contains no operational
+   stock: the fixture supplies synthetic `SIM-CI-*` products and prices, while `seed.py` receives
+   opening stock through the real receipt RPC as the warehouse user. Fixture inserts use current
+   reference IDs and default-generated stock IDs, keep triggers enabled, and are idempotent.
+4. Run all eight scenarios listed above (any `FAIL`, finding or traceback fails the build), then
    `ci/rules.sh`, which runs `supabase/tests/sim_role_rules_smoke.sql`: one person per role
    (a cashier can sell but not void, a driver never sees the customer's delivery code, nobody
    approves their own count, signed-out visitors cannot call money functions, every table has
    row level security).
 
 Run it locally with `bash supabase/sim/ci/run.sh`. The scripts read `SIM_DB_URL`, `SIM_API_URL`
-and `SIM_SERVICE_KEY` and refuse a database that is not on localhost.
+and `SIM_SERVICE_KEY`; the CI runner overwrites these with its own fixed local database and
+validated local status values. Its generated service key is never printed. The stack remains
+available for local inspection and `ci/functions.sh`; CI always stops it after the job.
 
-Refresh the snapshot when the migration list after `VERSION` gets long: dump the replica with
-`pg_dump --schema-only --no-owner -n public -n private -n rebuild_internal`, change
-`CREATE SCHEMA` to `CREATE SCHEMA IF NOT EXISTS`, drop `ALTER DEFAULT PRIVILEGES` lines, gzip
-with `gzip -n`, and set `VERSION` to the newest migration it contains.
+`snapshot/` is immutable historical evidence. Its schema and reference UUIDs describe the old
+installation and must not be imported over the reconciled baseline or refreshed to make CI pass.
+Production adoption is a separate process described in the baseline runbook; this harness is
+only for an empty, disposable local database.
 
 ## Edge Functions on the local stack
 
@@ -64,5 +73,7 @@ CI project as `ci/supabase/functions`) against the simulation stack, e.g.
 `POST http://127.0.0.1:56421/functions/v1/process-sms-outbox` with the stack's service key drains the
 outbox in stub mode (nothing is really sent). The web app's staff sign-in uses the `auth-otp` function,
 so with functions served the real login page works against simulated users. Needs Docker and network
-access to jsr.io and npm (the functions import from there).
+access to jsr.io and npm (the functions import from there). Serving uses the same pinned CLI and
+an explicit local environment file with worker/SMS/WhatsApp credentials cleared. The local stub
+gate also requires the runtime's Supabase URL to resolve to a local stack.
 

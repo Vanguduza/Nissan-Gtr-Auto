@@ -8,11 +8,12 @@
  * or when header missing/wrong. Uses constant-time compare.
  */
 import { timingSafeEqualStr } from "./payment_edge.ts";
+import { allowUnverifiedLocal } from "./local_env.ts";
 
 export function assertWorkerSecret(req: Request): Response | null {
   const expected = Deno.env.get("WORKER_SHARED_SECRET")?.trim() ?? "";
   const localUnverified =
-    !expected && Deno.env.get("WORKER_ALLOW_UNVERIFIED_LOCAL") === "1";
+    !expected && allowUnverifiedLocal("WORKER_ALLOW_UNVERIFIED_LOCAL");
 
   if (!expected) {
     if (!localUnverified) {

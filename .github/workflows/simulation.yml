@@ -1,5 +1,5 @@
-# Business simulation: a throwaway local Supabase stack loaded from supabase/sim/snapshot (+ newer
-# migrations), simulated staff/customers/stock, then every end-to-end scenario (till, cash on
+# Business simulation: a throwaway local Supabase stack using the complete active migration
+# chain, simulated staff/customers/stock, then every end-to-end scenario (till, cash on
 # delivery, driver cash, cards, back-orders, exceptions, restocking) and the single-role SQL tests.
 # Never touches the hosted project.
 name: Simulation
@@ -44,4 +44,4 @@ jobs:
       - name: Stop stack
         if: always()
         working-directory: supabase/sim/ci
-        run: npx -y supabase@latest stop --no-backup || true
+        run: npx -y supabase@2.120.0 stop --no-backup || true

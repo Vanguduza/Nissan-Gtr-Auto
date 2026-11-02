@@ -3,6 +3,7 @@ import SwiftUI
 @main
 struct GTRCustomerApp: App {
     @StateObject private var session = StorefrontSession()
+    @Environment(\.scenePhase) private var scenePhase
     @State private var pendingTrackRef: DeliveryTrackRef?
     @State private var pendingPartsOem: String?
     @State private var showSplash = true
@@ -49,6 +50,9 @@ struct GTRCustomerApp: App {
                     pendingPartsOem = oem
                 }
             }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active { Task { await session.restoreSession() } }
+            }
         }
     }
 
@@ -86,7 +90,7 @@ struct GTRCustomerApp: App {
         return nil
     }
 
-    /// `gtrcustomer://parts/{oem}` or https `…/parts/{oem}`
+    /// Product links contain an opaque stock item UUID, never a technical part number.
     static func parsePartsOEM(_ url: URL) -> String? {
         if isCustomerScheme(url.scheme) {
             let host = (url.host ?? "").lowercased()
@@ -94,14 +98,14 @@ struct GTRCustomerApp: App {
                 let seg = url.path.split(separator: "/").map(String.init).first
                     ?? url.lastPathComponent
                 let oem = seg.trimmingCharacters(in: .whitespacesAndNewlines)
-                return oem.isEmpty || oem.lowercased() == "parts" ? nil : oem
+                return UUID(uuidString: oem)?.uuidString
             }
         }
         let segments = url.path.split(separator: "/").map(String.init)
         if segments.count >= 2,
            segments[segments.count - 2].lowercased() == "parts" {
             let oem = segments.last!.trimmingCharacters(in: .whitespacesAndNewlines)
-            return oem.isEmpty ? nil : oem
+            return UUID(uuidString: oem)?.uuidString
         }
         return nil
     }

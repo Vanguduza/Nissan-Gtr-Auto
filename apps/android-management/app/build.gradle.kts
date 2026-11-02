@@ -14,18 +14,19 @@ fun localProp(name: String): String {
     }
     return local.getProperty(name)
         ?: (project.findProperty(name) as? String)
-        ?: ""
+        ?: System.getenv(name)
+        ?: if (name == "rpc.forceFake") System.getenv("RPC_FORCE_FAKE").orEmpty() else ""
 }
 
 android {
     namespace = "co.zw.nissangtr.management"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         // Flavors override applicationId (L1: tablet ≠ phone).
         applicationId = "co.zw.nissangtr.management"
         minSdk = 26
-        targetSdk = 34
+        targetSdk = 36
         versionCode = 1
         versionName = "0.1.0-scaffold"
         // Placeholders — set via local.properties / CI; never commit real keys.
@@ -138,3 +139,7 @@ dependencies {
     implementation("androidx.datastore:datastore-preferences:1.1.1")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
+
+// Shared, fail-closed signing/configuration gate for every production variant.
+extra["androidReleaseApp"] = "management-android"
+apply(from = rootProject.file("../../scripts/android-release.gradle"))

@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@gtr/supabase-client";
+export { safeAuthNextPath } from "./auth-next";
 
 export type MiddlewareSupabase = {
   response: NextResponse;
@@ -71,10 +72,4 @@ export function isStaffSurfacePath(pathname: string): boolean {
     pathname === "/catalog" ||
     pathname.startsWith("/catalog/")
   );
-}
-
-/** Same-origin relative paths only (open-redirect guard). */
-export function safeAuthNextPath(raw: string | null | undefined): string | null {
-  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return null;
-  return raw;
 }

@@ -6,11 +6,14 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Response
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, Response
 from pydantic import BaseModel
 
+from app.api.v1.ecocash_webhook import push_ecocash_for_order
 from app.core.config import get_settings
 from app.core.flow_crypto import FlowCrypto, FlowCryptoError
+from app.core.supabase_client import get_supabase
+from app.core.webhook_auth import assert_meta_flow_signature
 from app.services.cart_service import (
     DeliveryMethod,
     PaymentProvider,
@@ -25,8 +28,6 @@ from app.services.checkout_display import (
 )
 from app.services.fx_rates import fetch_daily_zig_rate
 from app.services.meta_client import MetaClient
-from app.api.v1.ecocash_webhook import push_ecocash_for_order
-from app.core.supabase_client import get_supabase
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/whatsapp", tags=["whatsapp-flow"])
@@ -70,7 +71,7 @@ async def _send_payment_cta_bg(
             order_id=order_id,
             amount_label=amount_label,
         )
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.exception("send_payment_cta failed for order %s", order_id)
 
 
@@ -88,7 +89,7 @@ async def _send_ecocash_push_bg(order_id: str) -> None:
             logger.error("EcoCash push: order %s missing", order_id)
             return
         await push_ecocash_for_order(rows.data[0])
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.exception("EcoCash push failed for order %s", order_id)
 
 
@@ -317,9 +318,11 @@ def handle_flow_action(decrypted: dict[str, Any]) -> dict[str, Any]:
 
 @router.post("/flow")
 async def whatsapp_flow_exchange(
+    request: Request,
     body: EncryptedFlowBody,
     background_tasks: BackgroundTasks,
 ) -> Response:
+    assert_meta_flow_signature(request, await request.body(), get_settings())
     try:
         crypto = _crypto()
         decrypted, aes_key, iv = crypto.decrypt_request(
@@ -332,7 +335,7 @@ async def whatsapp_flow_exchange(
         raise HTTPException(status_code=421, detail="decryption failed") from exc
     except HTTPException:
         raise
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.exception("flow crypto init failed")
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
@@ -340,7 +343,7 @@ async def whatsapp_flow_exchange(
         response_obj = handle_flow_action(decrypted)
     except HTTPException:
         raise
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.exception("flow action failed")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 

@@ -1,0 +1,51 @@
+name: Payment security
+
+on:
+  pull_request:
+    paths: ["supabase/functions/**", "services/whatsapp-flows/**", ".github/workflows/payment-security.yml"]
+  push:
+    branches: [main, cursor/erp-cursor-setup-ad25, cursor/deployment-reconciliation-ad25]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  edge:
+    name: Payment Edge typecheck and negative controls
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.6
+      - name: Check current callback contracts
+        run: |
+          deno check --config supabase/functions/deno.json --frozen \
+            supabase/functions/ecocash-webhook/index.ts \
+            supabase/functions/contipay-webhook/index.ts \
+            supabase/functions/paynow-webhook/index.ts \
+            supabase/functions/contipay-initiate/index.ts \
+            supabase/functions/render-branded-doc/index.ts
+      - name: Exercise status, auth and local-mode refusal
+        run: |
+          deno test --config supabase/functions/deno.json --frozen --allow-env \
+            supabase/functions/_shared/payment_security_test.ts \
+            supabase/functions/auth-otp/smoke_test.ts \
+            supabase/functions/whatsapp-webhook/smoke_test.ts \
+            supabase/functions/_shared/branded_docs_pdf_test.ts
+  whatsapp:
+    name: WhatsApp payment callback regression tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -e 'services/whatsapp-flows[dev]'
+      - name: Lint payment service
+        working-directory: services/whatsapp-flows
+        run: ruff check app tests
+      - name: Test authenticated callbacks and negative payment states
+        working-directory: services/whatsapp-flows
+        run: python -m pytest -q

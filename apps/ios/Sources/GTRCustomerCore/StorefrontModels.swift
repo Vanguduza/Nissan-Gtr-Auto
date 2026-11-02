@@ -298,9 +298,9 @@ public enum StorefrontError: Error, LocalizedError, Sendable, Equatable {
     public var errorDescription: String? {
         switch self {
         case .notConfigured:
-            return "Set SUPABASE_URL + SUPABASE_ANON_KEY"
+            return "This app is not configured for this service."
         case .notAuthenticated:
-            return "Sign in required — AuthZ RPCs need a customer user JWT (sign-in screen or SUPABASE_ACCESS_TOKEN)."
+            return "Please sign in to continue."
         case .message(let text):
             return text
         }
@@ -444,9 +444,9 @@ public struct WishlistItem: Identifiable, Sendable, Equatable {
 
     public var label: String {
         if let description, !description.isEmpty {
-            return "\(oemPartNumber) · \(description)"
+            return CustomerCatalogPresentation.productName(description, identifier: oemPartNumber)
         }
-        return oemPartNumber
+        return "Spare part"
     }
 }
 
@@ -511,9 +511,9 @@ public struct ProductReview: Identifiable, Sendable, Equatable {
     public var label: String {
         let oem = oemPartNumber ?? "Part"
         if let description, !description.isEmpty {
-            return "\(oem) · \(description)"
+            return CustomerCatalogPresentation.productName(description, identifier: oem)
         }
-        return oem
+        return "Spare part"
     }
 }
 
@@ -710,18 +710,12 @@ public struct CatalogProduct: Identifiable, Sendable, Equatable {
 public extension CatalogProduct {
     /// Rich expandable PDP copy — name + metadata when present.
     var descriptionText: String {
-        var lines: [String] = [name.trimmingCharacters(in: .whitespacesAndNewlines)]
+        var lines: [String] = [CustomerCatalogPresentation.productName(name, identifier: oem)]
         if let brand = brand?.trimmingCharacters(in: .whitespacesAndNewlines), !brand.isEmpty {
             lines.append("Brand: \(brand)")
         }
-        if let category = category?.trimmingCharacters(in: .whitespacesAndNewlines), !category.isEmpty {
-            lines.append("Category: \(category)")
-        }
-        for spec in specs {
-            lines.append(" · \(spec)")
-        }
-        if !replaces.isEmpty {
-            lines.append("Replaces / cross-ref: \(replaces.joined(separator: ", "))")
+        if let category, let curated = CatalogCategoryFilter.resolve(category) {
+            lines.append("Category: \(curated.parent.label)")
         }
         return lines.joined(separator: "\n")
     }
@@ -1013,7 +1007,7 @@ public struct CustomerAddressInput: Sendable {
 
 /// Encode/decode map coordinates in `customer_addresses.line2` until a geo migration lands.
 public enum AddressGeo {
-    private static let pattern = /#gtr_geo:(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/
+    private static let pattern = #/#gtr_geo:(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/#
 
     public static func parse(_ line2: String?) -> (lat: Double, lng: Double)? {
         guard let line2, let match = line2.firstMatch(of: pattern) else { return nil }
@@ -1041,5 +1035,28 @@ public enum AddressGeo {
         let marker = "#gtr_geo:\(latitude),\(longitude)"
         if let base, !base.isEmpty { return "\(base)\n\(marker)" }
         return marker
+    }
+}
+
+
+/// Customer presentation policy: technical identities stay internal to matching/RPCs.
+public enum CustomerCatalogPresentation {
+    public static func productName(_ description: String?, identifier: String?) -> String {
+        var name = description?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if let identifier, !identifier.isEmpty {
+            name = name.replacingOccurrences(of: identifier, with: "", options: .caseInsensitive)
+        }
+        name = name.trimmingCharacters(in: .whitespacesAndNewlines.union(CharacterSet(charactersIn: " ·,;:|-/()")))
+        return name.isEmpty ? "Spare part" : name
+    }
+
+    public static func fitmentMessage(lines: [String], generation: String?, engine: String?) -> String {
+        let required = [generation, engine].compactMap { $0?.uppercased().trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        guard !required.isEmpty else { return "Select your vehicle to check fitment." }
+        let matched = lines.contains { line in
+            let tokens = Set(line.uppercased().components(separatedBy: CharacterSet.alphanumerics.inverted).filter { !$0.isEmpty })
+            return required.allSatisfy { tokens.contains($0) }
+        }
+        return matched ? "Fits your selected vehicle." : "Fitment is not yet confirmed for your vehicle."
     }
 }

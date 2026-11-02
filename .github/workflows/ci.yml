@@ -18,6 +18,10 @@ jobs:
   quality:
     name: Lint / typecheck / test
     runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://bicyjghgdnzlnjqxzoud.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_ci_fixture_only_not_for_deployment
+      NEXT_TELEMETRY_DISABLED: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -35,6 +39,8 @@ jobs:
         run: pnpm typecheck
       - name: Package tests
         run: pnpm test
+      - name: Verify source and environment controls
+        run: pnpm test:provenance
 
   exclusions:
     name: Hard exclusions grep
@@ -137,10 +143,12 @@ jobs:
           cache: pnpm
       - name: Install deps (supabase CLI via npx)
         run: pnpm install --frozen-lockfile
+      - name: Verify immutable schema source inventory
+        run: python3 scripts/verify-database-baseline.py
       - name: Start Supabase (Docker)
-        run: npx supabase start
+        run: npx --yes supabase@2.120.0 start
       - name: Apply migrations + seed
-        run: npx supabase db reset --yes
+        run: npx --yes supabase@2.120.0 db reset --yes
       - name: Resolve DB container
         id: db
         shell: bash
@@ -153,35 +161,16 @@ jobs:
           fi
           echo "container=$NAME" >> "$GITHUB_OUTPUT"
           echo "Using DB container: $NAME"
-      - name: Run phase2 RLS smoke
+      - name: Run reconciled schema and critical business acceptance
         run: |
-          docker exec -i "${{ steps.db.outputs.container }}" \
-            psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
-            < supabase/tests/phase2_rls_smoke.sql
-      - name: Run phase14 CI RLS gate
-        run: |
-          docker exec -i "${{ steps.db.outputs.container }}" \
-            psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
-            < supabase/tests/phase14_ci_smoke.sql
-      - name: Run POS customer / EPC / Popular Items smoke
-        run: |
-          set -euo pipefail
-          for sql in \
-            supabase/tests/pos_operator_discovery_smoke.sql \
-            supabase/tests/pos_vehicle_context_smoke.sql \
-            supabase/tests/pos_customer_garage_popular_items_smoke.sql \
-            supabase/tests/pos_hidden_bestsellers_smoke.sql \
-            supabase/tests/web_pos_sale_flow_smoke.sql; do
-            echo "Running $sql"
-            docker exec -i "${{ steps.db.outputs.container }}" \
-              psql -U postgres -d postgres -v ON_ERROR_STOP=1 < "$sql"
-          done
-
-      - name: Run vehicle-artwork storage smoke
-        run: |
-          docker exec -i "${{ steps.db.outputs.container }}" \
-            psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
-            < supabase/tests/vehicle_artwork_storage_smoke.sql
+          python3 scripts/verify-database-baseline.py \
+            --container "${{ steps.db.outputs.container }}" --smoke \
+            --logs-dir "${{ runner.temp }}/database-acceptance"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: database-acceptance
+          path: ${{ runner.temp }}/database-acceptance/
       - name: Stop Supabase
         if: always()
-        run: npx supabase stop --no-backup || true
+        run: npx --yes supabase@2.120.0 stop --no-backup || true

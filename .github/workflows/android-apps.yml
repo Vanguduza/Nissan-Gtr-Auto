@@ -1,0 +1,108 @@
+name: Android app verification
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'apps/android-*/**'
+      - 'bridges/android/**'
+      - 'packages/android-ui/**'
+      - 'packages/pos-design/**'
+      - 'scripts/android*'
+      - 'scripts/tests/test_android_*.py'
+      - 'scripts/project_truth_guard.py'
+      - 'PROJECT_CANONICAL_STATE.json'
+      - '.github/workflows/android-apps.yml'
+      - '.github/workflows/android-release.yml'
+      - '.github/workflows/android-native-16k.yml'
+  push:
+    branches: [main, 'cursor/deployment-reconciliation-ad25']
+    paths:
+      - 'apps/android-*/**'
+      - 'bridges/android/**'
+      - 'packages/android-ui/**'
+      - 'packages/pos-design/**'
+      - 'scripts/android*'
+      - 'scripts/tests/test_android_*.py'
+      - 'PROJECT_CANONICAL_STATE.json'
+      - '.github/workflows/android-apps.yml'
+      - '.github/workflows/android-release.yml'
+      - '.github/workflows/android-native-16k.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-apps-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: ${{ matrix.app }} tests and debug build
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: customer-android
+            directory: apps/android-customer
+            tasks: ':core:rpc:testDebugUnitTest :core:rpc:testReleaseUnitTest :core:visual:testDebugUnitTest :feature:catalog:verifyPaparazziDebug :feature:cart:verifyPaparazziDebug :app:testDebugUnitTest :app:assembleDebug'
+          - app: management-android
+            directory: apps/android-management
+            tasks: ':core:rpc:testDebugUnitTest :core:rpc:testReleaseUnitTest :feature:pos-domain:test :feature:pos-data:testDebugUnitTest :feature:pos:testDebugUnitTest :feature:pos-ui:testDebugUnitTest :feature:hr:testDebugUnitTest :feature:fleet:testDebugUnitTest :feature:kiosk:testDebugUnitTest :app:testPhoneDebugUnitTest :app:testTabletDebugUnitTest :app:assemblePhoneDebug :app:assembleTabletDebug'
+          - app: delivery-android
+            directory: apps/android-delivery
+            tasks: ':core:rpc:testDebugUnitTest :core:rpc:testReleaseUnitTest :feature:jobs:verifyPaparazziDebug :feature:tracking:testDebugUnitTest :feature:pod:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug'
+    env:
+      RPC_FORCE_FAKE: 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Use the runner Android SDK
+        run: |
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Install tested and current Android SDKs
+        run: |
+          sdkmanager --licenses < <(yes) >/dev/null
+          sdkmanager 'platforms;android-34' 'platforms;android-36' 'build-tools;34.0.0' 'build-tools;35.0.0' 'build-tools;36.0.0'
+      - name: Verify canonical lineage
+        run: python3 scripts/project_truth_guard.py release-check --app '${{ matrix.app }}'
+      - name: Verify release prerequisite rejection rules
+        run: python3 -m unittest discover -s scripts/tests -p 'test_android_*.py' -v
+      - name: Test and build explicit debug variants
+        working-directory: ${{ matrix.directory }}
+        env:
+          ANDROID_TASKS: ${{ matrix.tasks }}
+        run: bash ./gradlew $ANDROID_TASKS --no-daemon --console=plain
+      - name: Verify native 16KB ELF and APK alignment
+        run: >-
+          python3 scripts/android_native_alignment.py --directory '${{ matrix.directory }}/app/build/outputs'
+          --output '${{ matrix.directory }}/app/build/outputs/native-alignment.json'
+      - name: Record source and artifact digests
+        run: >-
+          python3 scripts/android_artifact_manifest.py --app '${{ matrix.app }}'
+          --directory '${{ matrix.directory }}/app/build/outputs'
+          --output '${{ matrix.directory }}/app/build/outputs/provenance.json' --build-type debug
+      - name: Retain debug artifacts and test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.app }}-debug-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            ${{ matrix.directory }}/app/build/outputs/apk/**/debug/*.apk
+            ${{ matrix.directory }}/app/build/outputs/provenance.json
+            ${{ matrix.directory }}/app/build/outputs/native-alignment.json
+            ${{ matrix.directory }}/**/build/test-results/**/*.xml
+            ${{ matrix.directory }}/**/build/reports/tests/**
+            ${{ matrix.directory }}/**/build/reports/paparazzi/**
+          if-no-files-found: error

@@ -1,0 +1,107 @@
+name: Android signed release artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        type: choice
+        required: true
+        options: [customer-android, management-android, delivery-android]
+
+permissions:
+  contents: read
+
+jobs:
+  native-compatibility:
+    uses: ./.github/workflows/android-native-16k.yml
+  release:
+    needs: native-compatibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      RELEASE_APP: ${{ inputs.app }}
+      SUPABASE_URL: ${{ vars.GTR_ANDROID_SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.GTR_ANDROID_SUPABASE_ANON_KEY }}
+      GOOGLE_WEB_CLIENT_ID: ${{ vars.GTR_ANDROID_GOOGLE_WEB_CLIENT_ID }}
+      ROUTING_BASE_URL: ${{ vars.GTR_ANDROID_ROUTING_BASE_URL }}
+      MAPLIBRE_STYLE_URL: ${{ vars.GTR_ANDROID_MAPLIBRE_STYLE_URL }}
+      RPC_FORCE_FAKE: 'false'
+      GTR_ANDROID_TARGET_SDK: '36'
+      GTR_ANDROID_STORE_PASSWORD: ${{ secrets.GTR_ANDROID_STORE_PASSWORD }}
+      GTR_ANDROID_KEY_ALIAS: ${{ secrets.GTR_ANDROID_KEY_ALIAS }}
+      GTR_ANDROID_KEY_PASSWORD: ${{ secrets.GTR_ANDROID_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Use the runner Android SDK
+        run: |
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Resolve explicit app and signing inputs
+        id: app
+        env:
+          GTR_ANDROID_KEYSTORE_BASE64: ${{ secrets.GTR_ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          case "$RELEASE_APP" in
+            customer-android) directory=apps/android-customer; tasks=':core:rpc:testDebugUnitTest :core:rpc:testReleaseUnitTest :app:assembleRelease :app:bundleRelease' ;;
+            management-android) directory=apps/android-management; tasks=':core:rpc:testDebugUnitTest :core:rpc:testReleaseUnitTest :feature:pos-domain:test :app:assemblePhoneRelease :app:bundlePhoneRelease :app:assembleTabletRelease :app:bundleTabletRelease' ;;
+            delivery-android) directory=apps/android-delivery; tasks=':core:rpc:testDebugUnitTest :core:rpc:testReleaseUnitTest :feature:pod:testDebugUnitTest :app:assembleRelease :app:bundleRelease' ;;
+            *) exit 1 ;;
+          esac
+          echo "directory=$directory" >> "$GITHUB_OUTPUT"
+          echo "ANDROID_RELEASE_TASKS=$tasks" >> "$GITHUB_ENV"
+          echo "GTR_ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/gtr-production.keystore" >> "$GITHUB_ENV"
+          python3 - <<'PY'
+          import base64, os
+          from pathlib import Path
+          value = os.environ.get('GTR_ANDROID_KEYSTORE_BASE64', '')
+          if not value:
+              raise SystemExit('GTR_ANDROID_KEYSTORE_BASE64 is required; no signing identity was created.')
+          try:
+              data = base64.b64decode(value, validate=True)
+          except ValueError:
+              raise SystemExit('GTR_ANDROID_KEYSTORE_BASE64 is invalid.')
+          path = Path(os.environ['RUNNER_TEMP']) / 'gtr-production.keystore'
+          path.write_bytes(data)
+          path.chmod(0o600)
+          PY
+      - name: Verify canonical source and signing prerequisites
+        run: |
+          python3 scripts/project_truth_guard.py verify-head
+          python3 scripts/project_truth_guard.py release-check --app "$RELEASE_APP" --require-clean
+          python3 scripts/android_release_check.py --app "$RELEASE_APP"
+      - name: Install Android SDKs
+        run: |
+          sdkmanager --licenses < <(yes) >/dev/null
+          sdkmanager 'platforms;android-34' 'platforms;android-36' 'build-tools;34.0.0' 'build-tools;35.0.0' 'build-tools;36.0.0'
+      - name: Build signed APKs and bundles
+        working-directory: ${{ steps.app.outputs.directory }}
+        run: bash ./gradlew $ANDROID_RELEASE_TASKS --no-daemon --console=plain
+      - name: Verify native 16KB ELF and APK alignment
+        run: >-
+          python3 scripts/android_native_alignment.py --directory '${{ steps.app.outputs.directory }}/app/build/outputs'
+          --output '${{ steps.app.outputs.directory }}/app/build/outputs/native-alignment.json'
+      - name: Record immutable source and artifact digests
+        run: >-
+          python3 scripts/android_artifact_manifest.py --app "$RELEASE_APP"
+          --directory '${{ steps.app.outputs.directory }}/app/build/outputs'
+          --output '${{ steps.app.outputs.directory }}/app/build/outputs/provenance.json' --build-type release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.app }}-signed-release-${{ github.sha }}
+          path: |
+            ${{ steps.app.outputs.directory }}/app/build/outputs/apk/**/release/*.apk
+            ${{ steps.app.outputs.directory }}/app/build/outputs/bundle/**/*.aab
+            ${{ steps.app.outputs.directory }}/app/build/outputs/provenance.json
+            ${{ steps.app.outputs.directory }}/app/build/outputs/native-alignment.json
+          if-no-files-found: error
+      - name: Remove temporary signing material
+        if: always()
+        run: rm -f "$RUNNER_TEMP/gtr-production.keystore"

@@ -619,7 +619,7 @@ struct ShopCartLineRow: View {
                 .fill(GTRColors.mist)
                 .frame(width: 72, height: 72)
                 .overlay {
-                    Text(oem.prefix(8))
+                    Image(systemName: "shippingbox")
                         .font(GTRType.label(.caption2))
                         .foregroundStyle(GTRColors.steel)
                         .multilineTextAlignment(.center)
@@ -628,11 +628,11 @@ struct ShopCartLineRow: View {
                 .onTapGesture { onTap?() }
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(oem)
+                Text(CustomerCatalogPresentation.productName(title, identifier: oem))
                     .font(GTRType.displaySemi(.subheadline))
                     .foregroundStyle(GTRColors.steel)
                     .lineLimit(1)
-                Text(title)
+                Text("Product")
                     .font(GTRType.body(.caption))
                     .foregroundStyle(GTRColors.silverDim)
                     .lineLimit(2)

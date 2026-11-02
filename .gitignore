@@ -16,6 +16,10 @@ build/
 out/
 coverage/
 .vercel/
+*.tsbuildinfo
+playwright-report*/
+test-results*/
+apps/web/next-env.d.ts
 
 # Mobile
 .gradle/

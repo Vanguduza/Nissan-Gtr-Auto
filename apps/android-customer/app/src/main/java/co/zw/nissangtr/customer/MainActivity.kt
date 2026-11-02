@@ -216,11 +216,13 @@ class MainActivity : ComponentActivity() {
             BuildConfig.SUPABASE_URL,
             BuildConfig.SUPABASE_ANON_KEY,
             BuildConfig.RPC_FORCE_FAKE,
+            allowFake = BuildConfig.DEBUG,
         )
         val rpc: RpcClient = RpcClientFactory.create(
             supabaseUrl = BuildConfig.SUPABASE_URL,
             supabaseAnonKey = BuildConfig.SUPABASE_ANON_KEY,
             forceFake = BuildConfig.RPC_FORCE_FAKE,
+            allowFake = BuildConfig.DEBUG,
         )
         val supabase = rpc as? SupabaseRpcClient
         liveSupabase = supabase

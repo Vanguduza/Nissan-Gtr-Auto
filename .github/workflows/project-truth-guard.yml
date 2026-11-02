@@ -23,3 +23,5 @@ jobs:
         run: python3 scripts/project_truth_guard.py status
       - name: Verify automatic change ledger
         run: python3 scripts/project_truth_guard.py verify-head
+      - name: Verify provenance integrity controls
+        run: python3 scripts/test_project_truth_guard.py

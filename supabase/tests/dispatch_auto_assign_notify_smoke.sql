@@ -35,6 +35,9 @@ DECLARE
   v_cust UUID;
   v_cart UUID;
   v_inv UUID;
+  v_checkout UUID;
+  v_intent UUID;
+  v_payment UUID;
   v_pick UUID;
   v_notify INT;
   v_job UUID;
@@ -97,6 +100,21 @@ BEGIN
   );
   PERFORM public.add_customer_cart_line(v_cart, v_item, v_uom, 1);
   v_inv := public.checkout_customer_cart(v_cart);
+  v_checkout := v_inv;
+  IF NOT EXISTS(SELECT 1 FROM public.commerce_orders WHERE id=v_checkout AND sales_invoice_id IS NULL) THEN
+    RAISE EXCEPTION 'smoke fail: storefront posted invoice before verified settlement';
+  END IF;
+  v_intent := public.create_customer_paynow_intent(v_checkout,'ecocash','SMOKE-DISPATCH-'||v_checkout::TEXT,15);
+  PERFORM set_config('request.jwt.claim.sub',v_admin::TEXT,true);
+  PERFORM set_config('request.jwt.claim.role','service_role',true);
+  PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',v_admin,'role','service_role')::TEXT,true);
+  v_payment := public.mark_paynow_settled('SMOKE-DISPATCH-'||v_checkout::TEXT,'hash-dispatch-'||v_checkout::TEXT,'provider-test',NULL);
+  SELECT sales_invoice_id INTO v_inv FROM public.commerce_orders WHERE id=v_checkout;
+  IF v_inv IS NULL OR v_payment IS NULL THEN
+    RAISE EXCEPTION 'smoke fail: verified dispatch payment did not finalize invoice';
+  END IF;
+  PERFORM public._test_set_auth_uid(v_cust_user);
+
 
   SELECT id INTO v_pick
   FROM public.pick_lists

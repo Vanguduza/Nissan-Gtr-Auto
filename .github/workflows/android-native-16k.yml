@@ -1,0 +1,71 @@
+name: Android native 16KB compatibility
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'apps/android-management/**'
+      - 'bridges/android/**'
+      - 'scripts/android*'
+      - '.github/workflows/android-native-16k.yml'
+  push:
+    branches: [main, 'cursor/deployment-reconciliation-ad25']
+    paths:
+      - 'apps/android-management/**'
+      - 'bridges/android/**'
+      - '.github/workflows/android-native-16k.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  encrypted-cache-upgrade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify canonical management lineage
+        run: python3 scripts/project_truth_guard.py release-check --app management-android
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Configure Android SDK and KVM
+        run: |
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install compile SDKs
+        run: |
+          sdkmanager --licenses < <(yes) >/dev/null
+          sdkmanager 'platforms;android-34' 'platforms;android-36' 'build-tools;35.0.0'
+      - name: Open, update, and reopen legacy encrypted outbox on a native 16KB system
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis_ps16k
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim -gpu swiftshader_indirect -camera-back none
+          script: |
+            test "$(adb shell getconf PAGESIZE | tr -d '\r')" = 16384
+            cd apps/android-management
+            bash ./gradlew :feature:pos:connectedDebugAndroidTest --no-daemon --console=plain
+      - name: Retain native compatibility evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-native-16kb-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            apps/android-management/feature/pos/build/reports/androidTests/**
+            apps/android-management/feature/pos/build/outputs/androidTest-results/**
+          if-no-files-found: error

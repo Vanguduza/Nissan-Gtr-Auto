@@ -22,7 +22,7 @@ struct PdpReviewsScreen: View {
     var body: some View {
         ShopDefaultScreen(
             title: "Reviews",
-            subtitle: oem,
+            subtitle: nil,
             onBack: onBack,
             scrollable: false
         ) {

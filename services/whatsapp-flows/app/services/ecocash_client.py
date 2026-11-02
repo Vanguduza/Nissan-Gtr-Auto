@@ -116,7 +116,9 @@ class EcoCashClient:
         }
 
         if not self.configured:
-            if self.settings.ecocash_allow_stub or self.settings.allow_payment_stub:
+            if self.settings.is_local_development and (
+                self.settings.ecocash_allow_stub or self.settings.allow_payment_stub
+            ):
                 logger.warning(
                     "EcoCash stub C2B (no ECOCASH_API_KEY): ref=%s msisdn=%s amount=%s %s",
                     source_reference,
@@ -183,7 +185,9 @@ class EcoCashClient:
         """Poll EcoCash for final status after customer PIN entry."""
         msisdn = normalize_ecocash_msisdn(source_mobile_number)
         if not self.configured:
-            if self.settings.ecocash_allow_stub or self.settings.allow_payment_stub:
+            if self.settings.is_local_development and (
+                self.settings.ecocash_allow_stub or self.settings.allow_payment_stub
+            ):
                 return {
                     "stub": True,
                     "sourceReference": source_reference,
@@ -243,6 +247,6 @@ def ecocash_status_is_paid(status: str | None, body: dict[str, Any] | None = Non
     }
     for c in candidates:
         norm = c.strip().lower().replace(" ", "_")
-        if norm in paid_tokens or "success" in norm or norm.endswith("_ok"):
+        if norm in paid_tokens:
             return True
     return False

@@ -13,8 +13,8 @@ import co.zw.nissangtr.management.rpc.EpcVariant
 import co.zw.nissangtr.management.rpc.PosSaleVehicleSelection
 import co.zw.nissangtr.management.rpc.PosPopularItemKind
 import co.zw.nissangtr.management.rpc.PosPopularPin
-import net.sqlcipher.database.SQLiteDatabase
-import net.sqlcipher.database.SQLiteOpenHelper
+import net.zetetic.database.sqlcipher.SQLiteDatabase
+import net.zetetic.database.sqlcipher.SQLiteOpenHelper
 
 
 internal fun epcSearchTerms(vararg values: String?): List<String> =
@@ -33,10 +33,10 @@ internal fun epcSearchTerms(vararg values: String?): List<String> =
  */
 class SqlCipherOfflinePosStore private constructor(
     private val helper: Helper,
-    private val passphrase: CharArray,
+    private val passphrase: ByteArray,
 ) : OfflinePosStore {
 
-    private fun db(): SQLiteDatabase = helper.getWritableDatabase(passphrase)
+    private fun db(): SQLiteDatabase = helper.writableDatabase
 
     override fun replaceCatalog(
         warehouseId: String,
@@ -549,17 +549,22 @@ class SqlCipherOfflinePosStore private constructor(
 
     override fun close() {
         helper.close()
-        passphrase.fill('\u0000')
+        passphrase.fill(0)
     }
 
-    private fun net.sqlcipher.Cursor.nullString(index: Int): String? =
+    private fun android.database.Cursor.nullString(index: Int): String? =
         if (isNull(index)) null else getString(index)
 
-    private class Helper(context: Context) : SQLiteOpenHelper(
+    private class Helper(context: Context, password: ByteArray) : SQLiteOpenHelper(
         context.applicationContext,
         DB_NAME,
+        password,
         null,
         DB_VERSION,
+        0,
+        PreserveOfflineDatabaseErrorHandler,
+        null,
+        false,
     ) {
         override fun onCreate(db: SQLiteDatabase) {
             db.execSQL(
@@ -693,12 +698,11 @@ class SqlCipherOfflinePosStore private constructor(
         private const val DB_VERSION = 7
 
         fun open(context: Context): SqlCipherOfflinePosStore {
-            SQLiteDatabase.loadLibs(context.applicationContext)
-            val bytes = OfflinePosPassphrase.getOrCreate(context)
-            val chars = CharArray(bytes.size) { i ->
-                (bytes[i].toInt() and 0xFF).toChar()
-            }
-            return SqlCipherOfflinePosStore(Helper(context), chars)
+            System.loadLibrary("sqlcipher")
+            val legacyBytes = OfflinePosPassphrase.getOrCreate(context)
+            val password = legacySqlCipherPassword(legacyBytes)
+            legacyBytes.fill(0)
+            return SqlCipherOfflinePosStore(Helper(context, password), password)
         }
     }
 }

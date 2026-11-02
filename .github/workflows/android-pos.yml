@@ -50,20 +50,27 @@ jobs:
           echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
           echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
       - uses: gradle/actions/setup-gradle@v4
-      - name: Install Android SDK 34
+      - name: Install Android SDK 34 and current app target
         run: |
           yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager "platforms;android-34" "build-tools;34.0.0"
+          sdkmanager "platforms;android-34" "platforms;android-36" "build-tools;34.0.0" "build-tools;35.0.0" "build-tools;36.0.0"
       - name: POS unit tests
         working-directory: apps/android-management
         run: bash ./gradlew :feature:pos:testDebugUnitTest :feature:pos-domain:test :feature:pos-ui:testDebugUnitTest --no-daemon
       - name: Build tablet kiosk APK
         working-directory: apps/android-management
         run: bash ./gradlew :app:assembleTabletDebug --no-daemon
+      - name: Verify tablet native alignment and source provenance
+        run: |
+          python3 scripts/android_native_alignment.py --directory apps/android-management/app/build/outputs --output apps/android-management/app/build/outputs/native-alignment.json
+          python3 scripts/android_artifact_manifest.py --app management-android --directory apps/android-management/app/build/outputs --output apps/android-management/app/build/outputs/provenance.json --build-type debug
       - name: Upload tablet APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: gtr-pos-tablet-debug
-          path: apps/android-management/app/build/outputs/apk/tablet/debug/*.apk
+          name: gtr-pos-tablet-debug-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            apps/android-management/app/build/outputs/apk/tablet/debug/*.apk
+            apps/android-management/app/build/outputs/provenance.json
+            apps/android-management/app/build/outputs/native-alignment.json
           if-no-files-found: error

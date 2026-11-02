@@ -1,0 +1,27 @@
+name: Production public checks
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  observe:
+    environment: Production
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://bicyjghgdnzlnjqxzoud.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Observe approved public deployment without business mutations
+        run: node scripts/check-public-production.mjs --output "${{ runner.temp }}/public-runtime.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: public-runtime-observation
+          path: ${{ runner.temp }}/public-runtime.json

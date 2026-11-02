@@ -78,7 +78,7 @@ export function StaffLogisticsPanel() {
       listDispatchInvoices(client),
       listPickLists(client),
       listDeliveryNotes(client),
-      listDeliveryJobs(client),
+      listDeliveryJobs(client, new URLSearchParams(window.location.search).get("job")),
     ]);
     if (!inv.ok) {
       setBoot({ kind: "error", message: inv.error });

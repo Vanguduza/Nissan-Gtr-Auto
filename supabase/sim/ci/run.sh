@@ -1,42 +1,69 @@
 #!/usr/bin/env bash
 # Runs every simulation scenario against a throwaway local Supabase stack.
 #   1. start the stack (supabase/sim/ci/supabase/config.toml: ports 56421 / 56422)
-#   2. load the schema snapshot, storage policies and reference data
-#   3. apply migrations newer than the snapshot
+#   2. apply the complete active migration chain to the empty native platform
+#   3. add simulation-only stock items and prices using the baseline's reference IDs
 #   4. seed simulated data and run the scenarios; any FAIL fails the run
 # Needs: docker, node (npx supabase), psql, python3 with psycopg2 + cryptography.
 set -euo pipefail
+umask 077
 here="$(cd "$(dirname "$0")" && pwd)"
 sim="$(dirname "$here")"
 repo="$(cd "$sim/../.." && pwd)"
 export PGPASSWORD=postgres
 DB="postgresql://postgres:postgres@127.0.0.1:56422/postgres"
-psqlq() { psql "$DB" -q -v ON_ERROR_STOP=1 "$@"; }
+psqlq() { psql "$DB" -X -q -v ON_ERROR_STOP=1 "$@"; }
+supabase() { npx -y supabase@2.120.0 "$@"; }
+
+# `start` and `status` can print generated local keys. Keep their output private;
+# only the two validated fields below enter the simulation process environment.
+stack_log="$(mktemp)"
+trap 'rm -f "$stack_log"' EXIT
 
 cd "$here"
-npx -y supabase@latest stop --no-backup >/dev/null 2>&1 || true
-npx -y supabase@latest start
-eval "$(npx -y supabase@latest status -o env | grep -E '^(API_URL|SERVICE_ROLE_KEY)=')"
+supabase stop --no-backup >/dev/null 2>&1 || true
+echo "== start empty local Supabase stack (CLI 2.120.0)"
+if ! supabase start >"$stack_log" 2>&1; then
+  echo "Local Supabase startup failed; no migrations or scenarios were run." >&2
+  exit 1
+fi
+stack_configuration="$(supabase status -o json 2>>"$stack_log" | python3 -c '
+import json, re, sys
+try:
+    status = json.load(sys.stdin)
+    api = status["API_URL"]
+    service = status["SERVICE_ROLE_KEY"]
+    if api not in ("http://127.0.0.1:56421", "http://localhost:56421"):
+        raise ValueError("unexpected API origin")
+    if not isinstance(service, str) or not re.fullmatch(r"[A-Za-z0-9_.-]{20,}", service):
+        raise ValueError("invalid local service key")
+except (ValueError, TypeError, KeyError):
+    raise SystemExit("Invalid local Supabase status; refusing simulation")
+print(api)
+print(service)
+')"
+{
+  IFS= read -r API_URL
+  IFS= read -r SERVICE_ROLE_KEY
+} <<<"$stack_configuration"
+unset stack_configuration
 
-echo "== schema snapshot"
-psqlq -c "create extension if not exists pg_cron; create extension if not exists pg_net schema extensions;"
-# A fresh stack grants every new table/function to anon + authenticated automatically; hosted's grants
-# are explicit and in the snapshot. Without this the CI database would be more open than production.
-psqlq <<'SQL'
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON TABLES FROM anon, authenticated, service_role;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON SEQUENCES FROM anon, authenticated, service_role;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON FUNCTIONS FROM anon, authenticated, service_role;
-SQL
-gunzip -c "$sim/snapshot/schema.sql.gz" | psqlq
-psqlq -f "$sim/snapshot/managed_schemas.sql"
-psqlq -f "$sim/snapshot/reference.sql"
-
-echo "== migrations after $(cat "$sim/snapshot/VERSION")"
-since="$(cat "$sim/snapshot/VERSION")"
-for f in $(ls "$repo/supabase/migrations"/*.sql | sort); do
-  v="$(basename "$f" | cut -c1-14)"
-  if [[ "$v" > "$since" ]]; then echo "   $v"; psqlq -1 -f "$f"; fi
+echo "== fresh active migration chain"
+# CLI migration replay is disabled in the CI config: each active file is applied
+# exactly once here. Historical snapshots and archived migrations stay immutable.
+shopt -s nullglob
+migrations=("$repo"/supabase/migrations/*.sql)
+if ((${#migrations[@]} == 0)); then
+  echo "No active migrations found; refusing simulation." >&2
+  exit 1
+fi
+for migration in "${migrations[@]}"; do
+  echo "   $(basename "$migration")"
+  psqlq -1 -f "$migration"
 done
+
+echo "== simulation-only catalogue fixtures"
+psqlq -1 -c "SET gtr.simulation_project = 'gtr-sim-ci'" -f "$here/fixtures.sql"
 
 echo "== seed + scenarios"
 cd "$sim"

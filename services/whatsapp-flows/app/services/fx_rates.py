@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from datetime import date
 from typing import Any
@@ -43,7 +44,7 @@ def fetch_daily_zig_rate(*, as_of: date | None = None) -> DailyZigRate | None:
         rate = float(row["rate"])
     except (TypeError, ValueError, KeyError):
         return None
-    if not (rate == rate) or rate <= 0:
+    if not math.isfinite(rate) or rate <= 0:
         return None
     fx_id = str(row.get("id") or "").strip()
     if not fx_id:

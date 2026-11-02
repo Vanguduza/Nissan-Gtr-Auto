@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import ClassVar
 
 from app.api.v1 import flow_endpoint as fe
 from app.services.checkout_display import build_checkout_display, usd_major_to_minor
@@ -23,8 +24,8 @@ class _FakeQuote:
     total = 10.0
     subtotal = 10.0
     delivery_fee = 0.0
-    lines = [_Line()]
-    missing_oems: list[str] = []
+    lines: ClassVar[list[_Line]] = [_Line()]
+    missing_oems: ClassVar[list[str]] = []
 
     def summary_text(self) -> str:
         return "1x Water Pump — USD 10.00\nTotal: USD 10.00"

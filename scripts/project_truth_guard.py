@@ -135,6 +135,8 @@ def classify_domains(files: Iterable[str]) -> list[str]:
             domains.add("delivery-android")
         elif path.startswith("apps/web/"):
             domains.add("web")
+        elif path.startswith("apps/ios/"):
+            domains.add("ios")
         elif path.startswith("supabase/"):
             domains.add("backend")
         elif path.startswith("data-pipeline/"):
@@ -204,23 +206,55 @@ def record() -> int:
     return 0
 
 
-def verify_head() -> int:
-    parent = first_parent("HEAD")
+def ledger_lines(ref: str) -> list[str]:
+    cp = git("show", f"{ref}:docs/project-state/CHANGE_LEDGER.jsonl", check=False)
+    return cp.stdout.splitlines() if cp.returncode == 0 else []
+
+
+def verify_ref(ref: str, visited: set[str] | None = None) -> int:
+    """Verify a recorded change, or an unchanged, already-recorded PR tree.
+
+    GitHub creates merge commits without running local pre-commit hooks. A merge
+    may carry the exact reviewed head's ledger only when its *entire* tree is
+    identical to that head, the target was already in that head's history, and
+    the head independently passes this same verification. Conflict resolutions
+    and any other merge-time edits still require a fresh first-parent record.
+    """
+    visited = set() if visited is None else visited
+    resolved = git("rev-parse", f"{ref}^{{commit}}").stdout.strip()
+    if resolved in visited:
+        print("BLOCKED: cyclic repository truth verification", file=sys.stderr)
+        return 21
+    visited.add(resolved)
+    parent = first_parent(resolved)
     if parent is None:
         print("project-truth: root commit; verification skipped")
         return 0
 
-    files = changed_files_between(parent, "HEAD")
+    before = ledger_lines(parent)
+    after = ledger_lines(resolved)
+    if after[:len(before)] != before:
+        print("BLOCKED: automatic change ledger must preserve its existing prefix", file=sys.stderr)
+        return 21
+
+    files = changed_files_between(parent, resolved)
     if not files:
-        print("project-truth: HEAD changes only guard metadata; OK")
+        # Evidence must not be rewritten by a metadata-only bot commit.
+        if git("diff", "--quiet", parent, resolved, "--", *sorted(MANAGED_PATHS), check=False).returncode:
+            print("BLOCKED: provenance-only edits need a recorded source change", file=sys.stderr)
+            return 21
+        print("project-truth: no source or provenance changes; OK")
         return 0
 
-    entry = read_last_ledger_entry("HEAD")
+    try:
+        entry = read_last_ledger_entry(resolved)
+    except (ValueError, TypeError):
+        entry = None
     if not entry:
         print("BLOCKED: HEAD changes repository content but contains no automatic change-ledger entry", file=sys.stderr)
         return 20
 
-    expected_digest = diff_digest_between(parent, "HEAD")
+    expected_digest = diff_digest_between(parent, resolved)
     failures: list[str] = []
     if entry.get("source_parent") != parent:
         failures.append(f"ledger source_parent={entry.get('source_parent')} but HEAD^1={parent}")
@@ -229,7 +263,25 @@ def verify_head() -> int:
     if sorted(entry.get("changed_files", [])) != sorted(files):
         failures.append("ledger changed_files does not match the committed change")
 
+    last_change = git("show", f"{resolved}:docs/project-state/LAST_CHANGE.json", check=False)
+    try:
+        if last_change.returncode or json.loads(last_change.stdout) != entry:
+            failures.append("LAST_CHANGE does not match the last ledger entry")
+    except (ValueError, TypeError):
+        failures.append("LAST_CHANGE is not valid change evidence")
+
+    if not failures and (len(after) <= len(before) or entry.get("change_id") != expected_digest[:20]):
+        failures.append("source change lacks a new matching automatic record")
+
     if failures:
+        parents = git("rev-list", "--parents", "-n", "1", resolved).stdout.split()[1:]
+        if len(parents) == 2:
+            reviewed = parents[1]
+            same_tree = git("rev-parse", f"{resolved}^{{tree}}").stdout == git("rev-parse", f"{reviewed}^{{tree}}").stdout
+            contains_target = git("merge-base", "--is-ancestor", parent, reviewed, check=False).returncode == 0
+            if same_tree and contains_target and verify_ref(reviewed, visited) == 0:
+                print(f"project-truth: merge {resolved} preserves verified head {reviewed}")
+                return 0
         print("BLOCKED: repository truth ledger mismatch:", file=sys.stderr)
         for failure in failures:
             print(f" - {failure}", file=sys.stderr)
@@ -239,7 +291,11 @@ def verify_head() -> int:
     return 0
 
 
-def release_check(app: str) -> int:
+def verify_head() -> int:
+    return verify_ref("HEAD")
+
+
+def release_check(app: str, require_clean: bool = False) -> int:
     state = load_state()
     apps = state.get("applications", {})
     if app not in apps:
@@ -264,6 +320,13 @@ def release_check(app: str) -> int:
             file=sys.stderr,
         )
         return 33
+    if require_clean:
+        if git("status", "--porcelain=v1", "--untracked-files=normal").stdout.strip():
+            print("BLOCKED: deliverable builds require committed, clean source", file=sys.stderr)
+            return 34
+        if verify_head() != 0:
+            print("BLOCKED: deliverable source has no valid change-ledger proof", file=sys.stderr)
+            return 35
     print(f"project-truth: {app} lineage verified at HEAD {head_sha()}")
     return 0
 
@@ -288,6 +351,7 @@ def main() -> int:
     sub.add_parser("verify-head")
     rel = sub.add_parser("release-check")
     rel.add_argument("--app", required=True)
+    rel.add_argument("--require-clean", action="store_true", help="Also require clean, ledger-verified deliverable source")
     sub.add_parser("status")
     args = parser.parse_args()
 
@@ -296,7 +360,7 @@ def main() -> int:
     if args.command == "verify-head":
         return verify_head()
     if args.command == "release-check":
-        return release_check(args.app)
+        return release_check(args.app, args.require_clean)
     if args.command == "status":
         return status()
     return 2

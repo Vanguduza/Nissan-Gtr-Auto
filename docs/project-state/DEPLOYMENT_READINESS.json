@@ -1,0 +1,179 @@
+{
+  "schema_version": 1,
+  "repository": "Vanguduza/Nissan-Gtr-Auto",
+  "assessment_date_utc": "2026-11-02",
+  "assessment_base_commit": "e1eaea88ac9e904118d57c439579e1549622f5d9",
+  "implementation_branch": "cursor/deployment-reconciliation-ad25",
+  "integration_source_commit": null,
+  "release_verdict": "HOLD_FOR_NATIVE_CI_AND_HOSTED_DEVICE_QUALIFICATION",
+  "source_integration": "IN_PROGRESS",
+  "findings": [
+    {
+      "id": "R01",
+      "area": "Production dependencies",
+      "source_state": "TESTED",
+      "resolution": "Next.js 16.4.3, MapLibre 6.16 and reviewed transitive overrides remove all production audit advisories. Workspace lint, typecheck, tests and production web build pass on Node 22.23.4 and pnpm 9.15.0.",
+      "repository_evidence": [
+        "package.json",
+        "pnpm-lock.yaml",
+        "apps/web/package.json",
+        ".github/workflows/ci.yml",
+        ".github/workflows/web.yml"
+      ],
+      "remaining_qualification": "Obtain checks and deployment evidence for the integrated commit."
+    },
+    {
+      "id": "R02",
+      "area": "Release provenance",
+      "source_state": "TESTED",
+      "resolution": "Append-only ledger validation supports an exact reviewed PR tree only when it contains target history and its head independently verifies. Eight real temporary-Git tests cover normal commits, exact merges, merge edits and evidence tampering. CI observation no longer writes competing ledger commits. Deliverables require clean, recorded source.",
+      "repository_evidence": [
+        "scripts/project_truth_guard.py",
+        "scripts/test_project_truth_guard.py",
+        ".github/workflows/project-truth-guard.yml",
+        ".github/workflows/project-truth-autolog.yml"
+      ],
+      "remaining_qualification": "Verify the final source and both integration merge SHAs; historical commits remain unchanged."
+    },
+    {
+      "id": "R03",
+      "area": "Database installation and recovery",
+      "source_state": "TESTED_LOCALLY",
+      "resolution": "A hash-bound baseline reconciles 271 curated inputs. All 173 former active files and 125 hosted exports remain byte-identical in historical directories. Native PostgreSQL/Auth/Storage reconstruction and default-ACL roundtrip reproduce 769 functions, 212 public/private tables and 5136 relation capabilities. Forward migrations repair retained runtime, Storage and posting contexts; native critical SQL and trading simulations qualify these paths.",
+      "repository_evidence": [
+        "supabase/baseline/README.md",
+        "supabase/baseline/manifest.json",
+        "supabase/baseline/source-contract.json",
+        "supabase/migrations/",
+        "scripts/verify-database-baseline.py",
+        "supabase/sim/ci/run.sh"
+      ],
+      "remaining_qualification": "Existing hosted adoption requires a restorable backup, read-only schema/ACL/migration-ledger comparison and data-preserving upgrade acceptance on a restored staging snapshot. The fresh baseline refuses an existing application schema; do not reset production or merely mark it applied."
+    },
+    {
+      "id": "R04",
+      "area": "Production backend binding",
+      "source_state": "GUARDED",
+      "resolution": "Production web configuration rejects the retired project, missing/server credentials, invalid publishable formats and wrong-project or expired legacy anon tokens. A read-only public-check workflow verifies served backend references and native public Auth health with a real public key.",
+      "repository_evidence": [
+        "scripts/web-environment.mjs",
+        "scripts/test-web-environment.mjs",
+        "scripts/check-public-production.mjs",
+        ".github/workflows/production-public-checks.yml",
+        "docs/guides/vercel-web-deploy.md"
+      ],
+      "remaining_qualification": "No authenticated Vercel or Supabase administration route is configured here. Actual environment binding, Auth redirects, user/role migration, redeployment and customer/staff acceptance remain unverified. Structural public-key checks do not prove tenant ownership."
+    },
+    {
+      "id": "R05",
+      "area": "Payments, workers and webhook origin",
+      "source_state": "TESTED_AND_REVIEWED",
+      "resolution": "Hosted, production and unknown environments refuse local-unverified bypasses. EcoCash uses exact success statuses. WhatsApp callbacks authenticate before actions, Meta Flow requires its official raw-body HMAC, and positive settlement binds exact amount, currency, provider and registered references through an atomic financial snapshot. Late failures cannot regress PAID or enqueue duplicate initial receipts.",
+      "repository_evidence": [
+        "supabase/functions/_shared/payment_security_test.ts",
+        "services/whatsapp-flows/tests/test_webhook_auth.py",
+        "services/whatsapp-flows/tests/test_flow_origin_auth.py",
+        "services/whatsapp-flows/tests/test_payment_callback_ordering.py",
+        "services/whatsapp-flows/tests/test_payment_callback_security.py",
+        ".github/workflows/payment-security.yml"
+      ],
+      "remaining_qualification": "Attest actual deployed provider/worker flags, secret bindings, merchant accounts and callback contracts; run valid, invalid, duplicate and reconciled isolated provider UAT. Local tests do not charge providers."
+    },
+    {
+      "id": "R06",
+      "area": "Mobile release transport",
+      "source_state": "TESTED",
+      "resolution": "All three Android RPC libraries and iOS reject fake, missing, insecure or wrong-project release configuration. Debug fake selection remains explicit. Android also requires its compiled library DEBUG capability, preventing caller opt-in from bypassing release policy.",
+      "repository_evidence": [
+        "scripts/android-release.gradle",
+        "scripts/android_release_check.py",
+        "scripts/tests/test_android_release_check.py",
+        "apps/ios/Sources/GTRCustomerCore/AppEnv.swift",
+        "apps/ios/scripts/validate-release-config.py"
+      ],
+      "remaining_qualification": "Prove signed artifacts use the intended native backend, OAuth registration and routing configuration."
+    },
+    {
+      "id": "R07",
+      "area": "iOS credentials and session lifecycle",
+      "source_state": "TESTED_PORTABLY",
+      "resolution": "Keychain session storage replaces plaintext defaults with safe migration and logout fencing. Expiry-aware single-flight refresh persists rotation, retries protected requests once and clears revoked sessions. Sixteen portable Swift tests, optimized core build and fifteen packaging controls pass.",
+      "repository_evidence": [
+        "apps/ios/Sources/GTRCustomerCore/AuthTokenStore.swift",
+        "apps/ios/Sources/GTRCustomerCore/AuthSessionCoordinator.swift",
+        "apps/ios/Tests/",
+        ".github/workflows/ios.yml"
+      ],
+      "remaining_qualification": "Native Security/Keychain, complete SwiftUI/Xcode build, OAuth and signed-device acceptance require the macOS/iOS workflow and owner signing identity."
+    },
+    {
+      "id": "R08",
+      "area": "Mobile lineage, signing, platform and devices",
+      "source_state": "GUARDED_AND_LOCALLY_TESTED",
+      "resolution": "iOS is registered; required approved Android lineages and customer visual styles remain. Android targets API 36 and uses compatible CameraX, MLKit and SQLCipher dependencies. Four debug APKs build and pass 16KB ELF/ZIP alignment, with 464 JVM tests and seventeen guard tests. A mandatory native 16KB emulator job checks legacy encrypted-cache opening, updating, reopening and wrong-key preservation before signed release packaging.",
+      "repository_evidence": [
+        "PROJECT_CANONICAL_STATE.json",
+        ".github/workflows/android-apps.yml",
+        ".github/workflows/android-native-16k.yml",
+        ".github/workflows/android-release.yml",
+        "apps/android-management/feature/pos/src/androidTest/",
+        "scripts/android_artifact_manifest.py"
+      ],
+      "remaining_qualification": "Native 16KB execution, signed APK/AAB/IPA and real-device kiosk, camera/QR, printer, card terminal, GPS/POD and offline replay acceptance remain separate. No production keys were created. Management has no committed visual goldens; local unit results do not establish a new visual approval."
+    },
+    {
+      "id": "R09",
+      "area": "Web and staff acceptance",
+      "source_state": "TESTED_WITH_ISOLATED_FIXTURES",
+      "resolution": "Real ESLint, unit checks and browser suites replace placeholders. Eight public desktop/phone cases cover curated catalogue visibility, auth boundaries, guest checkout and same-origin OAuth continuation. Eleven staff workflows exercise normal login, account/QR, payroll, overview, merchandising and permissions. Native SQL checks separately cover database authority; all eight original trading simulations and role assertions pass locally.",
+      "repository_evidence": [
+        "eslint.config.mjs",
+        "tests/web/",
+        "tests/staff/",
+        "playwright.config.ts",
+        "playwright.staff.config.ts",
+        "supabase/tests/",
+        "supabase/sim/",
+        ".github/workflows/web.yml"
+      ],
+      "remaining_qualification": "Browser backend fixtures establish client behavior only. Real customer/staff OAuth, stock, checkout/payment, POS, returns and inventory acceptance must also pass against isolated data on the intended hosted staging project."
+    },
+    {
+      "id": "R10",
+      "area": "ContiPay contract",
+      "source_state": "FAIL_CLOSED_UNTIL_QUALIFIED",
+      "resolution": "Real ContiPay initiation and callback settlement return 503 until the operator explicitly configures the supported HMAC contract, header and secret. Tests cover exact headers and refusal before effects.",
+      "repository_evidence": [
+        "supabase/functions/contipay-initiate/index.ts",
+        "supabase/functions/contipay-webhook/index.ts",
+        "supabase/functions/_shared/payment_edge.ts",
+        "supabase/functions/README.md"
+      ],
+      "remaining_qualification": "Obtain the actual merchant signing/field contract and UAT receipts for successful, failed, partial, duplicate and reconciled payments before enabling this method."
+    },
+    {
+      "id": "R11",
+      "area": "Operations, providers and recovery",
+      "source_state": "AUTOMATED_GATES_PREPARED",
+      "resolution": "Source checks and manual native public observation are wired into CI. Retired-host R2 admin workflows are archived byte-identically. The baseline adoption procedure preserves the old ledger and requires restored-staging acceptance.",
+      "repository_evidence": [
+        "docs/archive/workflows/README.md",
+        ".github/workflows/production-public-checks.yml",
+        "supabase/baseline/README.md",
+        "docs/runbooks/"
+      ],
+      "remaining_qualification": "Authenticated provider delivery, scheduled workers, failure alerts/ownership, application rollback and tested backup restoration require the native service environment. No current production secret state or successful recovery rehearsal is asserted."
+    }
+  ],
+  "branch_reconciliation": "BRANCH_RECONCILIATION.json",
+  "implementation_plan": "../plans/2026-11-02-deployment-reconciliation.json",
+  "verification_limits": [
+    "Build fixtures are synthetic and are never deployment credentials.",
+    "Local native database tests do not attest an uninspected hosted schema or production backup.",
+    "Portable iOS and aligned Android debug builds do not establish signed distribution or physical hardware acceptance.",
+    "No deployment administration identity or provider credential was invented or obtained through another project.",
+    "The source integration and native CI state must be read at the exact recorded commit; passing earlier checks is insufficient after source changes."
+  ],
+  "local_validation_record": "verification/2026-11-02-local.json",
+  "independent_security_review": "verification/2026-11-02-security.json"
+}

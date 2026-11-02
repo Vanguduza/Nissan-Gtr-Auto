@@ -83,10 +83,18 @@ BEGIN
 
   PERFORM public.submit_finance_requisition(v_req);
   PERFORM public.approve_finance_requisition(v_req);
-  v_je := public.disburse_finance_requisition(v_req, v_day);
+  -- Petty-cash final approval posts funding atomically on the hosted contract.
+  SELECT journal_entry_id INTO v_je FROM public.finance_requisitions WHERE id=v_req;
+  BEGIN
+    PERFORM public.disburse_finance_requisition(v_req);
+    RAISE EXCEPTION 'smoke fail: repeated funding was accepted';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM NOT LIKE 'disburse requires approved status (got disbursed)%'
+      AND SQLERRM NOT LIKE 'requisition already disbursed%' THEN RAISE; END IF;
+  END;
 
   IF v_je IS NULL THEN
-    RAISE EXCEPTION 'smoke fail: disburse returned null';
+    RAISE EXCEPTION 'smoke fail: final approval did not link a funding journal';
   END IF;
 
   IF NOT EXISTS (

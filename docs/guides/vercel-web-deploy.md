@@ -11,7 +11,7 @@ Vercel **Root Directory** must be `apps/web` (see `apps/web/vercel.json`).
 | Root Directory | `apps/web` |
 | Install | `cd ../.. && pnpm install` |
 | Build | `cd ../.. && pnpm --filter @gtr/web build` |
-| Node | `20.x` |
+| Node | `22.x` |
 | Production branch | `main` |
 | Preview | all other branches / PRs |
 
@@ -26,6 +26,8 @@ Use the active hosted project `bicyjghgdnzlnjqxzoud`. Never put service-role or 
 | `NEXT_PUBLIC_SITE_URL` | `https://nissangtrauto.co.zw` or the active `*.vercel.app` URL before DNS cutover |
 
 Optional: `NEXT_PUBLIC_DEFAULT_WAREHOUSE_ID`, `NEXT_PUBLIC_ZIG_EXCHANGE_RATE`, `NEXT_PUBLIC_MAP_STYLE_URL`.
+
+Production builds now reject missing configuration, the retired project URL, service-role/secret browser keys, and mismatched or expired legacy anon keys. Publishable-key ownership still needs a native Auth check; a structural check cannot establish it.
 
 After changing Supabase public env values, **redeploy**. A URL change without the matching replacement-project publishable key will break Auth.
 
@@ -81,7 +83,13 @@ Do not point production DNS/users at a build solely because it compiled. Confirm
 
 The retired project `gylrgwqyuiwkyykardwc` must not be deleted until these gates are green.
 
-## 7. CLI (optional)
+## 7. Build and acceptance evidence
+
+The Web workflow builds with a clearly labelled synthetic public-key fixture and intercepts browser backend calls. These checks establish source behavior and access boundaries; they do not establish hosted Auth, RLS, payments or production configuration. Production uses the actual matching public key from its native configuration, never the CI fixture.
+
+Record source SHA, baseline manifest hash, hosted migration status, customer Google/staff sign-in, role/organogram boundaries, checkout/settlement, worker execution and rollback/restore evidence before claiming a complete production cutover. Never reset production or replay the fresh-install baseline onto an existing hosted schema.
+
+## 8. CLI (optional)
 
 ```bash
 npx vercel link

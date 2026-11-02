@@ -115,7 +115,7 @@ pytest -q
 4. Settle via `POST /api/v1/payments/ecocash/callback` or poll `POST /api/v1/payments/ecocash/lookup`.
 5. If EcoCash’s live path/auth header differs from the defaults in `.env.example`, override `ECOCASH_*_PATH_*` / `ECOCASH_AUTH_HEADER` only — no code change.
 
-Without a key, C2B runs in **stub** mode (WhatsApp still tells the customer to approve).
+Without a key, C2B can run in **stub** mode only with a local Supabase URL in development; hosted environments fail closed.
 
 ### Paynow / ContiPay (aggregators)
 
@@ -123,6 +123,49 @@ Without a key, C2B runs in **stub** mode (WhatsApp still tells the customer to a
 - Production: swap stub for Edge `paynow-initiate` / ContiPay using service credentials
 - Callback: `POST /api/v1/payments/callback` JSON `{order_id,status:PAID}` or Paynow form fields
 - Flow `payment_method=paynow` sends the CTA URL button instead of EcoCash push
+
+## Payment callback authentication
+
+The Flow data-exchange endpoint also requires `WHATSAPP_APP_SECRET` and a valid
+`X-Hub-Signature-256` HMAC over the exact raw JSON body **before RSA decryption or
+business actions**. The signature contract follows the official
+[Meta Flow endpoint sample](https://github.com/WhatsApp/WhatsApp-Flows-Tools/blob/main/examples/endpoint/nodejs/basic/src/server.js).
+Missing server configuration returns 503; invalid/missing signatures return Flow
+status 432. RSA encryption alone cannot authenticate the sender because its public
+key is public. Unsigned requests are allowed only by explicit local development settings.
+
+`/api/v1/payments/callback` requires `PAYMENTS_WEBHOOK_SECRET` in
+`X-Payments-Webhook-Secret` / `X-Worker-Secret`, or a valid Paynow form hash using
+`PAYNOW_INTEGRATION_KEY`. EcoCash `/push`, `/lookup`, and `/callback` require
+`ECOCASH_WEBHOOK_SECRET` (or the shared payments secret); callbacks use the agreed
+shared header contract, not an assumed provider HMAC. Missing configuration returns
+503; missing/wrong credentials return 401 before any database mutation.
+
+Payment updates use conditional database state transitions. Late failures cannot
+overwrite paid, fulfilled, cancelled or refunded states, and cannot clear a payment
+reference. Only the request that changes an eligible order to paid queues its initial
+receipt; duplicate success callbacks/parallel lookups do not queue another receipt.
+
+A signature authenticates the event sender; it does not establish that the order
+was paid. Successful normalized JSON callbacks must include `provider`, `amount`,
+`currency`, `merchant_reference`, and `reference` (the provider transaction ID).
+They must match the registered order/provider/source reference and its exact stored
+settlement snapshot. Amounts use finite decimal minor units; D57 EcoCash compares
+against stored ZiG settlement amounts, never the USD browse total. Missing, partial,
+wrong-currency, wrong-provider or mismatched-reference proof cannot mark an order paid.
+The conditional write also checks that financial snapshot to prevent concurrent repricing races.
+
+Paynow forms use the verified `reference`, `paynowreference`, `amount`, and optional
+`currency` fields. If the provider omits signed currency, configure the merchant's
+`PAYNOW_SETTLEMENT_CURRENCY` explicitly; absence fails closed. EcoCash callback and
+lookup adapters must provide authoritative amount/currency and transaction/source
+references; incomplete provider contracts stay unqualified rather than falling back
+to stored amounts as if they were provider proof.
+
+Deploy with `ENVIRONMENT=production`. `PAYMENTS_ALLOW_UNVERIFIED_LOCAL` and
+`ECOCASH_ALLOW_UNVERIFIED_LOCAL` default off and only work in development/test with
+an exact local Supabase hostname. Provider, media-upload and message-send stubs use
+the same local restriction. Hosted/custom remote Supabase URLs refuse all stubs.
 
 ## Delivery
 

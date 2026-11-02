@@ -202,7 +202,7 @@ BEGIN
     v_wh::text,
     jsonb_build_object('mimetype', 'application/pdf', 'size', 32)
   )
-  ON CONFLICT (bucket_id, name) DO NOTHING;
+  ON CONFLICT DO NOTHING;
 
   PERFORM public._test_set_auth_uid(v_wh);
   v_grn := public.create_goods_receipt(

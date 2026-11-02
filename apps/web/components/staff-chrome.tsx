@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { useStaffAuth } from "@/components/staff-auth-context";
 import { iconSizeMd, iconStroke, LogOut } from "@/components/icons";
@@ -14,6 +14,7 @@ import styles from "./staff-chrome.module.css";
 export function StaffChrome({ children }: { children: ReactNode }) {
   const ctx = useStaffAuth();
   const router = useRouter();
+  const ownsHeader = usePathname() === "/staff";
   const [busy, setBusy] = useState(false);
 
   async function signOut() {
@@ -27,7 +28,7 @@ export function StaffChrome({ children }: { children: ReactNode }) {
 
   return (
     <div className={styles.shell}>
-      <header className={styles.bar} data-noprint>
+      {!ownsHeader ? <header className={styles.bar} data-noprint>
         <div className={styles.barInner}>
           <Link href="/staff" className={styles.brand} aria-label="Staff hub">
             <Image
@@ -60,7 +61,7 @@ export function StaffChrome({ children }: { children: ReactNode }) {
             </button>
           </div>
         </div>
-      </header>
+      </header> : null}
       <main className={styles.main}>{children}</main>
     </div>
   );
