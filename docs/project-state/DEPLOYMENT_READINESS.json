@@ -182,5 +182,6 @@
   "security_ci_delta": "verification/2026-11-02-security-ci.json",
   "android_native_acceptance": "verification/2026-11-02-android-native.json",
   "ios_native_build_corrections": "verification/2026-11-02-ios-native-build.json",
-  "ios_rating_display_build_corrections": "verification/2026-11-02-ios-rating-format.json"
+  "ios_rating_display_build_corrections": "verification/2026-11-02-ios-rating-format.json",
+  "ios_simulator_signing_qualification": "verification/2026-11-02-ios-simulator-signing.json"
 }

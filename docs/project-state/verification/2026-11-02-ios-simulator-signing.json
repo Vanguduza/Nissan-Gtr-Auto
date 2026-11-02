@@ -1,0 +1,79 @@
+{
+  "state": "TWO_FILE_SIMULATOR_AD_HOC_SIGNING_FIX_FROZEN_STATIC_CHECKS_PASS_NATIVE_CI_PENDING",
+  "updated_at": "2026-11-02T10:12:17.699410+00:00",
+  "base_head": "18c58724d70b8ada4a3f205da0f966e5e833ba51",
+  "source_files": [
+    {
+      "path": ".github/workflows/ios.yml",
+      "new_file": false,
+      "sha256": "143977e0da12cb4098c2f1d0b5bfe41b7b3a5e7d32b10bb5f07039f4535db1a7",
+      "old_sha256": "becab1ddc50ab1d39ed0e77c906144cbfc1dc01d4355d191ea7e0362072f59a0"
+    },
+    {
+      "path": "apps/ios/GTRCustomer/SimulatorDebug.entitlements",
+      "new_file": true,
+      "sha256": "34ea2dfd699823f43c6b7a8c1d9f034bffbd668690dc423b402a498a45a828ac"
+    }
+  ],
+  "actual_native_failure": {
+    "run_id": 41424020250,
+    "job_id": 125206130211,
+    "source_head": "18c58724d70b8ada4a3f205da0f966e5e833ba51",
+    "current_toolchain": "Xcode26.3, both iOSSDKs26.2, compatible simulator26.2",
+    "app_compile": "PASS",
+    "macos_native_core_keychain_auth_tests": "19/19 PASS",
+    "ios_native_tests": "18/19 PASS; only real Keychain roundtrip failed with AuthStorageError.unavailable(-34018)",
+    "diagnosis": "Simulator host was unsigned because Debug xcodebuild test explicitly set CODE_SIGNING_ALLOWED=NO; local Keychain requires effective application/keychain entitlements",
+    "source_log": "job-125206130211.log",
+    "source_log_sha256": "9870c5a9d606beaa32d6cf5c1c4fa76fdb12d1cd31334ad1a66394e51d351935"
+  },
+  "fix_scope": [
+    "Only Debug iphonesimulator test command enables required manual ad-hoc signing with local identity dash and empty developer team/profile",
+    "Dedicated SimulatorDebug.entitlements uses existing PRODUCT_BUNDLE_IDENTIFIER for exact application identifier and Keychain access group; preserves Apple Sign-In and standard debugger permission",
+    "Entitlement override is a per-invocation simulator setting; Xcode project and production/device entitlements are unchanged",
+    "Release remains unsigned compile-only with currentSDK26 gate and STOREFRONT_FORCE_FAKE=0; no signing credentials/profile/production keys used"
+  ],
+  "unchanged_controls": [
+    {
+      "path": "apps/ios/GTRCustomer/GTRCustomer.entitlements",
+      "sha256": "b2cff52cf90d8cc5be5a2803c78f759d1dffcf00f0f54615b5330c53fea46d29",
+      "unchanged_from_base": true
+    },
+    {
+      "path": "apps/ios/GTRCustomer.xcodeproj/project.pbxproj",
+      "sha256": "ac3d8687975805d2127fc931cdd2b7a6b20e40e02459c5900dcff53a4602d832",
+      "unchanged_from_base": true
+    },
+    {
+      "path": "apps/ios/Sources/GTRCustomerCore/AuthTokenStore.swift",
+      "sha256": "bd79e2caa68e958a243ebd127db3b923a7237ed0f3ce1ca2866b6a38fa439359",
+      "unchanged_from_base": true
+    },
+    {
+      "path": "apps/ios/Tests/GTRCustomerCoreTests/AuthLifecycleTests.swift",
+      "sha256": "a471a0bc49511e6f81b8d356c1928e6d9ba038c8d84144d21a6afd1b39b7b76f",
+      "unchanged_from_base": true
+    },
+    {
+      "path": "apps/ios/Tests/GTRCustomerCoreTests/AuthTransportTests.swift",
+      "sha256": "6b9fc687783d7435c1a290a41b1649b58b5e3b07a1f87dad8cba68047e500e17",
+      "unchanged_from_base": true
+    }
+  ],
+  "verification": {
+    "signing_scope_cli_plist_checks": 26,
+    "actionlint": "PASS; actionlint.log",
+    "canonical_ios_lineage": "PASS at18c58724; lineage-check.log",
+    "git_diff_check": "PASS",
+    "unrelated_suites_repeated": false
+  },
+  "evidence_files": [
+    "signing-scope-checks.json",
+    "verify_signing_scope.py",
+    "job-125206130211.log",
+    "actionlint.log",
+    "lineage-check.log"
+  ],
+  "pending": "Actual native macOS CI must prove ad-hoc simulator signature and real SecItem assertions, then Release compile. No local codesign or iOS qualification claimed.",
+  "git_actions": "None; parent owns staging/commit/push."
+}

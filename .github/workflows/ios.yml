@@ -93,11 +93,16 @@ jobs:
               env.write("SIMULATOR_ID=" + device["udid"] + "\n")
           PY
       - name: Test native iOS Keychain and auth on simulator
+        # The simulator host needs signed Keychain entitlements. Local ad-hoc
+        # signing uses no developer account, certificate or provisioning profile.
         run: >-
           xcodebuild -project apps/ios/GTRCustomer.xcodeproj -scheme GTRCustomer
           -configuration Debug -sdk iphonesimulator
           -destination "platform=iOS Simulator,id=${{ env.SIMULATOR_ID }}"
-          -derivedDataPath /tmp/gtr-ios-debug CODE_SIGNING_ALLOWED=NO test
+          -derivedDataPath /tmp/gtr-ios-debug
+          CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=YES CODE_SIGN_IDENTITY=-
+          CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM='' PROVISIONING_PROFILE_SPECIFIER=''
+          CODE_SIGN_ENTITLEMENTS=GTRCustomer/SimulatorDebug.entitlements test
       - name: Compile Release simulator app with synthetic public configuration
         # Compile fixtures are never production credentials and make no backend calls.
         # Device signing, real Auth/provider acceptance and distribution are separate gates.
