@@ -510,7 +510,7 @@ struct CatalogScreen: View {
                                 ShopRatingRow(
                                     ratingLabel: String(
                                         format: "%.1f · %d",
-                                        reviewStats.avgRating,
+                                        NSDecimalNumber(decimal: reviewStats.avgRating).doubleValue,
                                         reviewStats.reviewCount
                                     )
                                 )
@@ -557,7 +557,7 @@ struct CatalogScreen: View {
                                 reviewStats.map {
                                     $0.reviewCount == 0
                                         ? "No reviews yet"
-                                        : String(format: "%.1f average · %d review(s). Tap to read or submit.", $0.avgRating, $0.reviewCount)
+                                        : String(format: "%.1f average · %d review(s). Tap to read or submit.", NSDecimalNumber(decimal: $0.avgRating).doubleValue, $0.reviewCount)
                                 } ?? "No reviews yet"
                             )
                             .font(GTRType.body(.subheadline))

@@ -34,7 +34,7 @@ struct PdpReviewsScreen: View {
                     HStack {
                         ShopRatingRow(
                             ratingLabel: stats.map {
-                                String(format: "%.1f · %d", $0.avgRating, $0.reviewCount)
+                                String(format: "%.1f · %d", NSDecimalNumber(decimal: $0.avgRating).doubleValue, $0.reviewCount)
                             } ?? "No reviews yet"
                         )
                         Spacer()

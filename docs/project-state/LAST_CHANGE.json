@@ -1,26 +1,20 @@
 {
   "actor": "codex",
   "branch_at_record": "cursor/deployment-reconciliation-ad25",
-  "change_id": "a8e910aa6f97dfb7d2ea",
+  "change_id": "052455f9604f82688fe7",
   "changed_files": [
-    ".github/workflows/ios.yml",
-    "apps/ios/GTRCustomer/Bridges/ReviewCameraBridge.swift",
-    "apps/ios/GTRCustomer/Features/CustomerShellChrome.swift",
-    "bridges/ios/ReviewCamera/Sources/ReviewCamera/ReviewCameraBridge.swift",
-    "docs/project-state/BRANCH_RECONCILIATION.json",
+    "apps/ios/GTRCustomer/Features/CatalogScreen.swift",
+    "apps/ios/GTRCustomer/Features/PdpReviewsScreen.swift",
     "docs/project-state/DEPLOYMENT_READINESS.json",
-    "docs/project-state/verification/2026-11-02-android-native.json",
-    "docs/project-state/verification/2026-11-02-ios-native-build.json"
+    "docs/project-state/verification/2026-11-02-ios-rating-format.json"
   ],
-  "diff_sha256": "a8e910aa6f97dfb7d2ea6c423edbed49b54a39ce05ff4f03761c29c4178494f2",
+  "diff_sha256": "052455f9604f82688fe7f75db14c52bc2a7a45d9af3eb98e05bbbc0ad514bd08",
   "domains": [
-    "ci",
     "documentation",
-    "ios",
-    "repository"
+    "ios"
   ],
-  "intent": "Fix native iOS compilation and qualify builds on current stable Apple SDKs",
-  "recorded_at_utc": "2026-11-02T09:29:51.720501+00:00",
+  "intent": "Correct native iOS display formatting without changing Decimal data or financial calculations",
+  "recorded_at_utc": "2026-11-02T09:51:06.871122+00:00",
   "schema_version": 1,
-  "source_parent": "0dc3053790ea09dabc6351eec589463583c54b35"
+  "source_parent": "bef430c748622276e6de8a95a885916c52ae9379"
 }
