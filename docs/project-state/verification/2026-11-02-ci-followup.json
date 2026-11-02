@@ -1,0 +1,282 @@
+{
+  "schema_version": 1,
+  "repository": "Vanguduza/Nissan-Gtr-Auto",
+  "observed_at_utc": "2026-11-02T09:06:01.737895+00:00",
+  "original_reviewed_implementation_commit": "e2dc178f6cd9a9989c9fb400e2b85c4c3039c682",
+  "first_ci_head": "98b8c8f6d539c953fd5603125562687909e8fe28",
+  "integration_source_commit": null,
+  "original_review_record": "2026-11-02-security.json",
+  "security_delta_record": "2026-11-02-security-ci.json",
+  "security_delta_sha256": "8d523e9aa74d3236db7c46da69f15f7e337b0edbd4be85008418530dd9b0e267",
+  "source_changed_paths": [
+    {
+      "path": ".github/workflows/android-apps.yml",
+      "sha256": "231bb318b479c9c9b308fe525410c311af198887079015ce3eb5506d3ca6214c"
+    },
+    {
+      "path": ".github/workflows/android-native-16k.yml",
+      "sha256": "68324094be81f62ef08c711f623016a6c28211aafac3881a01be67fcb36b73b6"
+    },
+    {
+      "path": ".github/workflows/android-pos.yml",
+      "sha256": "7856220f5ae8f4576c33238cdd5fdcf8cf932925a4b6cdc7e4229a9a684615be"
+    },
+    {
+      "path": ".github/workflows/android-release.yml",
+      "sha256": "8e4059ea72f443b8105adc08bfe7565fca9e7f3b317c618eef37bb0a112882f9"
+    },
+    {
+      "path": ".github/workflows/checkov.yml",
+      "sha256": "a87364d443ecf30f7b7a559e7bb775db500fab152156e329fceb053dde98c887"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "sha256": "9936d2b0827828b759324fcb92cf2c272bab8e44abebd79060a5127ad8d638b6"
+    },
+    {
+      "path": ".github/workflows/ios.yml",
+      "sha256": "7a66217b91e4909d44790790338df42a3e2e7238ceba63f5b4bac7e2ccd00a55"
+    },
+    {
+      "path": ".github/workflows/payment-security.yml",
+      "sha256": "f1f12424d0bc3c072af4c4efac5447da12f810b01c451a09eae28b179b3bb4e3"
+    },
+    {
+      "path": ".github/workflows/production-public-checks.yml",
+      "sha256": "be40245f7fae92d29342e2053e70f01365bbcbe6377ae5f41d25d58620b45c19"
+    },
+    {
+      "path": ".github/workflows/project-truth-autolog.yml",
+      "sha256": "3710742ca2aa70db260c97c5663f04c99aeaa8506a928f49cfe75ca67aa6f567"
+    },
+    {
+      "path": ".github/workflows/project-truth-guard.yml",
+      "sha256": "66ecf237b72132499b29bbb070c81579bcfd0cf0de0de2aa8e1318ae71226e76"
+    },
+    {
+      "path": ".github/workflows/promptfoo.yml",
+      "sha256": "ed330634111676e4aa966f745d1d3c55e8148516f0f1134d46651cbb3ba9f59d"
+    },
+    {
+      "path": ".github/workflows/semgrep.yml",
+      "sha256": "0e2fbb0076e33c8e84f59b440db585c678eb5c1401f69e2f924879ba25b340b6"
+    },
+    {
+      "path": ".github/workflows/simulation.yml",
+      "sha256": "10bd898ae8135e379aa59eff2304b07bb95268cac491cb1c6bd03b5bfb12adf0"
+    },
+    {
+      "path": ".github/workflows/web.yml",
+      "sha256": "d3a25c8998f7b100332dc49960c1a1c3adc36852c1b4c565f033c0a3e496c301"
+    },
+    {
+      "path": ".npmrc",
+      "sha256": "6a0e237df5e9573f2edc0a76853b4c50f8007d5f4c5e9c8e39741658aacb9dfe"
+    },
+    {
+      "path": "apps/android-customer/app/src/main/AndroidManifest.xml",
+      "sha256": "36b0e494ed67cab8c0ebf7823aae5f0d0eab5ff34a3ac5a2e9e7faedd439d0a9"
+    },
+    {
+      "path": "apps/android-delivery/app/src/main/AndroidManifest.xml",
+      "sha256": "b585c9b842e1d9ed3d7112c861eebad8fdd0b12907ebbf9a8ccb9359465e27ff"
+    },
+    {
+      "path": "apps/android-management/app/src/main/AndroidManifest.xml",
+      "sha256": "f9bd7502a50b4271ae4ab4b8219dda03c4490ccce6e350b1f554ccc4c2081cb6"
+    },
+    {
+      "path": "apps/android-management/app/src/tablet/AndroidManifest.xml",
+      "sha256": "a7cc2daca2f799a83666e9c9451836e3c639a281d2b4a49676d29e011b782ef1"
+    },
+    {
+      "path": "apps/android-management/tools/build_sqlcipher_compatibility_fixture.py",
+      "sha256": "cdfd79fa31c1a3afcbde92b0ffefb87cebb7216bdb0eae41ef6932a3c87929f5"
+    },
+    {
+      "path": "apps/catalog-apk/app/src/main/AndroidManifest.xml",
+      "sha256": "b507ac98e4477b95910897ea34df294c05a49d31a4e772844b7a22ae93c18254"
+    },
+    {
+      "path": "apps/ios/Tests/GTRCustomerCoreTests/AuthTransportTests.swift",
+      "sha256": "6b9fc687783d7435c1a290a41b1649b58b5e3b07a1f87dad8cba68047e500e17"
+    },
+    {
+      "path": "pnpm-workspace.yaml",
+      "sha256": "be95b478b4a74858b4504bbfb0efc491782698cff93fc0aa78bbe01685999e69"
+    },
+    {
+      "path": "promptfoo/README.md",
+      "sha256": "d1eb71202cec94e179325831bd5c5db58ed00ce05f8fc30e186086b03f800e25"
+    },
+    {
+      "path": "promptfoo/package-lock.json",
+      "sha256": "1845e23b230c6de207a5b4c2061175f2a92cfbf4d0fb9bb2d5c45dcf1d68427a"
+    },
+    {
+      "path": "promptfoo/package.json",
+      "sha256": "0640adfaa4081cc7ed47e8cbffffd9d88ed839832192a40c6b783ca5bf7a4904"
+    },
+    {
+      "path": "services/whatsapp-flows/app/main.py",
+      "sha256": "184f6fb2202f095a5823abe89dbe5e0fb4115c696d3ecdc6b2b0ce43b5146e61"
+    },
+    {
+      "path": "services/whatsapp-flows/app/services/ecocash_client.py",
+      "sha256": "c2ce193570ab0969d83091f8e30bc0caf9c0c36ab5c6db72643821c63e833b8d"
+    },
+    {
+      "path": "services/whatsapp-flows/tests/test_browser_and_log_privacy.py",
+      "sha256": "055617d9ff103b2f19ec0a4271b64683753a6e5ac6d273cd5f0478755ae648cc"
+    }
+  ],
+  "root_peer_review": "Reviewed removal of server-only wildcard CORS and payment-detail logging, unchanged launcher/config semantics, immutable action references, narrowly scoped selector exception, retained hard-fail flags and unchanged native crypto/SQL assertions.",
+  "ios_transport_test_repair": {
+    "state": "SOURCE_FIXED_PORTABLE18_PASS_NATIVE_CI_PENDING",
+    "updated_at": "2026-11-02T08:38:17.649092+00:00",
+    "scope": [
+      "apps/ios/Tests/GTRCustomerCoreTests/AuthTransportTests.swift"
+    ],
+    "previous_head": "98b8c8f6d539c953fd5603125562687909e8fe28",
+    "old_source_sha256": "ba3c54a6ed6a2ef82ec16acb600a4366981fb8a816ace7053d7e8382f46598b8",
+    "new_source_sha256": "6b9fc687783d7435c1a290a41b1649b58b5e3b07a1f87dad8cba68047e500e17",
+    "native_failure": {
+      "repository": "Vanguduza/Nissan-Gtr-Auto",
+      "run_id": 41413537009,
+      "job_id": 125171841710,
+      "source_head": "98b8c8f6d539c953fd5603125562687909e8fe28",
+      "checked_out_pr_merge": "91ede40fcbc1cc9148c7e26f778bc220948f756c",
+      "runner": "macOS15.8.2 arm64",
+      "diagnosis": "Build succeeded; transport test crashed unwrapping intercepted URLRequest.httpBody at original line40. Darwin URL loading may expose POST body as httpBodyStream.",
+      "native_evidence_already_passed": [
+        "Full core/test compilation",
+        "All11 AuthLifecycleTests",
+        "Actual Security Keychain roundtrip"
+      ],
+      "failed_test": "AuthTransportTests.testRefreshUsesNativeGrantAndReturnsRotatedSession",
+      "log": "job-125171841710.log",
+      "log_sha256": "0a01a5b5a51c6fbf0ba77eaffaae7fcdaeac0f89e67ac3b789170f8b19231403"
+    },
+    "change": [
+      "Read actual Data or InputStream body in test-only helper; propagate missing/stream errors instead of substituting empty payload",
+      "Both original JSON payload assertions retained with throwing XCTUnwrap rather than force unwrap/cast",
+      "Added4096-byte multi-chunk stream/Data parity and stream-close regression",
+      "Added explicit missing-body rejection regression"
+    ],
+    "unchanged": [
+      "All production authentication/Keychain/refresh/RPC behavior",
+      "Every original auth/grant/apikey/stock identity assertion",
+      "Native macOS/iOS tests and release simulator CI gates"
+    ],
+    "verification": {
+      "portable_debug": {
+        "passed": 18,
+        "failed": 0,
+        "toolchain": "Swift6.0.3 Linux",
+        "observed_at": "2026-11-02T08:35:20Z"
+      },
+      "portable_release": {
+        "passed": 18,
+        "failed": 0,
+        "log": "portable-release-tests.log",
+        "log_sha256": "f22e9be75b145d7bc9fe62949f21484b324f312cac842765dea64ebe1b2f55bc"
+      },
+      "canonical_release_check": "PASS at source98b8",
+      "git_diff_check": "PASS"
+    },
+    "pending": "macOS/iOS CI rerun to qualify Darwin interception after fix; no local Xcode environment",
+    "git_actions": "None; parent owns stage/commit/push."
+  },
+  "android_native_runner_repair": {
+    "repository": "Vanguduza/Nissan-Gtr-Auto",
+    "pr": 21,
+    "failed_head": "98b8c8f6d539c953fd5603125562687909e8fe28",
+    "run_id": 41413536860,
+    "job_id": 125171840931,
+    "observed": [
+      "Emulator API36 google_apis_ps16k x86_64 booted at08:32:33 UTC.",
+      "Mandatory getconf PAGESIZE==16384 assertion succeeded, because action proceeded to following commands.",
+      "Each emulator-runner script line was dispatched as independent /usr/bin/sh -c.",
+      "Standalone cd did not persist; bash ./gradlew then failed No such file or directory, exit127.",
+      "No instrumented tests ran, so there were no JUnit/native report files to upload."
+    ],
+    "fix": "Invoke bash apps/android-management/gradlew -p apps/android-management from repository root; print actual PAGESIZE then retain original16384 assertion.",
+    "changed_paths": [
+      ".github/workflows/android-native-16k.yml"
+    ],
+    "security_pins_preserved": [
+      "11d5960a326750d5838078e36cf38b85af677262",
+      "cf277c60eb25467037889841efdb72551f06f6c3",
+      "ed408507eac070d1f99cc633dbcf757c94c7933a",
+      "a421e43855164a8197daf9d8d40fe71c6996bb0d",
+      "ea165f8d65b6e75b540449e92b4886f43607fa02"
+    ],
+    "workflow_sha256": "68324094be81f62ef08c711f623016a6c28211aafac3881a01be67fcb36b73b6",
+    "checks": [
+      "actionlint1.7.7 PASS",
+      "git diff --check PASS",
+      "exact repository-root connectedDebugAndroidTest command --dry-run PASS, Gradle exit0",
+      "Native compatibility test, legacy fixture, read/write/reopen/wrong-key assertions and post-lock SQL unchanged"
+    ],
+    "native_execution_after_fix": "Not yet observed; root owns commit/push and fresh CI. Dry-run only validates path/task resolution.",
+    "failure_log": "/workspace/scratch/nissan-gtr-fix/mobile/pr21-native-failure-125171840931.log",
+    "local_validation_log": "/workspace/scratch/nissan-gtr-fix/mobile/native-ci-root-project-dir-dry-run.log"
+  },
+  "promptfoo_clean_install_and_offline_validation": [
+    {
+      "name": "promptfoo-clean-install",
+      "command": [
+        "npm",
+        "exec",
+        "--yes",
+        "--package=npm@10.9.9",
+        "--",
+        "npm",
+        "ci",
+        "--no-audit",
+        "--no-fund"
+      ],
+      "exit_code": 0,
+      "seconds": 14.9,
+      "log_sha256": "32a637a911d0521343dbbffbffb8e8c49e58d337f1276f72288689657cc5ef8a"
+    },
+    {
+      "name": "promptfoo-offline-gate",
+      "command": [
+        "npm",
+        "run",
+        "gate"
+      ],
+      "exit_code": 0,
+      "seconds": 0.2,
+      "log_sha256": "7c6ffb00371053e3abceb29f30bc8bb8fe2f34bb4922ba7c6f5d5ec66c6abcd0"
+    },
+    {
+      "name": "promptfoo-offline-eval",
+      "command": [
+        "npm",
+        "run",
+        "eval:ci"
+      ],
+      "exit_code": 0,
+      "seconds": 1.5,
+      "log_sha256": "7650798775e44ce4f68d53d8843b52689d9d76aec3c2c9db792ca0718daadf9d"
+    }
+  ],
+  "promptfoo_final_lock_validation": "npm10.9.9 clean-install dry-run passes after retaining original optional platform metadata; existing prompt text and assertions unchanged",
+  "first_head_github_successes": {
+    "quality_and_native_database": "https://github.com/Vanguduza/Nissan-Gtr-Auto/actions/runs/41413536902",
+    "web_build_and_both_browser_suites": "https://github.com/Vanguduza/Nissan-Gtr-Auto/actions/runs/41413536781",
+    "empty_cli_stack_and_all_trading_scenarios": "https://github.com/Vanguduza/Nissan-Gtr-Auto/actions/runs/41413536721",
+    "all_three_android_apps": "https://github.com/Vanguduza/Nissan-Gtr-Auto/actions/runs/41413536690",
+    "tablet_pos": "https://github.com/Vanguduza/Nissan-Gtr-Auto/actions/runs/41413536636"
+  },
+  "new_head_native_ci": "Required before merge; the earlier partial iOS or16KB results are not claimed as acceptance after these repairs.",
+  "vercel": {
+    "status": "First preview failed; native logs require an existing administration session",
+    "readonly_cli_result": "No existing credentials found",
+    "required_branch_check": false,
+    "qualification": "No deployment configuration or hosted business acceptance is inferred from local fixtures"
+  },
+  "deferred_tooling_policies": "The four annotated release-age/trust/exotic-dependency policies require unsupported npm/pnpm majors. Their absence is documented; no enforcement is claimed. Frozen installation behavior remains unchanged."
+}

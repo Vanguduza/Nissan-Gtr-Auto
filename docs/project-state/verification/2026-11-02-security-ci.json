@@ -1,0 +1,1031 @@
+{
+  "state": "FROZEN_READY_FOR_PARENT_REVIEW_AND_COMMIT",
+  "observed_at_utc": "2026-11-02T09:03:31.756406+00:00",
+  "repository": "Vanguduza/Nissan-Gtr-Auto",
+  "base_head": "98b8c8f6d539c953fd5603125562687909e8fe28",
+  "original63_file_review_sha256": "e85eef86cb38cdf2569e3ca8e0ed371094679d097fea4a59ce4d730afba5953b",
+  "original_review_unchanged": true,
+  "scope": "PR21 native Checkov/Semgrep failures; immutable workflow actions, documented narrowly scoped advisory exceptions and server callback/log privacy. Root owns Git and separate promptfoo/iOS/mobile behavior changes.",
+  "remote_failure_evidence": [
+    {
+      "workflow": "Checkov",
+      "job_id": 125171840356,
+      "run_id": 41413536743,
+      "result": "667 passed,1 CKV_GHA_7 failure on the fixed android-release app selector.",
+      "log_sha256": "1263cba2af361cfc9f6643230ce42fd1b1588039a086f1283e746c21ace1d3c9"
+    },
+    {
+      "workflow": "Semgrep community advisory",
+      "job_id": 125171841313,
+      "run_id": 41413536909,
+      "result": "Scan completed;64 findings =52 mutable workflow action refs,5 exported launchers,4 unsupported package-manager policies,1 explicit fixture executable path,1 wildcard CORS,1 stub logger pattern.",
+      "log_sha256": "578d07cfdd544191c7e089d59bca2b55c714cd306b4d356be126f62c257f0b6a"
+    }
+  ],
+  "implemented_fixes": [
+    "Pinned all52 external action references to40-character commits resolved through the GitHub API; action major versions unchanged. Promptfoo/mobile pins coordinated with their owners.",
+    "Removed unnecessary wildcard browser CORS from Meta/provider server-to-server callbacks.",
+    "Stopped local EcoCash stub logs from exposing payer, payment reference and amount; retained stub behavior and added3 privacy regressions."
+  ],
+  "checkov_exception": {
+    "rule_id": "CKV_GHA_7",
+    "path": ".github/workflows/android-release.yml",
+    "scope": "One file-local on/workflow_dispatch resource; no global skip.",
+    "reason": "Only app is accepted, a closed choice of three fixed build entry points. Input crosses through RELEASE_APP environment and an exhaustive shell case selects constant directories/tasks. No user source/flags/path/command interpolation; single-app manual selection preserved."
+  },
+  "semgrep_annotations": [
+    {
+      "rule_id": "package_managers.npm.npm-missing-minimum-release-age.npm-missing-minimum-release-age",
+      "path": ".npmrc",
+      "line": 1,
+      "rationale": "Control requires npm11.10; approved Node22/npm10 toolchain does not enforce it. No cosmetic unsupported knob; exact locked installs and dependency review retained."
+    },
+    {
+      "rule_id": "java.android.security.exported_activity.exported_activity",
+      "path": "apps/android-customer/app/src/main/AndroidManifest.xml",
+      "line": 15,
+      "rationale": "Required exported Android launcher/OAuth entry; no new privileged command intent. Server session/role/ownership checks remain authoritative. Parsed manifest semantics exactly match HEAD."
+    },
+    {
+      "rule_id": "java.android.security.exported_activity.exported_activity",
+      "path": "apps/android-delivery/app/src/main/AndroidManifest.xml",
+      "line": 13,
+      "rationale": "Required exported Android launcher/OAuth entry; no new privileged command intent. Server session/role/ownership checks remain authoritative. Parsed manifest semantics exactly match HEAD."
+    },
+    {
+      "rule_id": "java.android.security.exported_activity.exported_activity",
+      "path": "apps/android-management/app/src/main/AndroidManifest.xml",
+      "line": 11,
+      "rationale": "Required exported Android launcher/OAuth entry; no new privileged command intent. Server session/role/ownership checks remain authoritative. Parsed manifest semantics exactly match HEAD."
+    },
+    {
+      "rule_id": "java.android.security.exported_activity.exported_activity",
+      "path": "apps/android-management/app/src/tablet/AndroidManifest.xml",
+      "line": 11,
+      "rationale": "Required exported Android launcher/OAuth entry; no new privileged command intent. Server session/role/ownership checks remain authoritative. Parsed manifest semantics exactly match HEAD."
+    },
+    {
+      "rule_id": "python.lang.security.audit.dangerous-subprocess-use-tainted-env-args.dangerous-subprocess-use-tainted-env-args",
+      "path": "apps/android-management/tools/build_sqlcipher_compatibility_fixture.py",
+      "line": 32,
+      "rationale": "Developer explicitly chooses the legacy SQLCipher test CLI. subprocess receives an argv list and SQL stdin with no shell and no remote request input; public test fixture only."
+    },
+    {
+      "rule_id": "java.android.security.exported_activity.exported_activity",
+      "path": "apps/catalog-apk/app/src/main/AndroidManifest.xml",
+      "line": 33,
+      "rationale": "Required exported Android launcher/OAuth entry; no new privileged command intent. Server session/role/ownership checks remain authoritative. Parsed manifest semantics exactly match HEAD."
+    },
+    {
+      "rule_id": "package_managers.pnpm.pnpm-block-exotic-sub-dependencies.pnpm-block-exotic-sub-dependencies",
+      "path": "pnpm-workspace.yaml",
+      "line": 2,
+      "rationale": "Control requires pnpm10.16/10.21/10.26; repository retains pnpm9.15.0 and existing frozen installs. Unsupported knobs were not added or represented as enforced; defer actual control to tested major upgrade."
+    },
+    {
+      "rule_id": "package_managers.pnpm.pnpm-missing-minimum-release-age.pnpm-minimum-release-age",
+      "path": "pnpm-workspace.yaml",
+      "line": 2,
+      "rationale": "Control requires pnpm10.16/10.21/10.26; repository retains pnpm9.15.0 and existing frozen installs. Unsupported knobs were not added or represented as enforced; defer actual control to tested major upgrade."
+    },
+    {
+      "rule_id": "package_managers.pnpm.pnpm-trust-policy.pnpm-trust-policy",
+      "path": "pnpm-workspace.yaml",
+      "line": 2,
+      "rationale": "Control requires pnpm10.16/10.21/10.26; repository retains pnpm9.15.0 and existing frozen installs. Unsupported knobs were not added or represented as enforced; defer actual control to tested major upgrade."
+    }
+  ],
+  "enforcement_preserved": {
+    "checkov_soft_fail": false,
+    "checkov_hard_fail_on": [
+      "HIGH",
+      "CRITICAL"
+    ],
+    "custom_semgrep_error_flag": true,
+    "community_semgrep_error_flag": true,
+    "scan_scopes_and_existing_exclusions_unchanged": true,
+    "no_global_rule_disables_or_new_scan_excludes": true,
+    "package_manager_or_manifest_semantics_changed": false
+  },
+  "native_validation": {
+    "checkov": {
+      "version": "3.4.0",
+      "exit_code": 0,
+      "frameworks": [
+        "dockerfile",
+        "github_actions",
+        "kubernetes",
+        "terraform"
+      ],
+      "passed": 667,
+      "failed": 0,
+      "skipped": 1,
+      "parsing_errors": 0
+    },
+    "semgrep_community": {
+      "version": "1.183.0",
+      "exit_code": 0,
+      "rules_run": 275,
+      "targets": 1992,
+      "findings": 0,
+      "warnings": [
+        {
+          "code": 2,
+          "level": "warn",
+          "type": "Timeout",
+          "rule_id": "javascript.express.security.audit.express-ssrf.express-ssrf",
+          "message": "Timeout when running javascript.express.security.audit.express-ssrf.express-ssrf on packages/supabase-client/src/database.types.ts:\n ",
+          "path": "packages/supabase-client/src/database.types.ts"
+        },
+        {
+          "code": 2,
+          "level": "warn",
+          "type": "Timeout",
+          "rule_id": "javascript.express.security.express-insecure-template-usage.express-insecure-template-usage",
+          "message": "Timeout when running javascript.express.security.express-insecure-template-usage.express-insecure-template-usage on packages/supabase-client/src/database.types.ts:\n ",
+          "path": "packages/supabase-client/src/database.types.ts"
+        },
+        {
+          "code": 2,
+          "level": "warn",
+          "type": "Timeout",
+          "rule_id": "javascript.express.security.injection.raw-html-format.raw-html-format",
+          "message": "Timeout when running javascript.express.security.injection.raw-html-format.raw-html-format on packages/supabase-client/src/database.types.ts:\n ",
+          "path": "packages/supabase-client/src/database.types.ts"
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": [
+            "PartialParsing",
+            [
+              {
+                "path": ".github/workflows/ci.yml",
+                "start": {
+                  "line": 166,
+                  "col": 16,
+                  "offset": 6539
+                },
+                "end": {
+                  "line": 166,
+                  "col": 49,
+                  "offset": 6572
+                }
+              },
+              {
+                "path": ".github/workflows/ci.yml",
+                "start": {
+                  "line": 167,
+                  "col": 15,
+                  "offset": 6539
+                },
+                "end": {
+                  "line": 167,
+                  "col": 53,
+                  "offset": 6577
+                }
+              }
+            ]
+          ],
+          "message": "Syntax error at line .github/workflows/ci.yml:166:\n When parsing a snippet as Bash for metavariable-pattern in rule 'yaml.github-actions.security.gha-curl-pipe-shell.gha-curl-pipe-shell', `${{ steps.db.outputs.container }}` was unexpected",
+          "path": ".github/workflows/ci.yml",
+          "spans": [
+            {
+              "file": ".github/workflows/ci.yml",
+              "start": {
+                "line": 166,
+                "col": 16,
+                "offset": 6539
+              },
+              "end": {
+                "line": 166,
+                "col": 49,
+                "offset": 6572
+              }
+            },
+            {
+              "file": ".github/workflows/ci.yml",
+              "start": {
+                "line": 167,
+                "col": 15,
+                "offset": 6539
+              },
+              "end": {
+                "line": 167,
+                "col": 53,
+                "offset": 6577
+              }
+            }
+          ]
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": [
+            "PartialParsing",
+            [
+              {
+                "path": ".github/workflows/ios.yml",
+                "start": {
+                  "line": 43,
+                  "col": 169,
+                  "offset": 1695
+                },
+                "end": {
+                  "line": 43,
+                  "col": 192,
+                  "offset": 1718
+                }
+              }
+            ]
+          ],
+          "message": "Syntax error at line .github/workflows/ios.yml:43:\n When parsing a snippet as Bash for metavariable-pattern in rule 'yaml.github-actions.security.gha-curl-pipe-shell.gha-curl-pipe-shell', `${{ env.SIMULATOR_ID }}` was unexpected",
+          "path": ".github/workflows/ios.yml",
+          "spans": [
+            {
+              "file": ".github/workflows/ios.yml",
+              "start": {
+                "line": 43,
+                "col": 169,
+                "offset": 1695
+              },
+              "end": {
+                "line": 43,
+                "col": 192,
+                "offset": 1718
+              }
+            }
+          ]
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": [
+            "PartialParsing",
+            [
+              {
+                "path": ".github/workflows/production-public-checks.yml",
+                "start": {
+                  "line": 22,
+                  "col": 65,
+                  "offset": 660
+                },
+                "end": {
+                  "line": 22,
+                  "col": 103,
+                  "offset": 698
+                }
+              }
+            ]
+          ],
+          "message": "Syntax error at line .github/workflows/production-public-checks.yml:22:\n When parsing a snippet as Bash for metavariable-pattern in rule 'yaml.github-actions.security.gha-curl-pipe-shell.gha-curl-pipe-shell', `${{ runner.temp }}/public-runtime.json` was unexpected",
+          "path": ".github/workflows/production-public-checks.yml",
+          "spans": [
+            {
+              "file": ".github/workflows/production-public-checks.yml",
+              "start": {
+                "line": 22,
+                "col": 65,
+                "offset": 660
+              },
+              "end": {
+                "line": 22,
+                "col": 103,
+                "offset": 698
+              }
+            }
+          ]
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": [
+            "PartialParsing",
+            [
+              {
+                "path": ".github/workflows/promptfoo.yml",
+                "start": {
+                  "line": 112,
+                  "col": 16,
+                  "offset": 4249
+                },
+                "end": {
+                  "line": 112,
+                  "col": 52,
+                  "offset": 4285
+                }
+              }
+            ]
+          ],
+          "message": "Syntax error at line .github/workflows/promptfoo.yml:112:\n When parsing a snippet as Bash for metavariable-pattern in rule 'yaml.github-actions.security.gha-curl-pipe-shell.gha-curl-pipe-shell', `${{ steps.detect.outputs.provider }}` was unexpected",
+          "path": ".github/workflows/promptfoo.yml",
+          "spans": [
+            {
+              "file": ".github/workflows/promptfoo.yml",
+              "start": {
+                "line": 112,
+                "col": 16,
+                "offset": 4249
+              },
+              "end": {
+                "line": 112,
+                "col": 52,
+                "offset": 4285
+              }
+            }
+          ]
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": [
+            "PartialParsing",
+            [
+              {
+                "path": "apps/ios/GTRCustomer/StorefrontSession.swift",
+                "start": {
+                  "line": 285,
+                  "col": 9,
+                  "offset": 0
+                },
+                "end": {
+                  "line": 287,
+                  "col": 10,
+                  "offset": 134
+                }
+              }
+            ]
+          ],
+          "message": "Syntax error at line apps/ios/GTRCustomer/StorefrontSession.swift:285:\n `if let listed = try? await api.listCompareItems() {\n            _ = GuestCompareStore.writeOems(listed.map(\\.oemPartNumber))\n        }` was unexpected",
+          "path": "apps/ios/GTRCustomer/StorefrontSession.swift",
+          "spans": [
+            {
+              "file": "apps/ios/GTRCustomer/StorefrontSession.swift",
+              "start": {
+                "line": 285,
+                "col": 9,
+                "offset": 0
+              },
+              "end": {
+                "line": 287,
+                "col": 10,
+                "offset": 134
+              }
+            }
+          ]
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": [
+            "PartialParsing",
+            [
+              {
+                "path": "supabase/sim/ci/run.sh",
+                "start": {
+                  "line": 48,
+                  "col": 3,
+                  "offset": 0
+                },
+                "end": {
+                  "line": 48,
+                  "col": 5,
+                  "offset": 2
+                }
+              }
+            ]
+          ],
+          "message": "Syntax error at line supabase/sim/ci/run.sh:48:\n `<<` was unexpected",
+          "path": "supabase/sim/ci/run.sh",
+          "spans": [
+            {
+              "file": "supabase/sim/ci/run.sh",
+              "start": {
+                "line": 48,
+                "col": 3,
+                "offset": 0
+              },
+              "end": {
+                "line": 48,
+                "col": 5,
+                "offset": 2
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "semgrep_custom_hard_fail": {
+      "version": "1.183.0",
+      "exit_code": 0,
+      "targets": 483,
+      "findings": 0,
+      "warnings": [
+        {
+          "code": 3,
+          "level": "warn",
+          "type": [
+            "PartialParsing",
+            [
+              {
+                "path": "packages/supabase-client/src/database.types.ts",
+                "start": {
+                  "line": 13611,
+                  "col": 26,
+                  "offset": 0
+                },
+                "end": {
+                  "line": 13612,
+                  "col": 19,
+                  "offset": 26
+                }
+              }
+            ]
+          ],
+          "message": "Syntax error at line packages/supabase-client/src/database.types.ts:13611:\n `boolean\n          in_sync:` was unexpected",
+          "path": "packages/supabase-client/src/database.types.ts",
+          "spans": [
+            {
+              "file": "packages/supabase-client/src/database.types.ts",
+              "start": {
+                "line": 13611,
+                "col": 26,
+                "offset": 0
+              },
+              "end": {
+                "line": 13612,
+                "col": 19,
+                "offset": 26
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "semgrep_exception_audit": {
+      "disable_nosem": true,
+      "expected_exit_code": 1,
+      "findings": 10,
+      "counts_by_rule": {
+        "package_managers.npm.npm-missing-minimum-release-age.npm-missing-minimum-release-age": 1,
+        "java.android.security.exported_activity.exported_activity": 5,
+        "python.lang.security.audit.dangerous-subprocess-use-tainted-env-args.dangerous-subprocess-use-tainted-env-args": 1,
+        "package_managers.pnpm.pnpm-block-exotic-sub-dependencies.pnpm-block-exotic-sub-dependencies": 1,
+        "package_managers.pnpm.pnpm-missing-minimum-release-age.pnpm-minimum-release-age": 1,
+        "package_managers.pnpm.pnpm-trust-policy.pnpm-trust-policy": 1
+      },
+      "purpose": "Confirms only the10 explicitly documented advisories are suppressed; missing npm control remains visible when annotations disabled.",
+      "warnings": [
+        {
+          "code": 2,
+          "level": "warn",
+          "type": "Timeout",
+          "rule_id": "javascript.express.security.audit.express-ssrf.express-ssrf",
+          "message": "Timeout when running javascript.express.security.audit.express-ssrf.express-ssrf on packages/supabase-client/src/database.types.ts:\n ",
+          "path": "packages/supabase-client/src/database.types.ts"
+        },
+        {
+          "code": 2,
+          "level": "warn",
+          "type": "Timeout",
+          "rule_id": "javascript.express.security.express-insecure-template-usage.express-insecure-template-usage",
+          "message": "Timeout when running javascript.express.security.express-insecure-template-usage.express-insecure-template-usage on packages/supabase-client/src/database.types.ts:\n ",
+          "path": "packages/supabase-client/src/database.types.ts"
+        },
+        {
+          "code": 2,
+          "level": "warn",
+          "type": "Timeout",
+          "rule_id": "javascript.express.security.injection.raw-html-format.raw-html-format",
+          "message": "Timeout when running javascript.express.security.injection.raw-html-format.raw-html-format on packages/supabase-client/src/database.types.ts:\n ",
+          "path": "packages/supabase-client/src/database.types.ts"
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": [
+            "PartialParsing",
+            [
+              {
+                "path": ".github/workflows/ci.yml",
+                "start": {
+                  "line": 166,
+                  "col": 16,
+                  "offset": 6539
+                },
+                "end": {
+                  "line": 166,
+                  "col": 49,
+                  "offset": 6572
+                }
+              },
+              {
+                "path": ".github/workflows/ci.yml",
+                "start": {
+                  "line": 167,
+                  "col": 15,
+                  "offset": 6539
+                },
+                "end": {
+                  "line": 167,
+                  "col": 53,
+                  "offset": 6577
+                }
+              }
+            ]
+          ],
+          "message": "Syntax error at line .github/workflows/ci.yml:166:\n When parsing a snippet as Bash for metavariable-pattern in rule 'yaml.github-actions.security.gha-curl-pipe-shell.gha-curl-pipe-shell', `${{ steps.db.outputs.container }}` was unexpected",
+          "path": ".github/workflows/ci.yml",
+          "spans": [
+            {
+              "file": ".github/workflows/ci.yml",
+              "start": {
+                "line": 166,
+                "col": 16,
+                "offset": 6539
+              },
+              "end": {
+                "line": 166,
+                "col": 49,
+                "offset": 6572
+              }
+            },
+            {
+              "file": ".github/workflows/ci.yml",
+              "start": {
+                "line": 167,
+                "col": 15,
+                "offset": 6539
+              },
+              "end": {
+                "line": 167,
+                "col": 53,
+                "offset": 6577
+              }
+            }
+          ]
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": [
+            "PartialParsing",
+            [
+              {
+                "path": ".github/workflows/ios.yml",
+                "start": {
+                  "line": 43,
+                  "col": 169,
+                  "offset": 1695
+                },
+                "end": {
+                  "line": 43,
+                  "col": 192,
+                  "offset": 1718
+                }
+              }
+            ]
+          ],
+          "message": "Syntax error at line .github/workflows/ios.yml:43:\n When parsing a snippet as Bash for metavariable-pattern in rule 'yaml.github-actions.security.gha-curl-pipe-shell.gha-curl-pipe-shell', `${{ env.SIMULATOR_ID }}` was unexpected",
+          "path": ".github/workflows/ios.yml",
+          "spans": [
+            {
+              "file": ".github/workflows/ios.yml",
+              "start": {
+                "line": 43,
+                "col": 169,
+                "offset": 1695
+              },
+              "end": {
+                "line": 43,
+                "col": 192,
+                "offset": 1718
+              }
+            }
+          ]
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": [
+            "PartialParsing",
+            [
+              {
+                "path": ".github/workflows/production-public-checks.yml",
+                "start": {
+                  "line": 22,
+                  "col": 65,
+                  "offset": 660
+                },
+                "end": {
+                  "line": 22,
+                  "col": 103,
+                  "offset": 698
+                }
+              }
+            ]
+          ],
+          "message": "Syntax error at line .github/workflows/production-public-checks.yml:22:\n When parsing a snippet as Bash for metavariable-pattern in rule 'yaml.github-actions.security.gha-curl-pipe-shell.gha-curl-pipe-shell', `${{ runner.temp }}/public-runtime.json` was unexpected",
+          "path": ".github/workflows/production-public-checks.yml",
+          "spans": [
+            {
+              "file": ".github/workflows/production-public-checks.yml",
+              "start": {
+                "line": 22,
+                "col": 65,
+                "offset": 660
+              },
+              "end": {
+                "line": 22,
+                "col": 103,
+                "offset": 698
+              }
+            }
+          ]
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": [
+            "PartialParsing",
+            [
+              {
+                "path": ".github/workflows/promptfoo.yml",
+                "start": {
+                  "line": 112,
+                  "col": 16,
+                  "offset": 4249
+                },
+                "end": {
+                  "line": 112,
+                  "col": 52,
+                  "offset": 4285
+                }
+              }
+            ]
+          ],
+          "message": "Syntax error at line .github/workflows/promptfoo.yml:112:\n When parsing a snippet as Bash for metavariable-pattern in rule 'yaml.github-actions.security.gha-curl-pipe-shell.gha-curl-pipe-shell', `${{ steps.detect.outputs.provider }}` was unexpected",
+          "path": ".github/workflows/promptfoo.yml",
+          "spans": [
+            {
+              "file": ".github/workflows/promptfoo.yml",
+              "start": {
+                "line": 112,
+                "col": 16,
+                "offset": 4249
+              },
+              "end": {
+                "line": 112,
+                "col": 52,
+                "offset": 4285
+              }
+            }
+          ]
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": [
+            "PartialParsing",
+            [
+              {
+                "path": "apps/ios/GTRCustomer/StorefrontSession.swift",
+                "start": {
+                  "line": 285,
+                  "col": 9,
+                  "offset": 0
+                },
+                "end": {
+                  "line": 287,
+                  "col": 10,
+                  "offset": 134
+                }
+              }
+            ]
+          ],
+          "message": "Syntax error at line apps/ios/GTRCustomer/StorefrontSession.swift:285:\n `if let listed = try? await api.listCompareItems() {\n            _ = GuestCompareStore.writeOems(listed.map(\\.oemPartNumber))\n        }` was unexpected",
+          "path": "apps/ios/GTRCustomer/StorefrontSession.swift",
+          "spans": [
+            {
+              "file": "apps/ios/GTRCustomer/StorefrontSession.swift",
+              "start": {
+                "line": 285,
+                "col": 9,
+                "offset": 0
+              },
+              "end": {
+                "line": 287,
+                "col": 10,
+                "offset": 134
+              }
+            }
+          ]
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": [
+            "PartialParsing",
+            [
+              {
+                "path": "supabase/sim/ci/run.sh",
+                "start": {
+                  "line": 48,
+                  "col": 3,
+                  "offset": 0
+                },
+                "end": {
+                  "line": 48,
+                  "col": 5,
+                  "offset": 2
+                }
+              }
+            ]
+          ],
+          "message": "Syntax error at line supabase/sim/ci/run.sh:48:\n `<<` was unexpected",
+          "path": "supabase/sim/ci/run.sh",
+          "spans": [
+            {
+              "file": "supabase/sim/ci/run.sh",
+              "start": {
+                "line": 48,
+                "col": 3,
+                "offset": 0
+              },
+              "end": {
+                "line": 48,
+                "col": 5,
+                "offset": 2
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "backend": {
+      "observed_at_utc": "2026-11-02T09:03:31.756406+00:00",
+      "command": "/workspace/scratch/nissan-gtr-review/venv/bin/python -m pytest -q; /workspace/scratch/nissan-gtr-review/venv/bin/ruff check app tests",
+      "cwd": "services/whatsapp-flows",
+      "pytest_exit_code": 0,
+      "pytest_passed": 153,
+      "pytest_warnings": 2,
+      "pytest_seconds": 1.13,
+      "warning_summary": "Existing anyio/pytest and Starlette/httpx deprecation warnings.",
+      "ruff_exit_code": 0,
+      "ruff_result": "All checks passed",
+      "new_regressions": [
+        "Health response grants no browser origin or credentials.",
+        "Callback preflight rejected with405 and no CORS allowance.",
+        "Local EcoCash stub retains intended request data but logs no input/normalized payer, payment reference or amount."
+      ],
+      "source_fingerprints": [
+        {
+          "path": "services/whatsapp-flows/app/main.py",
+          "sha256": "184f6fb2202f095a5823abe89dbe5e0fb4115c696d3ecdc6b2b0ce43b5146e61"
+        },
+        {
+          "path": "services/whatsapp-flows/app/services/ecocash_client.py",
+          "sha256": "c2ce193570ab0969d83091f8e30bc0caf9c0c36ab5c6db72643821c63e833b8d"
+        },
+        {
+          "path": "services/whatsapp-flows/tests/test_browser_and_log_privacy.py",
+          "sha256": "055617d9ff103b2f19ec0a4271b64683753a6e5ac6d273cd5f0478755ae648cc"
+        }
+      ],
+      "effects": "No live database/provider/network effects; existing150 callback/crypto/payment cases retained."
+    },
+    "semantic_preservation": {
+      ".npmrc": true,
+      "pnpm-workspace.yaml": true,
+      "pinned_package_manager_unchanged": true,
+      "apps/android-customer/app/src/main/AndroidManifest.xml": true,
+      "apps/android-delivery/app/src/main/AndroidManifest.xml": true,
+      "apps/android-management/app/src/main/AndroidManifest.xml": true,
+      "apps/android-management/app/src/tablet/AndroidManifest.xml": true,
+      "apps/catalog-apk/app/src/main/AndroidManifest.xml": true
+    },
+    "bash_syntax": "bash -n supabase/sim/ci/run.sh PASS",
+    "source_snapshot": "Clean source-only copy of3089 tracked/new source files; every source hash checked unchanged after all scans."
+  },
+  "qualification_limits": [
+    "Native local scan results do not represent a completed remote PR workflow rerun; parent will commit/push and inspect new jobs.",
+    "Semgrep retains known partial-parser warnings on valid GitHub expressions, Swift/Bash constructs and generated TypeScript, plus three community rule timeouts on generated database.types.ts. No warning or target is hidden with new exclusions. Native compiler/bash/other lane checks remain separate evidence.",
+    "npm11/pnpm10 hardening controls are explicitly deferred with the current older toolchains; annotations do not claim those controls are implemented.",
+    "No deployment, production provider, signing or device acceptance was performed."
+  ],
+  "action_pin_provenance": [
+    {
+      "repo": "actions/setup-node",
+      "ref": "v4",
+      "sha": "49933ea5288caeca8642d1e84afbd3f7d6820020",
+      "url": "https://github.com/actions/setup-node/commit/49933ea5288caeca8642d1e84afbd3f7d6820020"
+    },
+    {
+      "repo": "actions/checkout",
+      "ref": "v4",
+      "sha": "11d5960a326750d5838078e36cf38b85af677262",
+      "url": "https://github.com/actions/checkout/commit/11d5960a326750d5838078e36cf38b85af677262",
+      "message": "backport fixes to releases-v4 (#2524)"
+    },
+    {
+      "repo": "actions/setup-java",
+      "ref": "v4",
+      "sha": "cf277c60eb25467037889841efdb72551f06f6c3",
+      "url": "https://github.com/actions/setup-java/commit/cf277c60eb25467037889841efdb72551f06f6c3",
+      "message": "Deprecate setup-java v4 (#1194)"
+    },
+    {
+      "repo": "actions/upload-artifact",
+      "ref": "v4",
+      "sha": "ea165f8d65b6e75b540449e92b4886f43607fa02",
+      "url": "https://github.com/actions/upload-artifact/commit/ea165f8d65b6e75b540449e92b4886f43607fa02",
+      "message": "Merge pull request #685 from salmanmkc/salmanmkc/3-new-upload-artifacts-release"
+    },
+    {
+      "repo": "pnpm/action-setup",
+      "ref": "v4",
+      "sha": "b906affcce14559ad1aafd4ab0e942779e9f58b1",
+      "url": "https://github.com/pnpm/action-setup/commit/b906affcce14559ad1aafd4ab0e942779e9f58b1",
+      "message": "Revert \"feat!: run the action on Node.js 24 (#205)\""
+    },
+    {
+      "repo": "gradle/actions",
+      "ref": "v4",
+      "sha": "ed408507eac070d1f99cc633dbcf757c94c7933a",
+      "url": "https://github.com/gradle/actions/commit/ed408507eac070d1f99cc633dbcf757c94c7933a",
+      "message": "Bump the npm-dependencies group in /sources with 5 updates (#725)"
+    },
+    {
+      "repo": "reactivecircus/android-emulator-runner",
+      "ref": "v2",
+      "sha": "a421e43855164a8197daf9d8d40fe71c6996bb0d",
+      "url": "https://github.com/ReactiveCircus/android-emulator-runner/commit/a421e43855164a8197daf9d8d40fe71c6996bb0d",
+      "message": "Merge branch 'main' into release/v2"
+    },
+    {
+      "repo": "bridgecrewio/checkov-action",
+      "ref": "v12",
+      "sha": "c10e2438743528f9e4549758fad8b7a62052541d",
+      "url": "https://github.com/bridgecrewio/checkov-action/commit/c10e2438743528f9e4549758fad8b7a62052541d",
+      "message": "Bump checkov container version to 3.4.0"
+    },
+    {
+      "repo": "denoland/setup-deno",
+      "ref": "v2",
+      "sha": "22d081ff2d3a40755e97629de92e3bcbfa7cf2ed",
+      "url": "https://github.com/denoland/setup-deno/commit/22d081ff2d3a40755e97629de92e3bcbfa7cf2ed",
+      "message": "2.0.5 (#131)"
+    },
+    {
+      "repo": "actions/setup-python",
+      "ref": "v5",
+      "sha": "a26af69be951a213d495a4c3e4e4022e16d87065",
+      "url": "https://github.com/actions/setup-python/commit/a26af69be951a213d495a4c3e4e4022e16d87065",
+      "message": "Bump ts-jest from 29.1.2 to 29.3.2 (#1081)"
+    }
+  ],
+  "changed_path_count": 26,
+  "changed_path_fingerprints": [
+    {
+      "path": ".github/workflows/android-apps.yml",
+      "sha256": "231bb318b479c9c9b308fe525410c311af198887079015ce3eb5506d3ca6214c"
+    },
+    {
+      "path": ".github/workflows/android-native-16k.yml",
+      "sha256": "68324094be81f62ef08c711f623016a6c28211aafac3881a01be67fcb36b73b6"
+    },
+    {
+      "path": ".github/workflows/android-pos.yml",
+      "sha256": "7856220f5ae8f4576c33238cdd5fdcf8cf932925a4b6cdc7e4229a9a684615be"
+    },
+    {
+      "path": ".github/workflows/android-release.yml",
+      "sha256": "8e4059ea72f443b8105adc08bfe7565fca9e7f3b317c618eef37bb0a112882f9"
+    },
+    {
+      "path": ".github/workflows/checkov.yml",
+      "sha256": "a87364d443ecf30f7b7a559e7bb775db500fab152156e329fceb053dde98c887"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "sha256": "9936d2b0827828b759324fcb92cf2c272bab8e44abebd79060a5127ad8d638b6"
+    },
+    {
+      "path": ".github/workflows/ios.yml",
+      "sha256": "7a66217b91e4909d44790790338df42a3e2e7238ceba63f5b4bac7e2ccd00a55"
+    },
+    {
+      "path": ".github/workflows/payment-security.yml",
+      "sha256": "f1f12424d0bc3c072af4c4efac5447da12f810b01c451a09eae28b179b3bb4e3"
+    },
+    {
+      "path": ".github/workflows/production-public-checks.yml",
+      "sha256": "be40245f7fae92d29342e2053e70f01365bbcbe6377ae5f41d25d58620b45c19"
+    },
+    {
+      "path": ".github/workflows/project-truth-autolog.yml",
+      "sha256": "3710742ca2aa70db260c97c5663f04c99aeaa8506a928f49cfe75ca67aa6f567"
+    },
+    {
+      "path": ".github/workflows/project-truth-guard.yml",
+      "sha256": "66ecf237b72132499b29bbb070c81579bcfd0cf0de0de2aa8e1318ae71226e76"
+    },
+    {
+      "path": ".github/workflows/promptfoo.yml",
+      "sha256": "ed330634111676e4aa966f745d1d3c55e8148516f0f1134d46651cbb3ba9f59d"
+    },
+    {
+      "path": ".github/workflows/semgrep.yml",
+      "sha256": "0e2fbb0076e33c8e84f59b440db585c678eb5c1401f69e2f924879ba25b340b6"
+    },
+    {
+      "path": ".github/workflows/simulation.yml",
+      "sha256": "10bd898ae8135e379aa59eff2304b07bb95268cac491cb1c6bd03b5bfb12adf0"
+    },
+    {
+      "path": ".github/workflows/web.yml",
+      "sha256": "d3a25c8998f7b100332dc49960c1a1c3adc36852c1b4c565f033c0a3e496c301"
+    },
+    {
+      "path": ".npmrc",
+      "sha256": "6a0e237df5e9573f2edc0a76853b4c50f8007d5f4c5e9c8e39741658aacb9dfe"
+    },
+    {
+      "path": "apps/android-customer/app/src/main/AndroidManifest.xml",
+      "sha256": "36b0e494ed67cab8c0ebf7823aae5f0d0eab5ff34a3ac5a2e9e7faedd439d0a9"
+    },
+    {
+      "path": "apps/android-delivery/app/src/main/AndroidManifest.xml",
+      "sha256": "b585c9b842e1d9ed3d7112c861eebad8fdd0b12907ebbf9a8ccb9359465e27ff"
+    },
+    {
+      "path": "apps/android-management/app/src/main/AndroidManifest.xml",
+      "sha256": "f9bd7502a50b4271ae4ab4b8219dda03c4490ccce6e350b1f554ccc4c2081cb6"
+    },
+    {
+      "path": "apps/android-management/app/src/tablet/AndroidManifest.xml",
+      "sha256": "a7cc2daca2f799a83666e9c9451836e3c639a281d2b4a49676d29e011b782ef1"
+    },
+    {
+      "path": "apps/android-management/tools/build_sqlcipher_compatibility_fixture.py",
+      "sha256": "cdfd79fa31c1a3afcbde92b0ffefb87cebb7216bdb0eae41ef6932a3c87929f5"
+    },
+    {
+      "path": "apps/catalog-apk/app/src/main/AndroidManifest.xml",
+      "sha256": "b507ac98e4477b95910897ea34df294c05a49d31a4e772844b7a22ae93c18254"
+    },
+    {
+      "path": "pnpm-workspace.yaml",
+      "sha256": "be95b478b4a74858b4504bbfb0efc491782698cff93fc0aa78bbe01685999e69"
+    },
+    {
+      "path": "services/whatsapp-flows/app/main.py",
+      "sha256": "184f6fb2202f095a5823abe89dbe5e0fb4115c696d3ecdc6b2b0ce43b5146e61"
+    },
+    {
+      "path": "services/whatsapp-flows/app/services/ecocash_client.py",
+      "sha256": "c2ce193570ab0969d83091f8e30bc0caf9c0c36ab5c6db72643821c63e833b8d"
+    },
+    {
+      "path": "services/whatsapp-flows/tests/test_browser_and_log_privacy.py",
+      "sha256": "055617d9ff103b2f19ec0a4271b64683753a6e5ac6d273cd5f0478755ae648cc"
+    }
+  ],
+  "source_edits_authorized": true,
+  "git_mutations_by_reviewer": false,
+  "changed_paths_manifest_sha256": "b2ea784d774a87450283bd9872feacf3964f07c2cf760aa992d6bccaa6ad733c",
+  "evidence_fingerprints": [
+    {
+      "path": "backend-validation.json",
+      "sha256": "c596a3c516dc9bb66dec9981c1fae152bd802049f344702f07f9d6bddbfc2b15"
+    },
+    {
+      "path": "semantic-preservation.json",
+      "sha256": "397f8c4467c5b407ff0540572da8a0f6f72cb0353ce0a90c61db54ca3e0b7701"
+    },
+    {
+      "path": "checkov-after.json",
+      "sha256": "b25a4717f0081116b6e72899ca62a523f0bdfcb91eea91a9d69f932b3241f6fc"
+    },
+    {
+      "path": "semgrep-community-after.json",
+      "sha256": "9dba28400f27f0040aafa06d026bb978f1b027ac3bbc9f5f92b68cd957956178"
+    },
+    {
+      "path": "semgrep-gtr-after.json",
+      "sha256": "4ff06b5eace999708bd91272d13e0201f28a27b7862eb2b103a378016e5cd44b"
+    },
+    {
+      "path": "semgrep-exception-audit.json",
+      "sha256": "7dc26bf3b8030f9c48c86c1c8c088971381fa67562f26f7fd0e82a1b8783672f"
+    },
+    {
+      "path": "scan-source-manifest.json",
+      "sha256": "d78830e683ef4ddc962406a55ff5bf976ed9e89b61a37dd3691413974f5f697c"
+    },
+    {
+      "path": "action-pins.json",
+      "sha256": "5d27086634075f02ede29b6ac832739b122d6ec94462d7a5ee7d2ce6ce283103"
+    }
+  ]
+}

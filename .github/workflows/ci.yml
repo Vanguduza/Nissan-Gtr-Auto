@@ -23,11 +23,11 @@ jobs:
       NEXT_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_ci_fixture_only_not_for_deployment
       NEXT_TELEMETRY_DISABLED: "1"
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: 9.15.0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: pnpm
@@ -46,7 +46,7 @@ jobs:
     name: Hard exclusions grep
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Install ripgrep
         run: sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep
       - name: POS design lint (tablet + web, benchmark-only UI)
@@ -123,7 +123,7 @@ jobs:
     name: Vehicle artwork set
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Verify 94 WebPs cover the Android resolver
         run: python3 scripts/test_vehicle_artwork_set.py
 
@@ -133,11 +133,11 @@ jobs:
     # Docker is available on GitHub-hosted Linux runners. Windows/local without
     # Docker: use the documented docker-exec path in docs/HARDENING.md.
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: 9.15.0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: pnpm
@@ -166,7 +166,7 @@ jobs:
           python3 scripts/verify-database-baseline.py \
             --container "${{ steps.db.outputs.container }}" --smoke \
             --logs-dir "${{ runner.temp }}/database-acceptance"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: database-acceptance

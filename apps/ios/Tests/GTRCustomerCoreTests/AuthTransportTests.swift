@@ -8,7 +8,28 @@ import FoundationNetworking
 #endif
 
 final class AuthURLProtocol: URLProtocol, @unchecked Sendable {
+    enum RequestBodyError: Error, Equatable { case missing, streamReadFailed }
+
     static var handler: ((URLRequest) throws -> (Int, Data))?
+
+    /// Darwin URLSession may move a POST body into a stream before interception.
+    /// Read the actual bytes in either representation so transport assertions
+    /// exercise the same payload on macOS, iOS and FoundationNetworking hosts.
+    static func bodyData(from request: URLRequest) throws -> Data {
+        if let body = request.httpBody { return body }
+        guard let stream = request.httpBodyStream else { throw RequestBodyError.missing }
+        stream.open()
+        defer { stream.close() }
+        var body = Data()
+        var buffer = [UInt8](repeating: 0, count: 1_024)
+        while true {
+            let count = stream.read(&buffer, maxLength: buffer.count)
+            if count < 0 { throw stream.streamError ?? RequestBodyError.streamReadFailed }
+            if count == 0 { return body }
+            body.append(contentsOf: buffer.prefix(count))
+        }
+    }
+
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
@@ -33,11 +54,33 @@ final class AuthTransportTests: XCTestCase {
 
     override func tearDown() { AuthURLProtocol.handler = nil; super.tearDown() }
 
+    func testInterceptedRequestBodySupportsDataAndFoundationStreams() throws {
+        let payload = try JSONSerialization.data(withJSONObject: ["refresh_token": String(repeating: "r", count: 4_096)])
+        var dataRequest = URLRequest(url: URL(string: "https://example.test/auth/v1/token")!)
+        dataRequest.httpBody = payload
+        XCTAssertEqual(try AuthURLProtocol.bodyData(from: dataRequest), payload)
+
+        let stream = InputStream(data: payload)
+        var streamRequest = URLRequest(url: dataRequest.url!)
+        streamRequest.httpBodyStream = stream
+        XCTAssertNil(streamRequest.httpBody)
+        XCTAssertEqual(try AuthURLProtocol.bodyData(from: streamRequest), payload)
+        XCTAssertEqual(stream.streamStatus, .closed)
+    }
+
+    func testInterceptedRequestWithMissingBodyFailsExplicitly() {
+        let request = URLRequest(url: URL(string: "https://example.test/auth/v1/token")!)
+        XCTAssertThrowsError(try AuthURLProtocol.bodyData(from: request)) { error in
+            XCTAssertEqual(error as? AuthURLProtocol.RequestBodyError, .missing)
+        }
+    }
+
     func testRefreshUsesNativeGrantAndReturnsRotatedSession() async throws {
         AuthURLProtocol.handler = { request in
             XCTAssertEqual(request.url?.path, "/auth/v1/token")
             XCTAssertEqual(URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems?.first?.value, "refresh_token")
-            let body = try JSONSerialization.jsonObject(with: request.httpBody!) as! [String: String]
+            let payload = try AuthURLProtocol.bodyData(from: request)
+            let body = try XCTUnwrap(try JSONSerialization.jsonObject(with: payload) as? [String: String])
             XCTAssertEqual(body["refresh_token"], "old-refresh")
             XCTAssertEqual(request.value(forHTTPHeaderField: "apikey"), "public-test-key")
             return (200, Data(#"{"access_token":"new-access","refresh_token":"new-refresh","expires_in":3600,"user":{"email":"customer@example.test"}}"#.utf8))
@@ -110,7 +153,8 @@ final class AuthTransportTests: XCTestCase {
         let id = UUID()
         AuthURLProtocol.handler = { request in
             XCTAssertEqual(request.url?.path, "/rest/v1/rpc/get_product_review_stats")
-            let body = try JSONSerialization.jsonObject(with: request.httpBody!) as! [String: Any]
+            let payload = try AuthURLProtocol.bodyData(from: request)
+            let body = try XCTUnwrap(try JSONSerialization.jsonObject(with: payload) as? [String: Any])
             XCTAssertEqual(body["p_stock_item_id"] as? String, id.uuidString.lowercased())
             XCTAssertTrue(body["p_oem_part_number"] is NSNull)
             return (200, Data("[]".utf8))

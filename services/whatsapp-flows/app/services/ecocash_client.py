@@ -120,11 +120,7 @@ class EcoCashClient:
                 self.settings.ecocash_allow_stub or self.settings.allow_payment_stub
             ):
                 logger.warning(
-                    "EcoCash stub C2B (no ECOCASH_API_KEY): ref=%s msisdn=%s amount=%s %s",
-                    source_reference,
-                    msisdn,
-                    amount,
-                    currency,
+                    "EcoCash local stub requested; payer, payment reference and amount withheld"
                 )
                 return EcoCashChargeResult(
                     ok=True,

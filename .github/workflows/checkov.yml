@@ -27,9 +27,9 @@ jobs:
     name: Checkov (hard-fail HIGH+)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Run Checkov
-        uses: bridgecrewio/checkov-action@v12
+        uses: bridgecrewio/checkov-action@c10e2438743528f9e4549758fad8b7a62052541d # v12
         with:
           directory: .
           # docker_compose is not a Checkov framework (it aborted the run); compose files have no IaC checks.

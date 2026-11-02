@@ -26,6 +26,9 @@ INSERT INTO catalog_items VALUES('part-before-upgrade','Retained fixture part');
 CREATE TABLE pending_sales(local_id TEXT PRIMARY KEY,payload_json TEXT NOT NULL);
 INSERT INTO pending_sales VALUES('sale-before-upgrade','{{"cart":"retained","amount_minor":1250}}');
 """
+# Explicit developer-selected legacy CLI for a public test fixture; argv and SQL
+# stdin are passed directly, with no shell expansion or runtime request input.
+# nosemgrep: python.lang.security.audit.dangerous-subprocess-use-tainted-env-args.dangerous-subprocess-use-tainted-env-args
 result = subprocess.run([str(args.sqlcipher_4_5_4), str(path)], input=sql, text=True, capture_output=True, check=True)
 version = next((line.strip() for line in result.stdout.splitlines() if line.strip().startswith("4.5.4")), None)
 if version is None:

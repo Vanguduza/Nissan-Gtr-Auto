@@ -14,7 +14,7 @@ jobs:
   project-truth:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -48,7 +48,7 @@ jobs:
           }
           (pathlib.Path(os.environ['RUNNER_TEMP']) / 'project-truth-observation.json').write_text(json.dumps(receipt, indent=2) + chr(10))
           OBSERVATION
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: project-truth-${{ github.event.pull_request.head.sha || github.sha }}
           path: ${{ runner.temp }}/project-truth-observation.json
