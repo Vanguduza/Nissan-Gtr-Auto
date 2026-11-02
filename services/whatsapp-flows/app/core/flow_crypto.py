@@ -49,7 +49,7 @@ class FlowCrypto:
             enc_aes_key = base64.b64decode(encrypted_aes_key_b64)
             enc_flow = base64.b64decode(encrypted_flow_data_b64)
             iv = base64.b64decode(initial_vector_b64)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise FlowCryptoError(f"invalid base64 fields: {exc}") from exc
 
         try:
@@ -61,7 +61,7 @@ class FlowCrypto:
                     label=None,
                 ),
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise FlowCryptoError(f"RSA-OAEP decrypt failed: {exc}") from exc
 
         if len(enc_flow) < 16:
@@ -69,12 +69,12 @@ class FlowCrypto:
         ciphertext, tag = enc_flow[:-16], enc_flow[-16:]
         try:
             clear = AESGCM(aes_key).decrypt(iv, ciphertext + tag, None)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise FlowCryptoError(f"AES-GCM decrypt failed: {exc}") from exc
 
         try:
             payload = json.loads(clear.decode("utf-8"))
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise FlowCryptoError(f"JSON parse failed: {exc}") from exc
         if not isinstance(payload, dict):
             raise FlowCryptoError("flow payload must be a JSON object")

@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "authorization": "Owner request: Fix all identified issues and merge required missing work",
+  "repository": "Vanguduza/Nissan-Gtr-Auto",
+  "base_commit": "e1eaea88ac9e904118d57c439579e1549622f5d9",
+  "implementation_branch": "cursor/deployment-reconciliation-ad25",
+  "canonical_target": "cursor/erp-cursor-setup-ad25",
+  "production_branch": "main",
+  "audit_scope": "All 25 current remote branches, 45 unique commits outside canonical history, deployment readiness findings R01-R11 and the follow-up reconciliation gaps",
+  "preserve": [
+    "approved benchmark POS",
+    "Illustrated/POS/Express customer styles",
+    "staff-only technical catalogue",
+    "current commerce ledger and reservation authority",
+    "gross payroll with manual deductions",
+    "append-only finance ledger",
+    "RLS and Bridge-First boundaries"
+  ],
+  "steps": [
+    {
+      "id": "security",
+      "work": "Port missing EcoCash status and WhatsApp callback authentication fixes; enforce hosted-production refusal of local-unverified flags; repair legacy null-allocation settlement without replacing current commerce behavior",
+      "state": "independently_reviewed_and_source_tested"
+    },
+    {
+      "id": "database",
+      "work": "Build a reproducible schema baseline from preserved source histories, repair clean-install/upgrade failures, and run actual migration/RLS/commerce tests",
+      "state": "independently_reviewed_and_source_tested"
+    },
+    {
+      "id": "mobile",
+      "work": "Adapt missing customer transport, garage identity and CI changes; reject fake/missing release configuration across Android apps; add release checks and signing-aware build validation",
+      "state": "source_tested"
+    },
+    {
+      "id": "ios",
+      "work": "Move credentials to Keychain, implement session refresh/recovery, reject release fake fallback, register canonical iOS lineage and add native build/test workflow",
+      "state": "source_tested"
+    },
+    {
+      "id": "staff",
+      "work": "Integrate missing employee QR cards, staff self-service, payroll funding/schedules, merchandising and module-access corrections; integrate the staff overview with current authorization and schema",
+      "state": "source_tested"
+    },
+    {
+      "id": "dependencies",
+      "work": "Patch all applicable production dependency advisories and verify the installed graph",
+      "state": "source_tested"
+    },
+    {
+      "id": "provenance",
+      "work": "Repair merge-safe change-ledger validation with integrity tests, preserve hooks, record every source commit and verify exact release provenance",
+      "state": "source_tested"
+    },
+    {
+      "id": "acceptance",
+      "work": "Add meaningful web/security acceptance, qualify providers and production configuration where access exists, and retain explicit evidence for device/hosted checks requiring external execution",
+      "state": "local_acceptance_passed_external_qualification_required"
+    },
+    {
+      "id": "integration",
+      "work": "Run independent security review and final verification, create the reviewable PR, merge passing required source through canonical and production branches, and reconcile stale PRs without deleting retained branch evidence",
+      "state": "in_progress"
+    }
+  ],
+  "merge_policy": "No wholesale merging of superseded clients, stale migration histories or old change ledgers. Preserve or explicitly disposition every audited branch. Required checks must pass; do not bypass hooks or protections.",
+  "evidence_states": [
+    "source_implemented",
+    "source_tested",
+    "independently_reviewed",
+    "integrated",
+    "deployed",
+    "live_verified"
+  ],
+  "observed_external_limits": [
+    "No Vercel or Supabase administration identity is configured in this workspace; no matching production public key or deployed provider secret state is attested",
+    "Native macOS/iOS and 16KB Android emulator execution must run through the added CI workflows; physical-device and owner signing evidence remain external",
+    "ContiPay merchant contract/UAT and provider/worker delivery evidence require the intended native environment",
+    "Existing hosted baseline adoption requires backup, read-only inventory and restored-staging upgrade acceptance"
+  ],
+  "verification_context": {
+    "local_runtime": "Node 22.23.4 / pnpm 9.15.0; native PostgreSQL 17.6, Auth 2.197.0 and Storage 1.79.36; Android SDK 36; portable Swift 6.0.3",
+    "integration_gate": "Final independently reviewed source, automatic ledger and exact-commit GitHub checks before merging canonical and main",
+    "readiness_record": "docs/project-state/DEPLOYMENT_READINESS.json",
+    "branch_dispositions": "docs/project-state/BRANCH_RECONCILIATION.json"
+  },
+  "integration_source_commit": "d49bd43dd978534fce0aa226ace5c1df9a5d80f1"
+}

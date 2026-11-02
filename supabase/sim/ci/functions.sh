@@ -7,9 +7,17 @@
 # secrets (SMS, WhatsApp, Paynow, ContiPay, R2) are never needed here; put real ones only in the
 # hosted project's function secrets. Needs Docker and network access to jsr.io / npm for imports.
 set -euo pipefail
+umask 077
 here="$(cd "$(dirname "$0")" && pwd)"
 env_file="$(mktemp)"
 trap 'rm -f "$env_file"' EXIT
-printf 'WORKER_ALLOW_UNVERIFIED_LOCAL=1\n' > "$env_file"
+cat > "$env_file" <<'ENV'
+ENVIRONMENT=local
+WORKER_ALLOW_UNVERIFIED_LOCAL=1
+WORKER_SHARED_SECRET=
+SMS_GATEWAY_API_KEY=
+WHATSAPP_ACCESS_TOKEN=
+WHATSAPP_PHONE_NUMBER_ID=
+ENV
 cd "$here"
-npx -y supabase@latest functions serve --env-file "$env_file"
+npx -y supabase@2.120.0 functions serve --env-file "$env_file"

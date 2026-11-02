@@ -1,0 +1,11 @@
+{
+  "purpose": "Public test-only encrypted cache/outbox fixture; no production records or keys",
+  "creator_cipher_version": "4.5.4 community",
+  "legacy_wrapped_test_bytes_hex": "4180ffc3a9",
+  "schema_user_version": 7,
+  "file": "sqlcipher-4.5.4-cache.db",
+  "sha256": "1f369fa4288580dc2c23e42455e6ec852bf2582b91c30f9a7e0c19b9c6f70b0b",
+  "generator": "apps/android-management/tools/build_sqlcipher_compatibility_fixture.py",
+  "source": "https://github.com/sqlcipher/sqlcipher/releases/tag/v4.5.4",
+  "legacy_source_archive_sha256": "ea052fe634d729f9dd6b624016104de796faf87e487a9e868a07faee35957771"
+}

@@ -32,7 +32,7 @@
 		A1000000000000000000002A /* WishlistScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002B /* WishlistScreen.swift */; };
 		A1000000000000000000002C /* CompareScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002D /* CompareScreen.swift */; };
 		A10000000000000000000052 /* CatalogScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000053 /* CatalogScreen.swift */; };
-		A10000000000000000000050 /* GuestCompareStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000051 /* GuestCompareStore.swift */; };
+		A100000000000000000000E0 /* GuestCompareStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000051 /* GuestCompareStore.swift */; };
 		A10000000000000000000054 /* GTRTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000055 /* GTRTheme.swift */; };
 		A10000000000000000000070 /* TitilliumWeb-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000071 /* TitilliumWeb-Regular.ttf */; };
 		A10000000000000000000072 /* TitilliumWeb-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000073 /* TitilliumWeb-SemiBold.ttf */; };
@@ -56,6 +56,28 @@
 		A100000000000000000000A6 /* VehicleCatalogModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000A7 /* VehicleCatalogModels.swift */; };
 		A100000000000000000000A8 /* VehicleSelectorSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000A9 /* VehicleSelectorSection.swift */; };
 		A100000000000000000000AA /* CatalogCategoryFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000AB /* CatalogCategoryFilter.swift */; };
+		A100000000000000000000E2 /* AuthSessionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000E1 /* AuthSessionCoordinator.swift */; };
+		A100000000000000000000E4 /* EpcCatalogModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000E3 /* EpcCatalogModels.swift */; };
+		A100000000000000000000E6 /* EpcCatalogParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000E5 /* EpcCatalogParser.swift */; };
+        B20000000000000000000064 /* AppEnv.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000013 /* AppEnv.swift */; };
+        B20000000000000000000065 /* AuthNonce.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000B1 /* AuthNonce.swift */; };
+        B20000000000000000000066 /* AuthSessionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000E1 /* AuthSessionCoordinator.swift */; };
+        B20000000000000000000067 /* AuthTokenStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000021 /* AuthTokenStore.swift */; };
+        B20000000000000000000068 /* CatalogCategoryFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000AB /* CatalogCategoryFilter.swift */; };
+        B20000000000000000000069 /* CatalogChassisAlias.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000C1 /* CatalogChassisAlias.swift */; };
+        B2000000000000000000006A /* EpcCatalogModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000E3 /* EpcCatalogModels.swift */; };
+        B2000000000000000000006B /* EpcCatalogParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000E5 /* EpcCatalogParser.swift */; };
+        B2000000000000000000006C /* GoTrueAuthClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001F /* GoTrueAuthClient.swift */; };
+        B2000000000000000000006D /* GoogleOAuthBrowser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000B3 /* GoogleOAuthBrowser.swift */; };
+        B2000000000000000000006E /* GuestCompareStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000051 /* GuestCompareStore.swift */; };
+        B2000000000000000000006F /* LiveStorefrontApi.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001E /* LiveStorefrontApi.swift */; };
+        B20000000000000000000070 /* PostgrestClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001D /* PostgrestClient.swift */; };
+        B20000000000000000000071 /* StorefrontApi.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000016 /* StorefrontApi.swift */; };
+        B20000000000000000000072 /* StorefrontFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000017 /* StorefrontFormat.swift */; };
+        B20000000000000000000073 /* StorefrontModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000015 /* StorefrontModels.swift */; };
+        B20000000000000000000074 /* VehicleCatalogModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000A7 /* VehicleCatalogModels.swift */; };
+        B2000000000000000000000E /* AuthLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000000C /* AuthLifecycleTests.swift */; };
+        B2000000000000000000000F /* AuthTransportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000000D /* AuthTransportTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -111,6 +133,12 @@
 		A100000000000000000000A7 /* VehicleCatalogModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = VehicleCatalogModels.swift; path = ../Sources/GTRCustomerCore/VehicleCatalogModels.swift; sourceTree = "<group>"; };
 		A100000000000000000000A9 /* VehicleSelectorSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VehicleSelectorSection.swift; sourceTree = "<group>"; };
 		A100000000000000000000AB /* CatalogCategoryFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CatalogCategoryFilter.swift; path = ../Sources/GTRCustomerCore/CatalogCategoryFilter.swift; sourceTree = "<group>"; };
+		A100000000000000000000E1 /* AuthSessionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AuthSessionCoordinator.swift; path = ../Sources/GTRCustomerCore/AuthSessionCoordinator.swift; sourceTree = "<group>"; };
+		A100000000000000000000E3 /* EpcCatalogModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = EpcCatalogModels.swift; path = ../Sources/GTRCustomerCore/EpcCatalogModels.swift; sourceTree = "<group>"; };
+		A100000000000000000000E5 /* EpcCatalogParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = EpcCatalogParser.swift; path = ../Sources/GTRCustomerCore/EpcCatalogParser.swift; sourceTree = "<group>"; };
+        B2000000000000000000000C /* AuthLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthLifecycleTests.swift; sourceTree = "<group>"; };
+        B2000000000000000000000D /* AuthTransportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthTransportTests.swift; sourceTree = "<group>"; };
+        B20000000000000000000003 /* GTRCustomerAuthTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = GTRCustomerAuthTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -121,6 +149,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+        B20000000000000000000005 /* Test Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -130,6 +159,7 @@
 				A10000000000000000000031 /* GTRCustomer */,
 				A10000000000000000000025 /* Shared.xcconfig */,
 				A10000000000000000000032 /* Products */,
+                B2000000000000000000000B /* Auth tests */,
 			);
 			sourceTree = "<group>";
 		};
@@ -167,6 +197,7 @@
 			isa = PBXGroup;
 			children = (
 				A10000000000000000000010 /* GTRCustomer.app */,
+                B20000000000000000000003 /* GTRCustomerAuthTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -220,6 +251,9 @@
 				A1000000000000000000001E /* LiveStorefrontApi.swift */,
 				A1000000000000000000001F /* GoTrueAuthClient.swift */,
 				A10000000000000000000021 /* AuthTokenStore.swift */,
+				A100000000000000000000E5 /* EpcCatalogParser.swift */,
+				A100000000000000000000E3 /* EpcCatalogModels.swift */,
+				A100000000000000000000E1 /* AuthSessionCoordinator.swift */,
 				A100000000000000000000B1 /* AuthNonce.swift */,
 				A100000000000000000000B3 /* GoogleOAuthBrowser.swift */,
 				A100000000000000000000C1 /* CatalogChassisAlias.swift */,
@@ -238,6 +272,12 @@
 			path = Theme;
 			sourceTree = "<group>";
 		};
+        B2000000000000000000000B /* Auth tests */ = {
+            isa = PBXGroup;
+            children = (B2000000000000000000000C /* AuthLifecycleTests.swift */, B2000000000000000000000D /* AuthTransportTests.swift */);
+            path = Tests/GTRCustomerCoreTests;
+            sourceTree = "<group>";
+        };
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -245,7 +285,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = A10000000000000000000060 /* Build configuration list for PBXNativeTarget "GTRCustomer" */;
 			buildPhases = (
-				A10000000000000000000041 /* Sources */,
+				A100000000000000000000E7 /* Verify release configuration */,				A10000000000000000000041 /* Sources */,
 				A10000000000000000000020 /* Frameworks */,
 				A10000000000000000000042 /* Resources */,
 			);
@@ -258,7 +298,25 @@
 			productReference = A10000000000000000000010 /* GTRCustomer.app */;
 			productType = "com.apple.product-type.application";
 		};
+        B20000000000000000000001 /* GTRCustomerAuthTests */ = {
+            isa = PBXNativeTarget;
+            buildConfigurationList = B20000000000000000000006;
+            buildPhases = (B20000000000000000000004 /* Test Sources */, B20000000000000000000005 /* Test Frameworks */);
+            buildRules = ();
+            dependencies = (B20000000000000000000009);
+            name = GTRCustomerAuthTests;
+            productName = GTRCustomerAuthTests;
+            productReference = B20000000000000000000003;
+            productType = "com.apple.product-type.bundle.unit-test";
+        };
 /* End PBXNativeTarget section */
+
+/* Begin PBXContainerItemProxy section */
+        B2000000000000000000000A = {isa = PBXContainerItemProxy; containerPortal = A10000000000000000000050; proxyType = 1; remoteGlobalIDString = A10000000000000000000040; remoteInfo = GTRCustomer; };
+/* End PBXContainerItemProxy section */
+/* Begin PBXTargetDependency section */
+        B20000000000000000000009 = {isa = PBXTargetDependency; target = A10000000000000000000040; targetProxy = B2000000000000000000000A; };
+/* End PBXTargetDependency section */
 
 /* Begin PBXProject section */
 		A10000000000000000000050 /* Project object */ = {
@@ -287,6 +345,7 @@
 			projectRoot = "";
 			targets = (
 				A10000000000000000000040 /* GTRCustomer */,
+                B20000000000000000000001 /* GTRCustomerAuthTests */,
 			);
 		};
 /* End PBXProject section */
@@ -308,6 +367,21 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+        A100000000000000000000E7 /* Verify release configuration */ = {
+            isa = PBXShellScriptBuildPhase;
+            alwaysOutOfDate = 1;
+            buildActionMask = 2147483647;
+            files = ();
+            inputPaths = ();
+            name = "Verify release configuration";
+            outputPaths = ();
+            runOnlyForDeploymentPostprocessing = 0;
+            shellPath = /bin/sh;
+            shellScript = "set -eu\npython3 \"$SRCROOT/../../scripts/project_truth_guard.py\" release-check --app ios\nif [ \"$CONFIGURATION\" = \"Release\" ]; then\n  python3 \"$SRCROOT/scripts/validate-release-config.py\"\nfi\n";
+        };
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		A10000000000000000000041 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -327,6 +401,9 @@
 				A1000000000000000000000E /* LiveStorefrontApi.swift in Sources */,
 				A1000000000000000000000F /* GoTrueAuthClient.swift in Sources */,
 				A10000000000000000000023 /* AuthTokenStore.swift in Sources */,
+				A100000000000000000000E6 /* EpcCatalogParser.swift in Sources */,
+				A100000000000000000000E4 /* EpcCatalogModels.swift in Sources */,
+				A100000000000000000000E2 /* AuthSessionCoordinator.swift in Sources */,
 				A100000000000000000000B0 /* AuthNonce.swift in Sources */,
 				A100000000000000000000B2 /* GoogleOAuthBrowser.swift in Sources */,
 				A100000000000000000000C0 /* CatalogChassisAlias.swift in Sources */,
@@ -346,7 +423,7 @@
 				A100000000000000000000A0 /* KitsScreen.swift in Sources */,
 				A100000000000000000000A2 /* CategoryPlpScreen.swift in Sources */,
 				A100000000000000000000A4 /* CatalogBrowseFilters.swift in Sources */,
-				A10000000000000000000050 /* GuestCompareStore.swift in Sources */,
+				A100000000000000000000E0 /* GuestCompareStore.swift in Sources */,
 				A10000000000000000000007 /* StorefrontFormat.swift in Sources */,
 				A10000000000000000000054 /* GTRTheme.swift in Sources */,
 				A10000000000000000000090 /* ShopKit.swift in Sources */,
@@ -358,10 +435,36 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+        B20000000000000000000004 /* Test Sources */ = {
+            isa = PBXSourcesBuildPhase;
+            buildActionMask = 2147483647;
+            files = (
+                B20000000000000000000064 /* AppEnv.swift in Sources */,
+                B20000000000000000000065 /* AuthNonce.swift in Sources */,
+                B20000000000000000000066 /* AuthSessionCoordinator.swift in Sources */,
+                B20000000000000000000067 /* AuthTokenStore.swift in Sources */,
+                B20000000000000000000068 /* CatalogCategoryFilter.swift in Sources */,
+                B20000000000000000000069 /* CatalogChassisAlias.swift in Sources */,
+                B2000000000000000000006A /* EpcCatalogModels.swift in Sources */,
+                B2000000000000000000006B /* EpcCatalogParser.swift in Sources */,
+                B2000000000000000000006C /* GoTrueAuthClient.swift in Sources */,
+                B2000000000000000000006D /* GoogleOAuthBrowser.swift in Sources */,
+                B2000000000000000000006E /* GuestCompareStore.swift in Sources */,
+                B2000000000000000000006F /* LiveStorefrontApi.swift in Sources */,
+                B20000000000000000000070 /* PostgrestClient.swift in Sources */,
+                B20000000000000000000071 /* StorefrontApi.swift in Sources */,
+                B20000000000000000000072 /* StorefrontFormat.swift in Sources */,
+                B20000000000000000000073 /* StorefrontModels.swift in Sources */,
+                B20000000000000000000074 /* VehicleCatalogModels.swift in Sources */,
+                B2000000000000000000000E /* AuthLifecycleTests.swift in Sources */,
+                B2000000000000000000000F /* AuthTransportTests.swift in Sources */,
+            );
+            runOnlyForDeploymentPostprocessing = 0;
+        };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		A10000000000000000000070 /* Debug */ = {
+		A100000000000000000000D0 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -378,7 +481,7 @@
 			};
 			name = Debug;
 		};
-		A10000000000000000000071 /* Release */ = {
+		A100000000000000000000D1 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -392,7 +495,7 @@
 			};
 			name = Release;
 		};
-		A10000000000000000000072 /* Debug */ = {
+		A100000000000000000000D2 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = A10000000000000000000025 /* Shared.xcconfig */;
 			buildSettings = {
@@ -423,7 +526,7 @@
 			};
 			name = Debug;
 		};
-		A10000000000000000000073 /* Release */ = {
+		A100000000000000000000D3 /* Release */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = A10000000000000000000025 /* Shared.xcconfig */;
 			buildSettings = {
@@ -454,14 +557,48 @@
 			};
 			name = Release;
 		};
+        B20000000000000000000007 /* Test Debug */ = {
+            isa = XCBuildConfiguration;
+            buildSettings = {
+                BUNDLE_LOADER = "$(TEST_HOST)";
+                CODE_SIGN_STYLE = Automatic;
+                GENERATE_INFOPLIST_FILE = YES;
+                IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+                PRODUCT_BUNDLE_IDENTIFIER = co.zw.nissangtr.customer.authTests;
+                PRODUCT_NAME = "$(TARGET_NAME)";
+                SDKROOT = iphoneos;
+                SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+                SWIFT_VERSION = 5.0;
+                TEST_HOST = "$(BUILT_PRODUCTS_DIR)/GTRCustomer.app/GTRCustomer";
+                TARGETED_DEVICE_FAMILY = 1;
+            };
+            name = Debug;
+        };
+        B20000000000000000000008 /* Test Release */ = {
+            isa = XCBuildConfiguration;
+            buildSettings = {
+                BUNDLE_LOADER = "$(TEST_HOST)";
+                CODE_SIGN_STYLE = Automatic;
+                GENERATE_INFOPLIST_FILE = YES;
+                IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+                PRODUCT_BUNDLE_IDENTIFIER = co.zw.nissangtr.customer.authTests;
+                PRODUCT_NAME = "$(TARGET_NAME)";
+                SDKROOT = iphoneos;
+                SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+                SWIFT_VERSION = 5.0;
+                TEST_HOST = "$(BUILT_PRODUCTS_DIR)/GTRCustomer.app/GTRCustomer";
+                TARGETED_DEVICE_FAMILY = 1;
+            };
+            name = Release;
+        };
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
 		A10000000000000000000060 /* Build configuration list for PBXNativeTarget "GTRCustomer" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				A10000000000000000000072 /* Debug */,
-				A10000000000000000000073 /* Release */,
+				A100000000000000000000D2 /* Debug */,
+				A100000000000000000000D3 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -469,12 +606,18 @@
 		A10000000000000000000061 /* Build configuration list for PBXProject "GTRCustomer" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				A10000000000000000000070 /* Debug */,
-				A10000000000000000000071 /* Release */,
+				A100000000000000000000D0 /* Debug */,
+				A100000000000000000000D1 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+        B20000000000000000000006 = {
+            isa = XCConfigurationList;
+            buildConfigurations = (B20000000000000000000007 /* Test Debug */, B20000000000000000000008 /* Test Release */);
+            defaultConfigurationIsVisible = 0;
+            defaultConfigurationName = Release;
+        };
 /* End XCConfigurationList section */
 	};
 	rootObject = A10000000000000000000050 /* Project object */;

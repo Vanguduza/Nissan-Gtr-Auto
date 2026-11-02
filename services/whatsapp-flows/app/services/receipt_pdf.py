@@ -12,7 +12,7 @@ from reportlab.pdfgen import canvas
 def build_receipt_pdf(order: dict[str, Any]) -> bytes:
     buf = BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)
-    width, height = A4
+    _width, height = A4
     y = height - 48
     c.setFont("Helvetica-Bold", 14)
     c.drawString(48, y, "Nissan GTR Auto — Receipt")

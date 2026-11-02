@@ -98,7 +98,15 @@ public final class LiveStorefrontApi: StorefrontApi {
     /// Import a customer JWT after GoTrue sign-in (do not hardcode tokens in source).
     /// Empty string clears to the anon key (signed-out Bearer).
     public func setAccessToken(_ token: String) {
-        client.accessToken = token.isEmpty ? AppEnv.supabaseAnonKey : token
+        client.accessToken = token.isEmpty ? client.anonKey : token
+    }
+
+    public func configureAuthentication(
+        tokenProvider: @escaping (String?) async throws -> String?,
+        onFailure: @escaping () -> Void
+    ) {
+        client.tokenProvider = tokenProvider
+        client.onAuthenticationFailure = onFailure
     }
 
     /// Own `customers.id` via RLS — nil when AuthZ customer context is missing.
@@ -801,12 +809,47 @@ public final class LiveStorefrontApi: StorefrontApi {
         }
     }
 
+    public func searchProducts(query: String, limit: Int) async throws -> [CatalogListItem] {
+        let term = String(query.prefix(80)).filter { $0.isLetter || $0.isNumber || " -.".contains($0) }
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !term.isEmpty else { return [] }
+        let cap = max(1, min(limit, 50))
+        let like = Self.percentEncodeQueryValue("*" + term + "*")
+        var rows: [StockItemBrowseRow] = try await client.selectDecode(table: "stock_items", query: "select=id,oem_part_number,description,reorder_point&or=(description.ilike.\(like),oem_part_number.ilike.\(like))&limit=\(cap)")
+        if rows.isEmpty {
+            // Technical matching stays behind the product presentation boundary.
+            var matching: [String] = []
+            for mode in [CatalogSearchMode.part, .model, .pnc, .vin] {
+                if let result = try? await searchCatalog(mode: mode, query: term) {
+                    matching.append(contentsOf: result.parts.map(\.oemPartNumber))
+                }
+                if !matching.isEmpty { break }
+            }
+            let oems = Array(Set(matching)).prefix(cap).map(Self.percentEncodeQueryValue).joined(separator: ",")
+            if !oems.isEmpty {
+                rows = try await client.selectDecode(table: "stock_items", query: "select=id,oem_part_number,description,reorder_point&oem_part_number=in.(\(oems))&limit=\(cap)")
+            }
+        }
+        let ids = rows.map(\.id)
+        let prices = try await loadDefaultPrices(ids)
+        let quantities = try await loadSaleableQty(ids)
+        return rows.compactMap { row in
+            guard let price = prices[row.id], price.unitPrice > 0, (quantities[row.id] ?? 0) > 0 else { return nil }
+            return CatalogListItem(stockItemId: row.id, oem: row.oemPartNumber,
+                name: CustomerCatalogPresentation.productName(row.description, identifier: row.oemPartNumber),
+                stock: catalogStockState(qty: quantities[row.id] ?? 0, reorderPoint: row.reorderPoint),
+                usd: Decimal(price.unitPrice))
+        }
+    }
+
     public func listCatalogBrowse(category: String?, limit: Int) async throws -> CatalogBrowseResult {
         let cap = min(max(limit, 1), 100)
         let cat = category?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
         // Merchandising taxonomy only — never dump raw pnc_categories names.
         let categories = CatalogCategoryFilter.facetLabels(activeFilter: cat)
-        let oemFilter = cat.map { try await resolveOemFilterForCategory($0) }
+        let oemFilter: [String]?
+        if let cat { oemFilter = try await resolveOemFilterForCategory(cat) }
+        else { oemFilter = nil }
         if let oemFilter, oemFilter.isEmpty {
             return CatalogBrowseResult(items: [], categories: categories)
         }
@@ -838,8 +881,7 @@ public final class LiveStorefrontApi: StorefrontApi {
             return CatalogListItem(
                 stockItemId: row.id,
                 oem: row.oemPartNumber,
-                name: row.description?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
-                    ?? row.oemPartNumber,
+                name: CustomerCatalogPresentation.productName(row.description, identifier: row.oemPartNumber),
                 stock: catalogStockState(qty: qtyByItem[row.id] ?? 0, reorderPoint: row.reorderPoint),
                 usd: usd,
                 category: catByOem[row.oemPartNumber] ?? cat
@@ -1042,8 +1084,7 @@ public final class LiveStorefrontApi: StorefrontApi {
             return CatalogListItem(
                 stockItemId: row.id,
                 oem: row.oemPartNumber,
-                name: row.description?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
-                    ?? row.oemPartNumber,
+                name: CustomerCatalogPresentation.productName(row.description, identifier: row.oemPartNumber),
                 stock: catalogStockState(qty: qtyByItem[row.id] ?? 0, reorderPoint: row.reorderPoint),
                 usd: price.map { Decimal($0.unitPrice) },
                 category: catByOem[row.oemPartNumber]
@@ -1054,35 +1095,35 @@ public final class LiveStorefrontApi: StorefrontApi {
 
     public func loadCatalogProduct(oem: String) async throws -> CatalogProduct {
         let needle = oem.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !needle.isEmpty else { throw StorefrontError.message("OEM required") }
+        guard !needle.isEmpty else { throw StorefrontError.message("Choose a product.") }
         let items: [StockItemPdpRow] = try await client.selectDecode(
             table: "stock_items",
             query: [
                 "select=id,oem_part_number,description,reorder_point,base_uom_id",
-                "oem_part_number=eq.\(Self.percentEncodeQueryValue(needle))",
+                UUID(uuidString: needle).map { "id=eq.\($0.uuidString)" } ?? "oem_part_number=eq.\(Self.percentEncodeQueryValue(needle))",
                 "limit=1",
             ].joined(separator: "&")
         )
         guard let item = items.first else {
-            throw StorefrontError.message("Part not found: \(needle)")
+            throw StorefrontError.message("This product is unavailable.")
         }
         guard let uomId = item.baseUomId else {
-            throw StorefrontError.message("Part \(needle) has no base UOM")
+            throw StorefrontError.message("This product is not ready for checkout.")
         }
         let price = try await loadDefaultPrices([item.id])[item.id]
         let qty = try await loadSaleableQty([item.id])[item.id] ?? 0
         let fitmentMeta = try await loadFitmentMeta(oem: item.oemPartNumber)
-        let diagramUrl = try await loadDiagramPublicUrl(oem: item.oemPartNumber)
-        let replaces = try await loadReplaces(oem: item.oemPartNumber)
-        var imageUrls: [String] = []
-        if let diagramUrl { imageUrls.append(diagramUrl) }
+        let photos: [ProductPhotoRow] = try await client.selectDecode(
+            table: "stock_item_images",
+            query: "select=storage_path&stock_item_id=eq.\(item.id.uuidString)&order=is_primary.desc,sort_order.asc&limit=12"
+        )
+        let imageUrls = photos.map { client.baseURL.appendingPathComponent("storage/v1/object/public/product-images").appendingPathComponent($0.storagePath).absoluteString }
 
         return CatalogProduct(
             stockItemId: item.id,
             baseUomId: uomId,
             oem: item.oemPartNumber,
-            name: item.description?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
-                ?? item.oemPartNumber,
+            name: CustomerCatalogPresentation.productName(item.description, identifier: item.oemPartNumber),
             brand: "Nissan OE",
             category: fitmentMeta.category,
             usd: price.map { Decimal($0.unitPrice) },
@@ -1090,9 +1131,9 @@ public final class LiveStorefrontApi: StorefrontApi {
             coreCharge: Decimal(price?.coreCharge ?? 0),
             fitmentLines: fitmentMeta.lines,
             imageUrls: imageUrls,
-            diagramUrl: diagramUrl,
-            specs: fitmentMeta.specs,
-            replaces: replaces
+            diagramUrl: nil,
+            specs: [],
+            replaces: []
         )
     }
 
@@ -1367,7 +1408,7 @@ public final class LiveStorefrontApi: StorefrontApi {
         )
         return (xrefs.compactMap(\.oeNumber) + superseded.compactMap(\.supersededBy))
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty && !$0.caseInsensitiveCompare(oem).equals(.orderedSame) }
+            .filter { !$0.isEmpty && $0.caseInsensitiveCompare(oem) != .orderedSame }
             .uniqued()
     }
 
@@ -1520,7 +1561,7 @@ public final class LiveStorefrontApi: StorefrontApi {
         let trimmed = oem?.trimmingCharacters(in: .whitespacesAndNewlines)
         return [
             "p_stock_item_id": stockItemId.map { JSONValue.uuid($0) } ?? NSNull(),
-            "p_oem_part_number": (trimmed?.isEmpty == false) ? trimmed! : NSNull(),
+            "p_oem_part_number": stockItemId == nil && trimmed?.isEmpty == false ? trimmed! : NSNull(),
         ]
     }
 
@@ -1743,7 +1784,7 @@ private struct CustomerOrderDTO: Decodable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         if let id = try? c.decode(UUID.self, forKey: .invoiceId) {
             invoiceId = id
-        } else if let s = try c.decode(String.self, forKey: .invoiceId), let id = UUID(uuidString: s) {
+        } else if let s = try? c.decode(String.self, forKey: .invoiceId), let id = UUID(uuidString: s) {
             invoiceId = id
         } else {
             throw DecodingError.dataCorruptedError(
@@ -1832,7 +1873,7 @@ private struct DeliveryTrackPointDTO: Decodable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         if let id = try? c.decode(UUID.self, forKey: .deliveryJobId) {
             deliveryJobId = id
-        } else if let s = try c.decode(String.self, forKey: .deliveryJobId),
+        } else if let s = try? c.decode(String.self, forKey: .deliveryJobId),
                   let id = UUID(uuidString: s) {
             deliveryJobId = id
         } else {
@@ -1910,7 +1951,7 @@ private struct ChatThreadRow: Decodable {
 
     private static func decodeUUID(_ c: KeyedDecodingContainer<CodingKeys>, key: CodingKeys) throws -> UUID {
         if let id = try? c.decode(UUID.self, forKey: key) { return id }
-        if let s = try c.decode(String.self, forKey: key), let id = UUID(uuidString: s) { return id }
+        if let s = try? c.decode(String.self, forKey: key), let id = UUID(uuidString: s) { return id }
         throw DecodingError.dataCorruptedError(forKey: key, in: c, debugDescription: "UUID required")
     }
 
@@ -1941,14 +1982,14 @@ private struct ChatMessageRow: Decodable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         if let u = try? c.decode(UUID.self, forKey: .id) {
             id = u
-        } else if let s = try c.decode(String.self, forKey: .id), let u = UUID(uuidString: s) {
+        } else if let s = try? c.decode(String.self, forKey: .id), let u = UUID(uuidString: s) {
             id = u
         } else {
             throw DecodingError.dataCorruptedError(forKey: .id, in: c, debugDescription: "id required")
         }
         if let u = try? c.decode(UUID.self, forKey: .threadId) {
             threadId = u
-        } else if let s = try c.decode(String.self, forKey: .threadId), let u = UUID(uuidString: s) {
+        } else if let s = try? c.decode(String.self, forKey: .threadId), let u = UUID(uuidString: s) {
             threadId = u
         } else {
             throw DecodingError.dataCorruptedError(forKey: .threadId, in: c, debugDescription: "thread_id required")
@@ -2002,7 +2043,7 @@ private struct AddressRow: Decodable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         if let id = try? c.decode(UUID.self, forKey: .id) {
             self.id = id
-        } else if let s = try c.decode(String.self, forKey: .id), let id = UUID(uuidString: s) {
+        } else if let s = try? c.decode(String.self, forKey: .id), let id = UUID(uuidString: s) {
             self.id = id
         } else {
             throw DecodingError.dataCorruptedError(forKey: .id, in: c, debugDescription: "id required")
@@ -2102,7 +2143,7 @@ private struct WishlistRow: Decodable {
 
     private static func decodeUUID(_ c: KeyedDecodingContainer<CodingKeys>, key: CodingKeys) throws -> UUID {
         if let id = try? c.decode(UUID.self, forKey: key) { return id }
-        if let s = try c.decode(String.self, forKey: key), let id = UUID(uuidString: s) { return id }
+        if let s = try? c.decode(String.self, forKey: key), let id = UUID(uuidString: s) { return id }
         throw DecodingError.dataCorruptedError(forKey: key, in: c, debugDescription: "UUID required")
     }
 }
@@ -2142,7 +2183,7 @@ private struct CompareItemDTO: Decodable {
 
     private static func decodeUUID(_ c: KeyedDecodingContainer<CodingKeys>, key: CodingKeys) throws -> UUID {
         if let id = try? c.decode(UUID.self, forKey: key) { return id }
-        if let s = try c.decode(String.self, forKey: key), let id = UUID(uuidString: s) { return id }
+        if let s = try? c.decode(String.self, forKey: key), let id = UUID(uuidString: s) { return id }
         throw DecodingError.dataCorruptedError(forKey: key, in: c, debugDescription: "UUID required")
     }
 }
@@ -2201,7 +2242,7 @@ private struct ProductReviewRow: Decodable {
 
     private static func decodeUUID(_ c: KeyedDecodingContainer<CodingKeys>, key: CodingKeys) throws -> UUID {
         if let id = try? c.decode(UUID.self, forKey: key) { return id }
-        if let s = try c.decode(String.self, forKey: key), let id = UUID(uuidString: s) { return id }
+        if let s = try? c.decode(String.self, forKey: key), let id = UUID(uuidString: s) { return id }
         throw DecodingError.dataCorruptedError(forKey: key, in: c, debugDescription: "UUID required")
     }
 }
@@ -2221,7 +2262,7 @@ private struct ProductReviewStatsDTO: Decodable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         if let id = try? c.decode(UUID.self, forKey: .stockItemId) {
             stockItemId = id
-        } else if let s = try c.decode(String.self, forKey: .stockItemId), let id = UUID(uuidString: s) {
+        } else if let s = try? c.decode(String.self, forKey: .stockItemId), let id = UUID(uuidString: s) {
             stockItemId = id
         } else {
             throw DecodingError.dataCorruptedError(
@@ -2269,7 +2310,7 @@ private struct StockItemBrowseRow: Decodable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         if let id = try? c.decode(UUID.self, forKey: .id) {
             self.id = id
-        } else if let s = try c.decode(String.self, forKey: .id), let id = UUID(uuidString: s) {
+        } else if let s = try? c.decode(String.self, forKey: .id), let id = UUID(uuidString: s) {
             self.id = id
         } else {
             throw DecodingError.dataCorruptedError(forKey: .id, in: c, debugDescription: "id required")
@@ -2304,7 +2345,7 @@ private struct StockItemPdpRow: Decodable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         if let id = try? c.decode(UUID.self, forKey: .id) {
             self.id = id
-        } else if let s = try c.decode(String.self, forKey: .id), let id = UUID(uuidString: s) {
+        } else if let s = try? c.decode(String.self, forKey: .id), let id = UUID(uuidString: s) {
             self.id = id
         } else {
             throw DecodingError.dataCorruptedError(forKey: .id, in: c, debugDescription: "id required")
@@ -2492,7 +2533,7 @@ private struct CustomerProfileRow: Decodable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         if let id = try? c.decode(UUID.self, forKey: .id) {
             self.id = id
-        } else if let s = try c.decode(String.self, forKey: .id), let id = UUID(uuidString: s) {
+        } else if let s = try? c.decode(String.self, forKey: .id), let id = UUID(uuidString: s) {
             self.id = id
         } else {
             throw DecodingError.dataCorruptedError(forKey: .id, in: c, debugDescription: "id required")
@@ -2579,7 +2620,7 @@ private struct ItemKitRow: Decodable {
 
     private static func decodeUUID(_ c: KeyedDecodingContainer<CodingKeys>, key: CodingKeys) throws -> UUID {
         if let id = try? c.decode(UUID.self, forKey: key) { return id }
-        if let s = try c.decode(String.self, forKey: key), let id = UUID(uuidString: s) { return id }
+        if let s = try? c.decode(String.self, forKey: key), let id = UUID(uuidString: s) { return id }
         throw DecodingError.dataCorruptedError(forKey: key, in: c, debugDescription: "UUID required")
     }
 }
@@ -2680,7 +2721,7 @@ private struct StockLevelQtyRow: Decodable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         if let id = try? c.decode(UUID.self, forKey: .stockItemId) {
             stockItemId = id
-        } else if let s = try c.decode(String.self, forKey: .stockItemId), let id = UUID(uuidString: s) {
+        } else if let s = try? c.decode(String.self, forKey: .stockItemId), let id = UUID(uuidString: s) {
             stockItemId = id
         } else {
             throw DecodingError.dataCorruptedError(forKey: .stockItemId, in: c, debugDescription: "stock_item_id")
@@ -2694,7 +2735,7 @@ private struct StockLevelQtyRow: Decodable {
         }
         if let w = try? c.decode(WarehouseFlagsRow.self, forKey: .warehouses) {
             warehouses = w
-        } else if let arr = try c.decode([WarehouseFlagsRow].self, forKey: .warehouses), let first = arr.first {
+        } else if let arr = try? c.decode([WarehouseFlagsRow].self, forKey: .warehouses), let first = arr.first {
             warehouses = first
         } else {
             warehouses = WarehouseFlagsRow(isQuarantine: false, isActive: true)
@@ -2735,7 +2776,7 @@ private struct PriceListHeadRow: Decodable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         if let id = try? c.decode(UUID.self, forKey: .id) {
             self.id = id
-        } else if let s = try c.decode(String.self, forKey: .id), let id = UUID(uuidString: s) {
+        } else if let s = try? c.decode(String.self, forKey: .id), let id = UUID(uuidString: s) {
             self.id = id
         } else {
             throw DecodingError.dataCorruptedError(forKey: .id, in: c, debugDescription: "id required")
@@ -2759,7 +2800,7 @@ private struct PriceListItemPriceRow: Decodable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         if let id = try? c.decode(UUID.self, forKey: .stockItemId) {
             stockItemId = id
-        } else if let s = try c.decode(String.self, forKey: .stockItemId), let id = UUID(uuidString: s) {
+        } else if let s = try? c.decode(String.self, forKey: .stockItemId), let id = UUID(uuidString: s) {
             stockItemId = id
         } else {
             throw DecodingError.dataCorruptedError(forKey: .stockItemId, in: c, debugDescription: "stock_item_id")
@@ -2878,4 +2919,9 @@ private extension String {
         let t = trimmingCharacters(in: .whitespacesAndNewlines)
         return t.isEmpty ? nil : t
     }
+}
+
+private struct ProductPhotoRow: Decodable {
+    let storagePath: String
+    enum CodingKeys: String, CodingKey { case storagePath = "storage_path" }
 }

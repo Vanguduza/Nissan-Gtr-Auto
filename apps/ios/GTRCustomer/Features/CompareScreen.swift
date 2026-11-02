@@ -1,11 +1,12 @@
 import SwiftUI
 
 /// Compare tray — auth RPCs, or `GuestCompareStore` when signed out.
-/// Attribute matrix subset: OEM + description side-by-side.
+/// Customer product names/descriptions stay visible; technical identities stay internal.
 struct CompareScreen: View {
     @EnvironmentObject private var session: StorefrontSession
     @State private var items: [CompareItem] = []
-    @State private var oem = "15208-65F0C"
+    @State private var oem = ""
+    @State private var matchingProducts: [CatalogListItem] = []
     @State private var status: String?
     @State private var busy = false
     @State private var usingGuestStore = false
@@ -15,8 +16,8 @@ struct CompareScreen: View {
             List {
             Section {
                 Text(usingGuestStore
-                     ? "Guest mode — OEMs stored on-device (UserDefaults)."
-                     : "Synced via list_customer_compare_items / add / remove.")
+                     ? "Saved on this device."
+                     : "Synced to your account.")
                     .font(GTRType.body(.footnote))
                     .foregroundStyle(GTRColors.silverDim)
             }
@@ -30,10 +31,10 @@ struct CompareScreen: View {
                 ForEach(items) { item in
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(item.oemPartNumber)
+                            Text(CustomerCatalogPresentation.productName(item.description, identifier: item.oemPartNumber))
                                 .font(GTRType.displaySemi(.headline))
                                 .monospaced()
-                            Text(item.description ?? "—")
+                            Text("Saved product")
                                 .font(GTRType.body(.subheadline))
                                 .foregroundStyle(GTRColors.silverDim)
                         }
@@ -50,28 +51,28 @@ struct CompareScreen: View {
 
             if items.count >= 2 {
                 Section("Attribute matrix") {
-                    matrixRow(label: "OEM", values: items.map(\.oemPartNumber))
+                    matrixRow(label: "Product", values: items.map { CustomerCatalogPresentation.productName($0.description, identifier: $0.oemPartNumber) })
                     matrixRow(
                         label: "Description",
-                        values: items.map { $0.description?.isEmpty == false ? $0.description! : "—" }
+                        values: items.map { CustomerCatalogPresentation.productName($0.description, identifier: $0.oemPartNumber) }
                     )
-                    matrixRow(
-                        label: "Stock item",
-                        values: items.map {
-                            usingGuestStore ? "local" : String($0.stockItemId.uuidString.prefix(8)) + "…"
-                        }
-                    )
+
                 }
             }
 
-            Section("Add by OEM") {
-                TextField("OEM part number", text: $oem)
+            Section("Find a product") {
+                TextField("Search products", text: $oem)
                     .textInputAutocapitalization(.characters)
                     .font(GTRType.body())
                     .monospaced()
-                Button("Add to compare") { Task { await add() } }
+                Button("Find products") { Task { await searchProducts() } }
                     .disabled(busy || oem.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                               || items.count >= maxCompareItems)
+                ForEach(matchingProducts) { product in
+                    Button(CustomerCatalogPresentation.productName(product.name, identifier: product.oem)) {
+                        Task { await add(product) }
+                    }.disabled(busy || items.count >= maxCompareItems)
+                }
                 Text("Max \(maxCompareItems) items")
                     .font(GTRType.label(.caption))
                     .foregroundStyle(GTRColors.silverDim)
@@ -125,6 +126,11 @@ struct CompareScreen: View {
             if preferGuest {
                 usingGuestStore = true
                 items = GuestCompareStore.asCompareItems()
+                for index in items.indices {
+                    if let product = try? await session.api.loadCatalogProduct(oem: items[index].oemPartNumber) {
+                        items[index].description = product.name
+                    }
+                }
             } else {
                 usingGuestStore = false
                 items = try await session.api.listCompareItems()
@@ -137,25 +143,30 @@ struct CompareScreen: View {
         }
     }
 
-    private func add() async {
+    private func searchProducts() async {
         busy = true
         defer { busy = false }
-        let needle = oem.trimmingCharacters(in: .whitespacesAndNewlines)
+        do {
+            matchingProducts = try await session.api.searchProducts(query: oem, limit: 20)
+            status = matchingProducts.isEmpty ? "No matching products." : nil
+        } catch { status = "Products could not be loaded. Please try again." }
+    }
+
+    private func add(_ product: CatalogListItem) async {
+        busy = true
+        defer { busy = false }
         do {
             if preferGuest {
                 usingGuestStore = true
-                _ = try GuestCompareStore.addOem(needle)
-                items = GuestCompareStore.asCompareItems()
-                status = "Added to GuestCompareStore"
+                _ = try GuestCompareStore.addOem(product.oem)
+                await refresh()
             } else {
-                _ = try await session.api.addCompareItem(stockItemId: nil, oem: needle)
+                _ = try await session.api.addCompareItem(stockItemId: product.stockItemId, oem: nil)
                 items = try await session.api.listCompareItems()
                 _ = GuestCompareStore.writeOems(items.map(\.oemPartNumber))
-                status = "Added via add_customer_compare_item"
             }
-        } catch {
-            status = error.localizedDescription
-        }
+            status = "Added to compare."
+        } catch { status = "This product could not be added. Please try again." }
     }
 
     private func remove(_ item: CompareItem) async {
@@ -165,7 +176,12 @@ struct CompareScreen: View {
             if preferGuest {
                 _ = GuestCompareStore.removeOem(item.oemPartNumber)
                 items = GuestCompareStore.asCompareItems()
-                status = "Removed from GuestCompareStore"
+                for index in items.indices {
+                    if let product = try? await session.api.loadCatalogProduct(oem: items[index].oemPartNumber) {
+                        items[index].description = product.name
+                    }
+                }
+                status = "Removed."
             } else {
                 try await session.api.removeCompareItem(
                     compareId: item.id,
@@ -174,7 +190,7 @@ struct CompareScreen: View {
                 )
                 items = try await session.api.listCompareItems()
                 _ = GuestCompareStore.writeOems(items.map(\.oemPartNumber))
-                status = "Removed via remove_customer_compare_item"
+                status = "Removed."
             }
         } catch {
             status = error.localizedDescription

@@ -160,7 +160,7 @@ struct CartScreen: View {
         do {
             _ = try await session.api.addCartLineByOem(oem: line.oemPartNumber, qty: 1)
             cart = try await session.api.loadOpenCart()
-            status = "Qty updated for \(line.oemPartNumber)"
+            status = "Quantity updated."
         } catch {
             status = error.localizedDescription
         }

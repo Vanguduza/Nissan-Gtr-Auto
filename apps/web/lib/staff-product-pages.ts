@@ -16,6 +16,11 @@ export type StaffProductPageRow = {
   discount_description: string | null;
   primary_image_path: string | null;
   image_count: number;
+  /** Manual home-rail pins (backup control; algorithm still fills remaining slots). */
+  pin_featured: boolean;
+  pin_movers: boolean;
+  pin_newest: boolean;
+  pin_sort: number;
 };
 
 export type StaffProductImage = {
@@ -82,6 +87,10 @@ export async function listStaffProductPages(
     discount_description: (r.discount_description as string | null) ?? null,
     primary_image_path: (r.primary_image_path as string | null) ?? null,
     image_count: Number(r.image_count ?? 0),
+    pin_featured: Boolean(r.pin_featured),
+    pin_movers: Boolean(r.pin_movers),
+    pin_newest: Boolean(r.pin_newest),
+    pin_sort: Number(r.pin_sort ?? 0),
   }));
   return { ok: true, data: rows };
 }
@@ -94,6 +103,10 @@ export async function saveStaffProductPage(
     discountKind: "none" | "percent" | "amount";
     discountValue: number;
     discountDescription: string | null;
+    pinFeatured: boolean;
+    pinMovers: boolean;
+    pinNewest: boolean;
+    pinSort: number;
   },
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const { error } = await asRpc(client).rpc("upsert_staff_product_page", {
@@ -102,6 +115,10 @@ export async function saveStaffProductPage(
     p_discount_kind: input.discountKind,
     p_discount_value: input.discountValue,
     p_discount_description: input.discountDescription,
+    p_pin_featured: input.pinFeatured,
+    p_pin_movers: input.pinMovers,
+    p_pin_newest: input.pinNewest,
+    p_pin_sort: Math.min(999, Math.max(0, Math.floor(input.pinSort) || 0)),
   });
   if (error) return { ok: false, error: error.message };
   return { ok: true };

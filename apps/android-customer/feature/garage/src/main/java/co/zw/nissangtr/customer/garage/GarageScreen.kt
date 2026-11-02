@@ -220,9 +220,10 @@ private fun PremiumGarageVehicleCard(
     val fitment = SelectedFitmentVehicle(
         make = vehicle.make,
         model = vehicle.model.orEmpty(),
-        generation = vehicle.generation.orEmpty(),
+        generation = vehicle.chassisCode ?: vehicle.generation.orEmpty(),
         engine = vehicle.engine,
         vin = vehicle.vin,
+        vehicleMasterId = vehicle.vehicleMasterId,
     )
     val art = VehicleArtworkResolver.resolve(fitment)
     

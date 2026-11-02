@@ -57,8 +57,8 @@ struct CategoryPlpScreen: View {
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
                         ForEach(filtered) { item in
                             ShopProductCard(
-                                title: item.oem,
-                                subtitle: item.name,
+                                title: CustomerCatalogPresentation.productName(item.name, identifier: item.oem),
+                                subtitle: nil,
                                 priceLabel: item.usd.map { StorefrontFormat.money($0, currency: .USD) } ?? "POR",
                                 stockLabel: item.stock.label,
                                 ratingLabel: "—",
@@ -71,7 +71,7 @@ struct CategoryPlpScreen: View {
                                         )
                                     }
                                 },
-                                onTap: { onOpenProduct(item.oem) }
+                                onTap: { onOpenProduct(item.stockItemId.uuidString) }
                             )
                         }
                     }

@@ -28,6 +28,8 @@
         android:usesCleartextTraffic="true"
         tools:targetApi="34">
 
+        <!-- Required Android launcher; this activity accepts no privileged external command intent. -->
+        <!-- nosemgrep: java.android.security.exported_activity.exported_activity -->
         <activity
             android:name=".MainActivity"
             android:exported="true"

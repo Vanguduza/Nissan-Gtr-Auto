@@ -104,14 +104,17 @@ export function formatEtaSourceLabel(
 
 export async function listDeliveryJobs(
   client: SupabaseClient,
+  selectedJobId?: string | null,
 ): Promise<StorefrontResult<DeliveryJobOption[]>> {
-  const { data, error } = await client
+  let query = client
     .from("delivery_jobs")
     .select(
       "id, document_number, delivery_note_id, status, assignee_user_id, eta_at, eta_seconds, eta_source, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, notes, created_at",
     )
     .order("created_at", { ascending: false })
     .limit(40);
+  if (selectedJobId && /^[0-9a-f-]{36}$/i.test(selectedJobId)) query = query.eq("id", selectedJobId);
+  const { data, error } = await query;
   if (error) return { ok: false, error: error.message };
   return { ok: true, data: (data as DeliveryJobOption[]) ?? [] };
 }

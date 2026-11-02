@@ -1,0 +1,215 @@
+{
+  "schema_version": 1,
+  "owner_request": "Fix all identified issues and merge required missing work",
+  "audit_base_commit": "e1eaea88ac9e904118d57c439579e1549622f5d9",
+  "implementation_branch": "cursor/deployment-reconciliation-ad25",
+  "canonical_target": "cursor/erp-cursor-setup-ad25",
+  "production_source_target": "main",
+  "recorded_at_utc": "2026-11-02T08:02:15.748111+00:00",
+  "coverage": {
+    "remote_heads": 25,
+    "divergent_heads": 13,
+    "unique_branch_exclusive_commits": 45,
+    "refetch_before_integration": "All 25 audited remote heads unchanged at final source preparation; symbolic origin/HEAD excluded."
+  },
+  "integration_source_commit": "d49bd43dd978534fce0aa226ace5c1df9a5d80f1",
+  "branches": [
+    {
+      "branch": "apk-builds",
+      "observed_sha": "64188958880b568ee9908578b382cc0365a9801b",
+      "branch_only_commits": 1,
+      "disposition": "ARTIFACT_ONLY_RETAINED",
+      "detail": "Original binary-only branch remains preserved; no source merge."
+    },
+    {
+      "branch": "ccr-8c44a0d0-msyynq",
+      "observed_sha": "34aad08f32def66ea29ca0d20444e90cc4bb8bca",
+      "branch_only_commits": 0,
+      "disposition": "HISTORY_INCLUDED",
+      "detail": "No branch-exclusive source work."
+    },
+    {
+      "branch": "chatgpt/customer-ui-catalog-hardening-20260902",
+      "observed_sha": "a8c6dc4dac608fccc5a739fbc13ddb532af8f84b",
+      "branch_only_commits": 1,
+      "disposition": "HISTORICAL_RECOVERY_RETAINED",
+      "detail": "Retain old one-time operation on its branch; retired-host workflows archived and current public runtime observation prepared without claiming catalogue qualification."
+    },
+    {
+      "branch": "chatgpt/p0-production-integrity-reconcile-20260905",
+      "observed_sha": "a6123b81924a75f48780b8e66003c984214fc3c3",
+      "branch_only_commits": 0,
+      "disposition": "HISTORY_INCLUDED",
+      "detail": "No branch-exclusive source work."
+    },
+    {
+      "branch": "chatgpt/pos-reconcile-green-20260907",
+      "observed_sha": "a431d13ee9c34638561c5854e3d490793ed43b9d",
+      "branch_only_commits": 0,
+      "disposition": "HISTORY_INCLUDED",
+      "detail": "No branch-exclusive source work."
+    },
+    {
+      "branch": "chatgpt/production-integrity-rev1-20260905",
+      "observed_sha": "c07852fb1d5faab3c405fd70a7bf43ff83903ec1",
+      "branch_only_commits": 0,
+      "disposition": "HISTORY_INCLUDED",
+      "detail": "No branch-exclusive source work."
+    },
+    {
+      "branch": "chatgpt/reconcile-green-20260907",
+      "observed_sha": "7c443990aaab7b611ce2feb530515d3ff88e1186",
+      "branch_only_commits": 0,
+      "disposition": "HISTORY_INCLUDED",
+      "detail": "No branch-exclusive source work."
+    },
+    {
+      "branch": "chatgpt/staff-catalog-r2-gateway-20260904",
+      "observed_sha": "c07852fb1d5faab3c405fd70a7bf43ff83903ec1",
+      "branch_only_commits": 0,
+      "disposition": "HISTORY_INCLUDED",
+      "detail": "No branch-exclusive source work."
+    },
+    {
+      "branch": "chatgpt/staff-overview-dashboard-20260911",
+      "observed_sha": "bc7df421854ea6abe5e5ec00cbf88932a183130b",
+      "branch_only_commits": 7,
+      "disposition": "SELECTIVELY_IMPLEMENTED",
+      "detail": "Overview, current-schema role/module-aware RPCs, independent build/browser gates and desktop/phone presentation integrated."
+    },
+    {
+      "branch": "claude/document-review-0l0cjc",
+      "observed_sha": "786215dadc19db1958abd723ff680dc03eb5ba1b",
+      "branch_only_commits": 12,
+      "disposition": "ALREADY_RETAINED_REWRITE",
+      "detail": "Six source-equivalent documentation commits and later owner decisions were retained; no old autolog import."
+    },
+    {
+      "branch": "cursor/android-customer-preview-locked-078e",
+      "observed_sha": "27bc0a54794bc2a60d21bb24b80be4c3c10bb694",
+      "branch_only_commits": 0,
+      "disposition": "HISTORY_INCLUDED",
+      "detail": "No branch-exclusive source work."
+    },
+    {
+      "branch": "cursor/critical-bug-management-44cc",
+      "observed_sha": "551b5b4b3ac40ab0fb7eff3103f34a0df352d013",
+      "branch_only_commits": 1,
+      "disposition": "SUPERSEDED",
+      "detail": "Native recovery-session implementation c8dd4fab supersedes custom admin lookup patch."
+    },
+    {
+      "branch": "cursor/critical-bug-management-b442",
+      "observed_sha": "06908b4acc31c7a123bfa84bf8f729e333f1f206",
+      "branch_only_commits": 1,
+      "disposition": "SELECTIVELY_IMPLEMENTED",
+      "detail": "Exact EcoCash success-status allowlists and negative regressions integrated into current handlers."
+    },
+    {
+      "branch": "cursor/critical-bug-management-c031",
+      "observed_sha": "207f0a396721e5d9f709796bd78af634c7ba2f05",
+      "branch_only_commits": 1,
+      "disposition": "SELECTIVELY_IMPLEMENTED",
+      "detail": "Remaining existing-invoice allocation fix uses forward090000 and current commerce authority/idempotency."
+    },
+    {
+      "branch": "cursor/critical-bug-management-d08b",
+      "observed_sha": "d0f4e34994807737a5023452005bb3d19972612c",
+      "branch_only_commits": 1,
+      "disposition": "SELECTIVELY_IMPLEMENTED",
+      "detail": "Callback authentication port extended with production refusal, Meta-origin proof, monotonic CAS and payment entitlement binding."
+    },
+    {
+      "branch": "cursor/erp-cursor-setup-ad25",
+      "observed_sha": "e1eaea88ac9e904118d57c439579e1549622f5d9",
+      "branch_only_commits": 0,
+      "disposition": "IDENTICAL",
+      "detail": "No branch-exclusive source work."
+    },
+    {
+      "branch": "cursor/management-oss-shell-rebuild-ad25",
+      "observed_sha": "aa061853c5ec15eb6c1b5872f923def45bfccac8",
+      "branch_only_commits": 11,
+      "disposition": "SELECTIVELY_IMPLEMENTED",
+      "detail": "Self-service, authoritative QR cards, payroll funding/schedules, merchandising and RBAC recovered; superseded CoolMall excluded; source-faithful ACL baseline retained."
+    },
+    {
+      "branch": "cursor/phase1-foundations-ad25",
+      "observed_sha": "37cb1055dad8882aa49ab515ad8ca8b85ab52f53",
+      "branch_only_commits": 14,
+      "disposition": "ALREADY_RETAINED_REWRITE",
+      "detail": "26 source blobs retained under6514e986 and later approved extensions."
+    },
+    {
+      "branch": "cursor/phase2-design-system-ad25",
+      "observed_sha": "43f57ee3dd636d72669837d3e0149764cc4a13fe",
+      "branch_only_commits": 15,
+      "disposition": "ALREADY_RETAINED_REWRITE",
+      "detail": "Source retained undera7e9817b and later extensions; no old requirements or ledger replacement."
+    },
+    {
+      "branch": "cursor/shop-curated-category-filters-ad25",
+      "observed_sha": "5ef7c946636eaa410df5f3f69b787dd4670d22db",
+      "branch_only_commits": 0,
+      "disposition": "HISTORY_INCLUDED",
+      "detail": "No branch-exclusive source work."
+    },
+    {
+      "branch": "cursor/standalone-adaptive-pos-ad25",
+      "observed_sha": "bfdf62c0d8fec66d8fe1caade885d387a3e440e4",
+      "branch_only_commits": 1,
+      "disposition": "SUPERSEDED",
+      "detail": "Canonical benchmark POS retained, including shared cash drawer/till-float behavior; standalone client not revived."
+    },
+    {
+      "branch": "homepage-vercel-2026-08-06",
+      "observed_sha": "956755edcf01824098ec8b220adbb96c8eb008e8",
+      "branch_only_commits": 0,
+      "disposition": "HISTORY_INCLUDED",
+      "detail": "No branch-exclusive source work."
+    },
+    {
+      "branch": "https-enforce-vercel-20260806",
+      "observed_sha": "9b0cc509575e87321f81e6c8ea9725f93be50855",
+      "branch_only_commits": 0,
+      "disposition": "HISTORY_INCLUDED",
+      "detail": "No branch-exclusive source work."
+    },
+    {
+      "branch": "main",
+      "observed_sha": "e1eaea88ac9e904118d57c439579e1549622f5d9",
+      "branch_only_commits": 0,
+      "disposition": "IDENTICAL",
+      "detail": "No branch-exclusive source work."
+    },
+    {
+      "branch": "work/customer-illustrated-canonical-20260909",
+      "observed_sha": "f0e60fd6a10272d73c01e3bdba0852f11bb84fb1",
+      "branch_only_commits": 4,
+      "disposition": "SELECTIVELY_IMPLEMENTED",
+      "detail": "Missing production transport/CI/garage identity resolutions recovered; all3 merge parents already included; consumer EPC remains withdrawn byOctober decision."
+    }
+  ],
+  "source_validation": {
+    "workspace_lint_typecheck_unit_build": "PASS on Node 22.23.4 / pnpm 9.15.0; production build uses a clearly synthetic, nondeployed public-key fixture",
+    "workspace_production_audit": "0 advisories",
+    "payment_python": "153 passed after callback browser/log privacy hardening; financial proof and origin/idempotency controls retained",
+    "edge_security": "21 passed; frozen callback checks",
+    "ios": "18 portable Debug and optimized Swift tests plus 15 packaging controls; native transport test supports streamed Darwin request bodies; nativeMac19/19 passes; fullapp corrections/currentSDK26 selection tracked by PR21",
+    "android": "464 JVM tests and 17 guards; 4 debug APKs build and 16KB align; customer/delivery goldens verified; actual16KB emulator2/2 encrypted fixture/wrong-key tests pass with verified JUnit artifact",
+    "staff_browser": "11 isolated normal-login browser workflows plus final visual/permission regressions pass; native SQL separately checked",
+    "source_provenance": "8 isolated real-Git integrity tests; merge tree must preserve a verified head and target history",
+    "baseline": "173 legacy + 125 hosted SQL files preserved byte-identically; 271 curated inputs; native fresh/default-ACL/contract roundtrip passes; final 13-file replay, 17/17 critical and 59/59 SQL checks pass",
+    "independent_security": "Original63-file review plus26-path CI/security delta; zero confirmed open source vulnerabilities; scoped policy annotations and scanner limits explicitly recorded",
+    "public_browser": "8 desktop/phone boundary and OAuth-continuation cases passed on final client source",
+    "simulation": "All 8 original native trading scenarios and original role assertions pass; 21 harness controls pass. Final request-ownership lock independently reviewed with post-lock two-session/workflow/context/denial tests."
+  },
+  "boundaries": [
+    "Historical branches and SQL inputs remain preserved. Selected integrations adapt missing work to current authority.",
+    "Browser fixtures establish client behavior; native SQL and Auth simulations provide separate local database evidence.",
+    "Hosted baseline adoption requires a real backup, read-only contract comparison and staging upgrade; never reset production or replay the fresh baseline over it.",
+    "No Vercel/Supabase administration route is configured here; real tenant/public-key/provider/worker readback remains unverified.",
+    "ContiPay merchant contract/UAT, signed mobile distribution and device/hardware acceptance remain separate gates.",
+    "No production credentials, signing identities, paid provider transactions or outward messages were created."
+  ]
+}

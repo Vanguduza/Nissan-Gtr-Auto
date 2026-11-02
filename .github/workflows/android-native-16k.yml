@@ -1,0 +1,71 @@
+name: Android native 16KB compatibility
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'apps/android-management/**'
+      - 'bridges/android/**'
+      - 'scripts/android*'
+      - '.github/workflows/android-native-16k.yml'
+  push:
+    branches: [main, 'cursor/deployment-reconciliation-ad25']
+    paths:
+      - 'apps/android-management/**'
+      - 'bridges/android/**'
+      - '.github/workflows/android-native-16k.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  encrypted-cache-upgrade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify canonical management lineage
+        run: python3 scripts/project_truth_guard.py release-check --app management-android
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+      - name: Configure Android SDK and KVM
+        run: |
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install compile SDKs
+        run: |
+          sdkmanager --licenses < <(yes) >/dev/null
+          sdkmanager 'platforms;android-34' 'platforms;android-36' 'build-tools;35.0.0'
+      - name: Open, update, and reopen legacy encrypted outbox on a native 16KB system
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
+        with:
+          api-level: 36
+          target: google_apis_ps16k
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim -gpu swiftshader_indirect -camera-back none
+          script: |
+            adb shell getconf PAGESIZE
+            test "$(adb shell getconf PAGESIZE | tr -d '\r')" = 16384
+            bash apps/android-management/gradlew -p apps/android-management :feature:pos:connectedDebugAndroidTest --no-daemon --console=plain
+      - name: Retain native compatibility evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: android-native-16kb-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            apps/android-management/feature/pos/build/reports/androidTests/**
+            apps/android-management/feature/pos/build/outputs/androidTest-results/**
+          if-no-files-found: error

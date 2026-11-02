@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 /// Supabase Auth client for Nissan GTR Auto iOS.
 ///
@@ -217,6 +220,13 @@ public final class GoTrueAuthClient: @unchecked Sendable {
         )
     }
 
+    /// Refresh and rotate a session through Supabase Auth, never the anonymous Auth Edge.
+    public func refreshSession(refreshToken: String) async throws -> Session {
+        let token = refreshToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !token.isEmpty else { throw AuthSessionError.requiresSignIn }
+        return try await postToken(grantType: "refresh_token", body: ["refresh_token": token], fallbackEmail: nil)
+    }
+
     public static func parseAuthCallback(_ url: URL) -> AuthCallbackPayload? {
         guard isAuthCallbackURL(url) else { return nil }
         let items = queryAndFragmentItems(url)
@@ -317,6 +327,9 @@ public final class GoTrueAuthClient: @unchecked Sendable {
             throw StorefrontError.message("GoTrue returned non-JSON (HTTP \(http.statusCode)).")
         }
         if !(200 ..< 300).contains(http.statusCode) {
+            if grantType == "refresh_token", [400, 401, 403].contains(http.statusCode) {
+                throw AuthSessionError.refreshRejected
+            }
             let desc = (obj["error_description"] as? String)
                 ?? (obj["msg"] as? String)
                 ?? (obj["error"] as? String)

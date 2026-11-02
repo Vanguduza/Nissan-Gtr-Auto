@@ -37,6 +37,10 @@ export function StaffProductPagesPanel() {
   );
   const [discountValue, setDiscountValue] = useState("0");
   const [discountDescription, setDiscountDescription] = useState("");
+  const [pinFeatured, setPinFeatured] = useState(false);
+  const [pinMovers, setPinMovers] = useState(false);
+  const [pinNewest, setPinNewest] = useState(false);
+  const [pinSort, setPinSort] = useState("0");
   const [images, setImages] = useState<StaffProductImage[]>([]);
   const [carousel, setCarousel] = useState<StaffHomeCarouselEntry[]>([]);
   const [carouselRank, setCarouselRank] = useState("");
@@ -138,6 +142,10 @@ export function StaffProductPagesPanel() {
     setDiscountKind(selected.discount_kind);
     setDiscountValue(String(selected.discount_value ?? 0));
     setDiscountDescription(selected.discount_description ?? "");
+    setPinFeatured(selected.pin_featured);
+    setPinMovers(selected.pin_movers);
+    setPinNewest(selected.pin_newest);
+    setPinSort(String(selected.pin_sort ?? 0));
 
     let cancelled = false;
     (async () => {
@@ -179,6 +187,10 @@ export function StaffProductPagesPanel() {
       discountValue: Number(discountValue) || 0,
       discountDescription:
         discountKind === "none" ? null : discountDescription.trim(),
+      pinFeatured,
+      pinMovers,
+      pinNewest,
+      pinSort: Number(pinSort) || 0,
     });
     setBusy(false);
     if (!res.ok) {
@@ -186,7 +198,7 @@ export function StaffProductPagesPanel() {
       return;
     }
     setMessage(
-      "Saved price and discount. Shop lists only in-stock + priced items.",
+      "Saved price, discount, and home-rail pins. Shop still requires in-stock + priced.",
     );
     await refresh(query);
   }
@@ -303,9 +315,11 @@ export function StaffProductPagesPanel() {
   return (
     <div className={styles.pageBody}>
       <p className={styles.lede}>
-        Edit shop PDP merchandising only: price, discount (with description),
-        and product images (upload + choose main). Title, details, fitment, part
-        number, and EPC diagram come from the catalog and stay read-only here.
+        Edit shop PDP merchandising: price, discount, product images, and
+        optional <strong>home-rail pins</strong> (Featured / Fast movers /
+        Newest). Pins sit in front of the automatic ranking; unpinned slots still
+        fill algorithmically. Title, fitment, OEM, and EPC diagram stay
+        catalog-owned.
       </p>
       {message ? <p className={styles.formStatus}>{message}</p> : null}
 
@@ -336,6 +350,7 @@ export function StaffProductPagesPanel() {
               <th>Price</th>
               <th>Qty</th>
               <th>Discount</th>
+              <th>Home pins</th>
               <th>Images</th>
               <th />
             </tr>
@@ -357,6 +372,15 @@ export function StaffProductPagesPanel() {
                   {r.discount_kind === "none"
                     ? "—"
                     : `${r.discount_kind} ${r.discount_value}`}
+                </td>
+                <td>
+                  {[
+                    r.pin_featured ? "Featured" : null,
+                    r.pin_movers ? "Movers" : null,
+                    r.pin_newest ? "Newest" : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || "—"}
                 </td>
                 <td>{r.image_count}</td>
                 <td>
@@ -441,9 +465,53 @@ export function StaffProductPagesPanel() {
             </>
           ) : null}
 
+          <fieldset className={`${styles.fieldset} ${styles.staffMerchPins}`}>
+            <legend className={styles.legend}>Home page rails (manual pins)</legend>
+            <p className={styles.muted}>
+              Optional backup control. Pinned items appear first on that rail;
+              remaining slots still use the automatic rules (discount/qty /
+              created date). Item must stay in stock and priced to show.
+            </p>
+            <label className={styles.checkField}>
+              <input
+                type="checkbox"
+                checked={pinFeatured}
+                onChange={(e) => setPinFeatured(e.target.checked)}
+              />
+              Pin to Featured products
+            </label>
+            <label className={styles.checkField}>
+              <input
+                type="checkbox"
+                checked={pinMovers}
+                onChange={(e) => setPinMovers(e.target.checked)}
+              />
+              Pin to Fast movers
+            </label>
+            <label className={styles.checkField}>
+              <input
+                type="checkbox"
+                checked={pinNewest}
+                onChange={(e) => setPinNewest(e.target.checked)}
+              />
+              Pin to Newest additions
+            </label>
+            <label className={styles.field}>
+              Pin sort (lower = earlier among pins)
+              <input
+                type="number"
+                min={0}
+                max={999}
+                step={1}
+                value={pinSort}
+                onChange={(e) => setPinSort(e.target.value)}
+              />
+            </label>
+          </fieldset>
+
           <div className={styles.formActions}>
             <button type="submit" className={styles.btn} disabled={busy}>
-              Save price & discount
+              Save merchandising
             </button>
           </div>
 

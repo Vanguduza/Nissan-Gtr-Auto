@@ -8,6 +8,8 @@
  * - unverified stubs are available only behind explicit local-only env flags.
  */
 
+import { allowUnverifiedLocal } from "./local_env.ts";
+
 const ALLOWED_ORIGINS = new Set([
   "https://nissangtrauto.co.zw",
   "https://www.nissangtrauto.co.zw",
@@ -39,7 +41,7 @@ export function corsHeaders(req: Request): Record<string, string> {
 
 export function jsonResponse(
   body: unknown,
-  status: number,
+  status = 200,
   extraHeaders: Record<string, string> = {},
 ): Response {
   return new Response(JSON.stringify(body), {
@@ -88,7 +90,7 @@ export function requireBearerJwt(req: Request): string | null {
 }
 
 export function isLocalUnverifiedAllowed(envFlag: string): boolean {
-  return Deno.env.get(envFlag) === "1";
+  return allowUnverifiedLocal(envFlag);
 }
 
 export function mergeRedirectMetadata(
@@ -293,6 +295,29 @@ export function isPaynowFailureStatus(
   return value === "cancelled" || value === "refunded" || value === "disputed";
 }
 
+/**
+ * EcoCash success allowlist — exact match only.
+ * Never use substring includes(): "unpaid".includes("paid") and
+ * "unsuccessful".includes("success") are true in JS and would false-settle.
+ */
+const ECOCASH_SUCCESS_STATUSES = new Set([
+  "paid",
+  "success",
+  "successful",
+  "completed",
+  "complete",
+  "approved",
+  "ok",
+  "00",
+]);
+
+export function isEcocashSuccessStatus(
+  status: string | undefined | null,
+): boolean {
+  const s = (status ?? "").trim().toLowerCase().replace(/\s+/g, "_");
+  return ECOCASH_SUCCESS_STATUSES.has(s);
+}
+
 export async function contipayHmacSha256Hex(
   rawBody: string,
   hmacSecret: string,
@@ -452,11 +477,20 @@ export async function initiateContipayRedirect(
 }
 
 export function contipaySignatureFromHeaders(req: Request): string {
-  for (const header of ["x-contipay-signature", "x-signature", "signature"]) {
-    const value = (req.headers.get(header) ?? "").trim();
-    if (value) return value.replace(/^sha256=/i, "").trim();
-  }
-  return "";
+  const contract = contipayWebhookContract();
+  if (!contract) return "";
+  return (req.headers.get(contract.signatureHeader) ?? "")
+    .trim().replace(/^sha256=/i, "").trim();
+}
+
+/** Supported adapter contract; enabling it requires merchant documentation/UAT. */
+export function contipayWebhookContract(): { signatureHeader: string } | null {
+  const contract = Deno.env.get("CONTIPAY_WEBHOOK_CONTRACT")?.trim();
+  const signatureHeader = Deno.env.get("CONTIPAY_WEBHOOK_SIGNATURE_HEADER")
+    ?.trim().toLowerCase();
+  if (contract !== "hmac-sha256-raw-body-v1" || !signatureHeader ||
+    !/^[a-z0-9-]+$/.test(signatureHeader)) return null;
+  return { signatureHeader };
 }
 
 export function defaultWebhookUrl(functionName: string): string {

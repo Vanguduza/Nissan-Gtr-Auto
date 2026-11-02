@@ -4,14 +4,14 @@ SwiftUI customer shell with thin Cart / Orders / Garage / **Wishlist** / **Compa
 
 ## Fake vs Live switch
 
-**Prefer Live** when env is set. Fake only if keys are missing or force-fake is on.
+**Release always uses the approved live project.** Missing configuration, a server credential, the retired project or force-fake mode blocks packaging. Debug previews may use Fake when configuration is absent or force-fake is selected.
 
 | Mode | When | Behavior |
 |------|------|----------|
 | **Live** (`LiveStorefrontApi`) | `SUPABASE_URL` + `SUPABASE_ANON_KEY` both non-empty **and** `STOREFRONT_FORCE_FAKE` off | Real HTTP + **email/password**, **Sign in with Apple**, and **Google OAuth** required before tabs |
-| **Fake** (`FakeStorefrontApi`) | URL/anon unset **or** `STOREFRONT_FORCE_FAKE=1` | In-memory demo cart, orders, garage, wishlist, compare, reviews, pay intents, chat — no network; **sign-in skipped** |
+| **Debug Fake** (`FakeStorefrontApi`) | URL/anon unset **or** `STOREFRONT_FORCE_FAKE=1` | In-memory demo cart, orders, garage, wishlist, compare, reviews, pay intents, chat — no network; **sign-in skipped** |
 
-`StorefrontApiFactory.make()` → `AppEnv.prefersLive`. Toolbar badge shows **Fake** or **Live**.
+`StorefrontApiFactory.make()` uses `AppEnv.prefersLive` for Debug; Release validates the approved HTTPS project and a public client key. Toolbar badge shows **Fake** or **Live**.
 
 ```text
 # Live (scheme env and/or Secrets.xcconfig → Info.plist — never commit secrets)
@@ -36,11 +36,11 @@ Live sends `apikey` + `Authorization: Bearer {token}` on every call.
 | Token | Source | Notes |
 |-------|--------|-------|
 | Anon (default / signed-out) | `SUPABASE_ANON_KEY` | Customer AuthZ RPCs fail until a user JWT is set |
-| Customer JWT | Sign-in UI → `LiveStorefrontApi.setAccessToken` | Password grant, Apple `id_token`, or Google OAuth PKCE |
-| Restored JWT | `AuthTokenStore` (UserDefaults) | access_token + refresh_token + email restored on launch |
+| Customer JWT | Sign-in UI → `LiveStorefrontApi.setAccessToken` | Auth Edge login, Apple `id_token`, or Google OAuth PKCE |
+| Restored session | `AuthTokenStore` (Keychain) | Device-only, unlocked protection; access/refresh tokens and expiry stored atomically; legacy plaintext migrates only after a successful secure write |
 | Env override | `SUPABASE_ACCESS_TOKEN` | Optional bootstrap JWT (scheme env); skips sign-in until sign-out clears store |
 
-**Live gating:** main tabs stay behind `SignInScreen` until a session exists. **Sign out** clears UserDefaults and resets Bearer to anon. **Fake** skips the gate.
+**Live gating:** main tabs stay behind `SignInScreen` until a usable session exists. `AuthSessionCoordinator` refreshes expired/near-expiry credentials on launch, foreground and RPC calls, serializes refresh-token rotation and retries a rejected bearer once. A revoked refresh signs out; an offline failure retains the secure record for retry. **Sign out** removes Keychain credentials and legacy plaintext, records a pending deletion if the device is locked, and resets Bearer to anon. Debug **Fake** skips the gate.
 
 ### OAuth (Apple + Google)
 
@@ -92,8 +92,8 @@ Otherwise create a customer via **web signup** or **Supabase Dashboard → Authe
 | Addresses | `listOwnAddresses` / `upsert_customer_address` / `delete_customer_address` + MapKit pin |
 | Orders | List + detail (`get_customer_order`); **Live delivery** last-point track when dispatch / job known |
 | Garage | Upsert / delete vehicles |
-| Compare | Auth list/add/remove RPCs; guest `GuestCompareStore` (UserDefaults); OEM+description matrix |
-| Reviews | Submit / own list / approved+stats by OEM; photo via PhotosPicker → Storage `review-photos` |
+| Compare | Auth list/add/remove RPCs; guest selections stored locally; product-name/description matrix |
+| Reviews | Submit / own list / approved+stats by product identity; photo via PhotosPicker → Storage `review-photos` |
 | Pay | ContiPay / Paynow / EcoCash create-intent → intent id / checkout URL |
 | Chat | Thread list, start support/parts, bubbles + composer; WhatsApp `wa.me` CTA |
 | Chat → Thread | Messages + send via `post_chat_message`; **4s poll** refresh (no Realtime client) |
@@ -156,7 +156,7 @@ apps/ios/
 ## Prerequisites
 
 - macOS with Xcode 16+ (iOS Simulator) to build the app target
-- This host may lack Xcode — core sources stay conceptually buildable; Fake mode needs no backend
+- This host may lack Xcode — portable core lifecycle/transport tests run with Swift; native Keychain, SwiftUI and signing qualification use macOS; Debug Fake mode needs no backend
 
 ### Phase E build verification (2026-08-05)
 
@@ -224,3 +224,17 @@ swift build
 | Live HTTP | URLSession PostgREST + GoTrue password grant |
 | Feature UI | Present; Fake skips auth; Live gates on session |
 | Chat updates | Poll fallback (no Realtime channel yet) |
+
+
+## Deployment verification
+
+The shared `GTRCustomer` scheme has Debug and Release simulator build CI in `.github/workflows/ios.yml`. Both builds enforce `project_truth_guard.py release-check --app ios`; Release also executes `scripts/validate-release-config.py` before source compilation. Real Release builds require the replacement project URL plus its matching public publishable/anon key in local secure build settings. Device signing still requires the owner's Apple team and signing material.
+
+Run `swift test --package-path apps/ios` on macOS for core auth tests including native Keychain attributes/roundtrip. Linux may run portable lifecycle and mocked HTTP tests; Apple provider UI/crypto and native Keychain branches are compiled/tested on macOS. CI Release simulator builds use explicitly synthetic public configuration for compilation only, with no backend calls and no distribution signing. They do not attest real sign-in or provider acceptance.
+
+
+## Customer catalogue visibility reconciliation
+
+The existing owner decision `docs/decisions/2026-10-10-customer-catalogue-visibility.md` applies to iOS. This reconciliation withdraws the customer EPC browse sheet/button, raw technical search suggestions/facets, OEM/PNC/cross-reference display, raw fitment lists and catalogue diagrams used as product photos. The technical source remains available to background matching; no staff POS or catalogue implementation is changed.
+
+Vehicle selection, filtered product browsing, cart/checkout, wishlist, compare, kits and reviews remain available. Wishlist/compare additions use plain product search and product selection instead of exposing an identifier-entry desk. Product names/descriptions and a concise selected-vehicle fitment result replace technical labels. Public product navigation accepts stock UUIDs; `LiveStorefrontApi.loadCatalogProduct` resolves a UUID with `stock_items?id=eq.<uuid>` and preserves its canonical row identity for checkout. Customer RPC payloads send `p_stock_item_id` and omit `p_oem_part_number` when a stock identity is available. Product photos come only from `stock_item_images` in the public `product-images` bucket.

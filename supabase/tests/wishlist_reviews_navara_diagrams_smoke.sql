@@ -335,22 +335,28 @@ BEGIN
     RAISE EXCEPTION 'smoke fail: wishlist remove failed';
   END IF;
 
-  -- Diagram paths: Navara + X-Trail
+  -- Demo catalogue rows were explicitly retired. Technical diagrams now use
+  -- the published R2 control plane; a clean build must not resurrect demo data.
   SELECT count(*)::int INTO v_diag
   FROM public.part_fitment
   WHERE oem_part_number IN ('15208-65F0C', '40206-EA00A', '21410-JF00A', '16546-00Q0A')
     AND diagram_path IS NOT NULL
     AND diagram_path LIKE 'navara-d40/%';
-  IF v_diag < 4 THEN
-    RAISE EXCEPTION 'smoke fail: expected Navara diagram_path rows, got %', v_diag;
+  IF v_diag <> 0 THEN
+    RAISE EXCEPTION 'smoke fail: retired Navara fixture rows returned, got %', v_diag;
   END IF;
 
   SELECT count(*)::int INTO v_diag
   FROM public.part_fitment
   WHERE oem_part_number IN ('15208-9N00A', '16546-JA00A', '62022-JG00A')
     AND diagram_path LIKE 'xtrail-t31/%';
-  IF v_diag < 3 THEN
-    RAISE EXCEPTION 'smoke fail: expected X-Trail diagram_path rows, got %', v_diag;
+  IF v_diag <> 0 THEN
+    RAISE EXCEPTION 'smoke fail: retired X-Trail fixture rows returned, got %', v_diag;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.catalog_r2_serving_objects o
+      JOIN public.catalog_releases r ON r.id=o.release_id
+      WHERE r.is_current AND o.object_kind='diagram_image') THEN
+    RAISE EXCEPTION 'smoke fail: published diagram control metadata missing';
   END IF;
 
   RAISE NOTICE 'wishlist_reviews_navara_diagrams_smoke OK';

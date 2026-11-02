@@ -21,6 +21,7 @@ import {
   signInWithStaffIdentifier,
 } from "@/lib/staff-auth";
 import { clearStaffIdleLockStorage } from "@/lib/staff-idle-lock-state";
+import { safeAuthNextPath as safeNext } from "@/lib/auth-next";
 import styles from "./auth.module.css";
 
 const DEFAULT_COUNTRY_OPTION =
@@ -30,11 +31,6 @@ const DEFAULT_COUNTRY_OPTION =
     name: "Zimbabwe",
     dial: DEFAULT_COUNTRY_DIAL,
   };
-
-function safeNext(raw: string | null): string | null {
-  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return null;
-  return raw;
-}
 
 type LoginMethod = "email" | "phone" | "employee";
 

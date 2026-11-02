@@ -1,18 +1,21 @@
 {
-  "actor": "unknown",
-  "branch_at_record": "ccr-8c44a0d0-msyynq",
-  "change_id": "9e552b8d8b35e8eb1978",
+  "actor": "codex",
+  "branch_at_record": "cursor/deployment-reconciliation-ad25",
+  "change_id": "ecdad86f2f57dfd5a4ed",
   "changed_files": [
-    "apps/android-customer/feature/catalog/src/main/java/co/zw/nissangtr/customer/catalog/InlineSearch.kt",
-    "docs/decisions/2026-10-10-customer-catalogue-visibility.md"
+    ".github/workflows/ios.yml",
+    "apps/ios/GTRCustomer/SimulatorDebug.entitlements",
+    "docs/project-state/DEPLOYMENT_READINESS.json",
+    "docs/project-state/verification/2026-11-02-ios-simulator-signing.json"
   ],
-  "diff_sha256": "9e552b8d8b35e8eb1978605281a015cf2466941b172ccaca00ff6eb8df538b7a",
+  "diff_sha256": "ecdad86f2f57dfd5a4ed5dc1451d5afdd91786e681f97ee327ad8b7445e380f7",
   "domains": [
-    "customer-android",
-    "documentation"
+    "ci",
+    "documentation",
+    "ios"
   ],
-  "intent": "automatic-file-level-record",
-  "recorded_at_utc": "2026-10-09T13:47:20.247084+00:00",
+  "intent": "Give the native simulator test host its scoped ad-hoc Keychain entitlements",
+  "recorded_at_utc": "2026-11-02T10:13:21.432247+00:00",
   "schema_version": 1,
-  "source_parent": "569a8ba39b11b0e5925f2fceeb2b8d1bbe72eeba"
+  "source_parent": "18c58724d70b8ada4a3f205da0f966e5e833ba51"
 }

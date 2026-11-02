@@ -1,13 +1,15 @@
 /**
  * EcoCash webhook / settle — calls mark_ecocash_settled (idempotent).
- * Optional ECOCASH_WEBHOOK_SECRET header check when set.
+ * ECOCASH_WEBHOOK_SECRET required outside explicit local development.
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   corsHeaders,
+  isEcocashSuccessStatus,
   isLocalUnverifiedAllowed,
   jsonResponse,
+  timingSafeEqualStr,
 } from "../_shared/payment_edge.ts";
 
 async function sha256Hex(text: string): Promise<string> {
@@ -32,7 +34,7 @@ Deno.serve(async (req) => {
         req.headers.get("x-ecocash-signature") ||
         req.headers.get("X-EcoCash-Signature") ||
         "";
-      if (sig !== secret) {
+      if (!timingSafeEqualStr(sig, secret)) {
         return jsonResponse({ error: "invalid signature" }, 401, cors);
       }
     } else if (!isLocalUnverifiedAllowed("ECOCASH_ALLOW_UNVERIFIED_LOCAL")) {
@@ -63,8 +65,7 @@ Deno.serve(async (req) => {
     const status = String(
       body.transactionStatus || body.status || body.paymentStatus || "",
     ).toLowerCase();
-    const success = ["paid", "success", "successful", "completed", "approved", "ok"]
-      .some((t) => status.includes(t));
+    const success = isEcocashSuccessStatus(status);
     const providerRef = String(
       body.ecocashReference ||
         body.transactionReference ||

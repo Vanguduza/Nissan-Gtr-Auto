@@ -23,15 +23,15 @@ struct KitsScreen: View {
             }
 
             ForEach(kits) { kit in
-                ShopMerchTitleRow(title: kit.name, actionLabel: kit.sellMode)
+                ShopMerchTitleRow(title: CustomerCatalogPresentation.productName(kit.name, identifier: kit.oem), actionLabel: kit.sellMode)
                 Button {
-                    onOpenProduct(kit.oem)
+                    onOpenProduct(kit.stockItemId.uuidString)
                 } label: {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(kit.oem)
+                        Text(CustomerCatalogPresentation.productName(kit.name, identifier: kit.oem))
                             .font(GTRType.body(.body))
                             .foregroundStyle(GTRColors.steel)
-                        Text("\(kit.components.count) component(s) · tap to open PDP")
+                        Text("\(kit.components.count) component(s) · view product")
                             .font(GTRType.body(.caption))
                             .foregroundStyle(GTRColors.silverDim)
                     }
@@ -44,7 +44,7 @@ struct KitsScreen: View {
                     Button {
                         onOpenProduct(comp.oem)
                     } label: {
-                        Text("\(comp.oem) · \(comp.name) × \(Int(comp.qty))")
+                        Text("\(CustomerCatalogPresentation.productName(comp.name, identifier: comp.oem)) × \(Int(comp.qty))")
                     }
                     .font(GTRType.body(.caption))
                     .foregroundStyle(GTRColors.primary)

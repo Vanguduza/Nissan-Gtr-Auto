@@ -11,3 +11,9 @@ SUPABASE_ANON_KEY=sb_publishable_lUPea8xMrOL95roFgAB0IQ_03JHYyVD
 
 # Optional: force FakeRpcClient even when URL+key are set
 # rpc.forceFake=true
+
+# Required only for signed Release builds. Never commit a keystore or passwords.
+# GTR_ANDROID_KEYSTORE_PATH=/absolute/path/to/existing-production.keystore
+# GTR_ANDROID_STORE_PASSWORD=
+# GTR_ANDROID_KEY_ALIAS=
+# GTR_ANDROID_KEY_PASSWORD=

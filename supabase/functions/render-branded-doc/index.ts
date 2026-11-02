@@ -119,13 +119,30 @@ Deno.serve(async (req) => {
         netPay: Number(body.netPay ?? 0),
       });
     } else if (kind === "id_card") {
+      const { data: identity, error: identityError } = await userClient.rpc("staff_identity_card_payload", {
+        p_employee_code: String(body.employeeCode ?? ""),
+      });
+      if (identityError || !identity || typeof identity !== "object") {
+        return jsonResponse({ error: "own employee card or HR/admin permission required" }, 403, cors);
+      }
+      const card = identity as Record<string, unknown>;
+      let photoBytes: Uint8Array | null = null;
+      if (typeof card.photoStoragePath === "string" && card.photoStoragePath) {
+        const { data: photo, error: photoError } = await userClient.storage.from("employee-photos").download(card.photoStoragePath);
+        if (photoError) return jsonResponse({ error: "employee photo is unavailable" }, 409, cors);
+        if (photo && photo.size > 5 * 1024 * 1024) return jsonResponse({ error: "employee photo exceeds the printable size limit" }, 409, cors);
+        if (photo) {
+          const bytes = new Uint8Array(await photo.arrayBuffer());
+          if ((bytes[0] === 0xff && bytes[1] === 0xd8) ||
+            (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47)) photoBytes = bytes;
+          else return jsonResponse({ error: "use a JPEG or PNG staff photo for the printable card" }, 409, cors);
+        }
+      }
       bytes = await buildIdCardPdf({
-        storeName: String(body.storeName ?? "Nissan GTR Auto"),
-        fullName: String(body.fullName ?? ""),
-        roleTitle: String(body.roleTitle ?? ""),
-        staffRole: (body.staffRole as string) ?? null,
-        employeeCode: String(body.employeeCode ?? ""),
-        verifyUrl: (body.verifyUrl as string) ?? null,
+        storeName: String(card.storeName ?? "Nissan GTR Auto"), fullName: String(card.fullName ?? ""),
+        roleTitle: String(card.roleTitle ?? ""), staffRole: typeof card.staffRole === "string" ? card.staffRole : null,
+        employeeCode: String(card.employeeCode ?? ""), verifyUrl: typeof card.verifyUrl === "string" ? card.verifyUrl : null,
+        photoBytes,
       });
     } else if (kind === "business_card") {
       bytes = await buildBusinessCardPdf({
@@ -149,7 +166,7 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "render failed" }, 500, cors);
   }
 
-  return new Response(bytes, {
+  return new Response(new Uint8Array(bytes).buffer, {
     status: 200,
     headers: {
       ...cors,

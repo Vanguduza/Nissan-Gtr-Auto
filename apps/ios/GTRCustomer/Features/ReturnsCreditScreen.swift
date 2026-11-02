@@ -52,10 +52,10 @@ struct ReturnsCreditScreen: View {
                         else { selectedLineIds.insert(line.id) }
                     } label: {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(line.oemPartNumber ?? line.stockItemId.uuidString.prefix(8).description)
+                            Text(CustomerCatalogPresentation.productName(line.description, identifier: line.oemPartNumber))
                                 .font(GTRType.body(.body))
                                 .foregroundStyle(GTRColors.steel)
-                            Text("\(line.description ?? "Qty \(line.qty)")\(selected ? " · Selected" : "")")
+                            Text("Quantity \(line.qty)\(selected ? " · Selected" : "")")
                                 .font(GTRType.body(.caption))
                                 .foregroundStyle(GTRColors.silverDim)
                         }

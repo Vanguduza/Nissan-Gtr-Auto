@@ -319,7 +319,7 @@ BEGIN
       'delivery-pods', v_job::text || '/signature.png', v_admin, v_admin::text,
       jsonb_build_object('mimetype', 'image/png')
     )
-  ON CONFLICT (bucket_id, name) DO NOTHING;
+  ON CONFLICT DO NOTHING;
 
   v_otp := public.generate_delivery_pod_otp(v_job);
   PERFORM public.submit_delivery_pod(

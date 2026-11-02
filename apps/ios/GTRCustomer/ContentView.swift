@@ -48,6 +48,14 @@ struct ContentView: View {
         .onChange(of: session.isSignedIn) { _, signedIn in
             if signedIn { showSignInSheet = false }
         }
+        .alert("Sign-in", isPresented: Binding(
+            get: { session.authenticationError != nil },
+            set: { if !$0 { session.dismissAuthenticationError() } }
+        )) {
+            Button("OK") { session.dismissAuthenticationError() }
+        } message: {
+            Text(session.authenticationError ?? "Please sign in again.")
+        }
         .sheet(isPresented: $showSignInSheet) {
             NavigationStack {
                 SignInScreen(allowsSkip: session.usesFake, onSkip: { showSignInSheet = false })

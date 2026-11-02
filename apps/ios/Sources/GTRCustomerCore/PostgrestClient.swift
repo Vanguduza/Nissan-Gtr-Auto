@@ -1,15 +1,23 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 /// Minimal PostgREST / Edge HTTP client for storefront AuthZ.
 ///
 /// Uses `URLSession` so the scaffold builds without resolving supabase-swift on Windows.
 /// Headers match Supabase JS: `apikey` + `Authorization: Bearer {anon|session}`.
 /// No PSP secrets or HMAC — payment initiate is RPC / edge only.
-public final class PostgrestClient: @unchecked Sendable {
+@MainActor
+public final class PostgrestClient {
     public let baseURL: URL
     public let anonKey: String
     /// Bearer used for `Authorization`. Defaults to anon; set a customer JWT for AuthZ RPCs.
     public var accessToken: String
+
+    /// nil asks for a usable token; a rejected token requests one coordinated refresh.
+    public var tokenProvider: ((String?) async throws -> String?)?
+    public var onAuthenticationFailure: (() -> Void)?
 
     private let session: URLSession
     private let decoder: JSONDecoder
@@ -210,20 +218,39 @@ public final class PostgrestClient: @unchecked Sendable {
         _ request: URLRequest,
         allowNon2xxBody: Bool = false
     ) async throws -> Data {
-        let (data, response) = try await session.data(for: request)
+        var authorized = request
+        if let tokenProvider {
+            accessToken = try await tokenProvider(nil) ?? anonKey
+            applyAuthHeaders(&authorized)
+        }
+        let rejectedToken = accessToken
+        var (data, response) = try await session.data(for: authorized)
+        if (response as? HTTPURLResponse)?.statusCode == 401,
+           rejectedToken != anonKey, let tokenProvider {
+            guard let replacement = try await tokenProvider(rejectedToken) else {
+                onAuthenticationFailure?()
+                throw StorefrontError.notAuthenticated
+            }
+            accessToken = replacement
+            applyAuthHeaders(&authorized)
+            // Retry exactly once. An authenticated 403 is an authorization denial,
+            // and must not rotate credentials or erase an otherwise healthy session.
+            (data, response) = try await session.data(for: authorized)
+        }
         guard let http = response as? HTTPURLResponse else {
             throw StorefrontError.message("Invalid HTTP response.")
         }
         if (200 ..< 300).contains(http.statusCode) {
             return data
         }
+        if http.statusCode == 401 {
+            if rejectedToken != anonKey { onAuthenticationFailure?() }
+            throw StorefrontError.notAuthenticated
+        }
         if allowNon2xxBody {
             return data
         }
         let message = Self.postgrestErrorMessage(data: data, status: http.statusCode)
-        if http.statusCode == 401 || http.statusCode == 403 {
-            throw StorefrontError.notAuthenticated
-        }
         throw StorefrontError.message(message)
     }
 

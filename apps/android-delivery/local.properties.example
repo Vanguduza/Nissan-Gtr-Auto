@@ -20,3 +20,9 @@ SUPPORT_PHONE=+263771234567
 # OSRM_URL=http://192.168.1.10:5000
 # Self-hosted tiles (infra/satellites/maptiles/); blank → OpenFreeMap:
 # MAPLIBRE_STYLE_URL=http://10.0.2.2:8081/styles/basic-preview/style.json
+
+# Required only for signed Release builds. Never commit a keystore or passwords.
+# GTR_ANDROID_KEYSTORE_PATH=/absolute/path/to/existing-production.keystore
+# GTR_ANDROID_STORE_PASSWORD=
+# GTR_ANDROID_KEY_ALIAS=
+# GTR_ANDROID_KEY_PASSWORD=

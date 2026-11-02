@@ -19,7 +19,7 @@ Gates narrative outputs for:
 
 1. Change prompts / Edge narrative copy under the target functions listed below.
 2. Run the offline gate locally — must pass (`npm run gate` in `promptfoo/`).
-3. Prefer also `npm run eval` (full promptfoo) on Node 20 — must pass when runnable.
+3. Prefer also `npm run eval` (full promptfoo) on the tested Node 22 runtime — must pass when runnable.
 4. Attach eval / gate summary (or CI artifact) to the PR.
 5. A human reviewer explicitly approves “promote” of the prompt/copy; do **not** merge on green alone if asserts were weakened.
 6. Offline SoR remains `file://providers/safe-narrative.js` (fixed safe narrative — avoids `echo` false positives from rule text and avoids paid `llm-rubric`).
@@ -33,10 +33,13 @@ See `docs/plans/2026-08-12-epic-c-payments-d57-dod.md`.
 
 ```bash
 cd promptfoo
-npm run gate          # zero-dep asserts vs safe-narrative (works on any Node ≥20)
+npm run gate          # zero-dep asserts vs safe-narrative (Node ≥22)
 ```
 
-Full promptfoo eval (needs Node **20** LTS — `better-sqlite3` prebuilds; Node 24 on Windows often fails):
+Full promptfoo eval uses the tested Node **22** / npm **10.9.9** runtime,
+including the native `better-sqlite3` dependency. Regenerate the independent
+`package-lock.json` with that npm version and verify `npm ci` before committing
+dependency changes.
 
 ```bash
 cd promptfoo

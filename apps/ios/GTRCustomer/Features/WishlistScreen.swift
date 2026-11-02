@@ -3,7 +3,8 @@ import SwiftUI
 /// Wishlist tab — KMP 2-column ProductBox grid; hearts driven by shared StorefrontSession wish-set.
 struct WishlistScreen: View {
     @EnvironmentObject private var session: StorefrontSession
-    @State private var oem = "15208-65F0C"
+    @State private var oem = ""
+    @State private var matchingProducts: [CatalogListItem] = []
     @State private var selectedCategory: String?
     @State private var status: String?
     @State private var busy = false
@@ -43,8 +44,8 @@ struct WishlistScreen: View {
                     ForEach(filteredItems) { item in
                         VStack(alignment: .leading, spacing: 6) {
                             ShopProductCard(
-                                title: item.oemPartNumber,
-                                subtitle: item.description,
+                                title: CustomerCatalogPresentation.productName(item.description, identifier: item.oemPartNumber),
+                                subtitle: nil,
                                 priceLabel: "Saved",
                                 liked: true,
                                 onLike: { Task { await remove(item) } },
@@ -73,8 +74,8 @@ struct WishlistScreen: View {
                 }
             }
 
-            ShopMerchTitleRow(title: "Add by OEM", actionLabel: nil)
-            TextField("OEM part number", text: $oem)
+            ShopMerchTitleRow(title: "Find a product", actionLabel: nil)
+            TextField("Search products", text: $oem)
                 .textInputAutocapitalization(.characters)
                 .font(GTRType.body())
                 .monospaced()
@@ -85,10 +86,17 @@ struct WishlistScreen: View {
                         .background(Color.white, in: RoundedRectangle(cornerRadius: GTRRadius.sharp))
                 )
             ShopPrimaryButton(
-                title: "Add to wishlist",
+                title: "Find products",
                 enabled: !busy && !oem.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             ) {
-                Task { await add() }
+                Task { await searchProducts() }
+            }
+
+            ForEach(matchingProducts) { product in
+                Button(CustomerCatalogPresentation.productName(product.name, identifier: product.oem)) {
+                    Task { await add(product) }
+                }
+                .disabled(busy)
             }
 
             if let status {
@@ -117,22 +125,26 @@ struct WishlistScreen: View {
         status = nil
     }
 
-    private func add() async {
-        let needle = oem.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !needle.isEmpty else { return }
+    private func searchProducts() async {
         busy = true
         defer { busy = false }
         do {
-            if session.isLiked(oem: needle) {
-                status = "Already on wishlist"
-            } else {
-                _ = try await session.api.addWishlistItem(stockItemId: nil, oem: needle)
+            matchingProducts = try await session.api.searchProducts(query: oem, limit: 20)
+            status = matchingProducts.isEmpty ? "No matching products." : nil
+        } catch { status = "Products could not be loaded. Please try again." }
+    }
+
+    private func add(_ product: CatalogListItem) async {
+        busy = true
+        defer { busy = false }
+        do {
+            if session.isLiked(oem: product.oem) { status = "Already on wishlist" }
+            else {
+                _ = try await session.api.addWishlistItem(stockItemId: product.stockItemId, oem: nil)
                 await session.refreshWishlist()
-                status = "Added \(needle)"
+                status = "Added to wishlist."
             }
-        } catch {
-            status = error.localizedDescription
-        }
+        } catch { status = "This product could not be saved. Please try again." }
     }
 
     private func remove(_ item: WishlistItem) async {
@@ -166,7 +178,7 @@ struct WishlistScreen: View {
         busy = true
         defer { busy = false }
         do {
-            let lineId = try await session.api.wishlistMoveToCart(
+            _ = try await session.api.wishlistMoveToCart(
                 wishlistId: item.id,
                 stockItemId: item.stockItemId,
                 oem: item.oemPartNumber,
@@ -174,7 +186,7 @@ struct WishlistScreen: View {
                 removeFromWishlist: true
             )
             await session.refreshWishlist()
-            status = "Moved to cart · line \(lineId.uuidString.prefix(8))…"
+            status = "Moved to cart."
         } catch {
             status = error.localizedDescription
         }

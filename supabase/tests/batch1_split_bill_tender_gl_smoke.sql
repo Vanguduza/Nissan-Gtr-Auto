@@ -2,6 +2,8 @@
 -- Run after migrations 20260803100000 + 20260803110000 (local).
 
 BEGIN;
+CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
+SET LOCAL search_path = public, extensions;
 SELECT plan(4);
 
 -- Helpers exist

@@ -1,0 +1,837 @@
+{
+  "schema_version": 1,
+  "repository": "Vanguduza/Nissan-Gtr-Auto",
+  "assessed_base_commit": "e1eaea88ac9e904118d57c439579e1549622f5d9",
+  "implementation_branch": "cursor/deployment-reconciliation-ad25",
+  "integration_source_commit": "e2dc178f6cd9a9989c9fb400e2b85c4c3039c682",
+  "observed_at_utc": "2026-11-02T08:25:34.157563+00:00",
+  "workspace_checks": [
+    {
+      "name": "combined-lint",
+      "argv": [
+        "pnpm",
+        "lint"
+      ],
+      "exit_code": 0,
+      "seconds": 7.1,
+      "log_sha256": "43de2c7f7a8532a99b5813841f4bffdd64396246ac5ae3d5d0e7373372f018fe",
+      "execution_context": "Node 22.23.4 / pnpm 9.15.0; synthetic public-key compile fixture; no native production credentials"
+    },
+    {
+      "name": "combined-typecheck",
+      "argv": [
+        "pnpm",
+        "typecheck"
+      ],
+      "exit_code": 0,
+      "seconds": 9.3,
+      "log_sha256": "287941936e3e62dde0b7feef473f166dcf4edc500ccfad0de7fa9ae41f594164",
+      "execution_context": "Node 22.23.4 / pnpm 9.15.0; synthetic public-key compile fixture; no native production credentials"
+    },
+    {
+      "name": "combined-package-tests",
+      "argv": [
+        "pnpm",
+        "test"
+      ],
+      "exit_code": 0,
+      "seconds": 2.2,
+      "log_sha256": "0781a777d2bacf5c40a5ec245841701584e720a37daa500cceecb43ea3111dc2",
+      "execution_context": "Node 22.23.4 / pnpm 9.15.0; synthetic public-key compile fixture; no native production credentials"
+    },
+    {
+      "name": "combined-provenance",
+      "argv": [
+        "pnpm",
+        "test:provenance"
+      ],
+      "exit_code": 0,
+      "seconds": 1.1,
+      "log_sha256": "9eab6566d8e2dded8d8c78d57d1f70204b479973f5c71740b40e480ae89adbdf",
+      "execution_context": "Node 22.23.4 / pnpm 9.15.0; synthetic public-key compile fixture; no native production credentials"
+    },
+    {
+      "name": "production-build",
+      "argv": [
+        "pnpm",
+        "--filter",
+        "@gtr/web",
+        "build"
+      ],
+      "exit_code": 0,
+      "seconds": 31.8,
+      "log_sha256": "63b4ad8d1f7b3b4d1712c23fa5b03390d2c4435a143b3a6394638cf1d88d7bce",
+      "execution_context": "Node 22.23.4 / pnpm 9.15.0; synthetic public-key compile fixture; no native production credentials"
+    }
+  ],
+  "production_dependency_audit": {
+    "advisories": 0,
+    "receipt_sha256": "e9a65c92c18e022fef9d5e08dcef5bc3289151c9ae89ebdd364069cbb15649bd"
+  },
+  "public_browser": {
+    "cases": 8,
+    "passed": 8,
+    "platforms": [
+      "desktop",
+      "phone"
+    ],
+    "log_sha256": "4eb2d6f28b38ee933b771bd948110f544d251102846ebdaec875552bb14f2975",
+    "scope": "Loopback synthetic backend; client behavior only"
+  },
+  "staff_browser": {
+    "workflows": 11,
+    "passed": 11,
+    "final_targeted_regressions": "phone layout/pinning and journal-link permission cases passed",
+    "source_receipt_sha256": "019a5d03a4f99209b7b336b2fe395060700532c3e0b0674dcff63525ac2f1403",
+    "scope": "Normal loopback login and synthetic backend; separate native SQL authority checks"
+  },
+  "payment_security": {
+    "python_tests": 150,
+    "edge_tests": 21,
+    "result": "PASS",
+    "receipt_sha256": "7dbbb99174da0168f88dad54558932410cec5c04c5472acd8dea1ffbf221ae92",
+    "scope": "Local handler/origin/status/financial-binding/idempotency controls with mocked providers"
+  },
+  "android": {
+    "jvm_tests": 464,
+    "python_guard_tests": 17,
+    "debug_apks": 4,
+    "elf_and_zip_16kb_alignment": "PASS",
+    "receipt_sha256": "f045eba015be5b32f32e0021e15f0bec7926858269e594d52003e7f4380ac737",
+    "native_16kb_execution": "PENDING_GITHUB_CI",
+    "signing_and_device_acceptance": "NOT_ESTABLISHED"
+  },
+  "ios": {
+    "portable_swift_tests": 16,
+    "packaging_controls": 15,
+    "optimized_core_and_syntax_checks": "PASS",
+    "receipt_sha256": "275116cc05a45df630d7d24976fa00bc2d2e75a923d57aedac5ad477623e0cb1",
+    "native_keychain_xcode_simulator": "PENDING_GITHUB_CI",
+    "signing_and_device_acceptance": "NOT_ESTABLISHED"
+  },
+  "database": {
+    "ordered_chain": {
+      "observed_at_utc": "2026-11-02T08:22:48.512736+00:00",
+      "container": "gtr-db-reconstruct",
+      "container_id": "7d730ad1bf00123051709c965e987a313142ff220cc6d142e6f175b8ee579b64",
+      "mode": "Native fresh sorted chain in one BEGIN/ROLLBACK; retained simulation data restored",
+      "native_bootstrap_defaults_restored_before_apply": true,
+      "active_migrations": [
+        {
+          "file": "supabase/migrations/20261102080000_reconciled_erp_baseline.sql",
+          "sha256": "2502826ee08e67d7bcee3f7bdacdc31d944ccbb1bf9c3d86090b79b938ea016c",
+          "exit_code": 0
+        },
+        {
+          "file": "supabase/migrations/20261102085000_baseline_runtime_contracts.sql",
+          "sha256": "c4e2791d640b1c4e72f0ba5bd2a4be28ac5ad9e7c499ffc57471c4def04329f1",
+          "exit_code": 0
+        },
+        {
+          "file": "supabase/migrations/20261102085100_pos_published_vehicle_validation.sql",
+          "sha256": "bd3ca928583aa9a0fd44bea028f457e93009d87d953fb55b605a945f2eb44dc0",
+          "exit_code": 0
+        },
+        {
+          "file": "supabase/migrations/20261102085200_cashier_reserved_settlement_posting.sql",
+          "sha256": "a52f97b42101481d744d824da9e88c878c79faa60094d87ef5598862f1fdd581",
+          "exit_code": 0
+        },
+        {
+          "file": "supabase/migrations/20261102085300_storage_policy_helper_execution.sql",
+          "sha256": "355e863086c17a1691df2f9e56b347215a86ffa91d31d1515094a8b29315f4a2",
+          "exit_code": 0
+        },
+        {
+          "file": "supabase/migrations/20261102085400_retained_workflow_posting_scopes.sql",
+          "sha256": "f4636eafd3345f0aa4b343ae6a814fed79f466b19ca81ebadecd155748a72cdd",
+          "exit_code": 0
+        },
+        {
+          "file": "supabase/migrations/20261102090000_payment_settlement_reconciliation.sql",
+          "sha256": "f52b0b5f301df0abc63b034f4a14b9a079cc9ab8db0e95684c502ca52205eee4",
+          "exit_code": 0
+        },
+        {
+          "file": "supabase/migrations/20261102091000_customer_garage_identity.sql",
+          "sha256": "d89dc414fa09961dd49bf865823d99f6b5a294b85362bd0f327ca1a5f90b5d3b",
+          "exit_code": 0
+        },
+        {
+          "file": "supabase/migrations/20261102092000_customer_order_projection_reconciliation.sql",
+          "sha256": "32f528b58a6603cffe422ca5db5107beacc62be901a3c440973fcb4d6c69cc96",
+          "exit_code": 0
+        },
+        {
+          "file": "supabase/migrations/20261102100000_staff_self_service_reconciliation.sql",
+          "sha256": "3ef739b8c361f5d7a4b0aff2bc21353c0f2bf6ecf6d532fc83207fc1f1e5d271",
+          "exit_code": 0
+        },
+        {
+          "file": "supabase/migrations/20261102100100_staff_payroll_reconciliation.sql",
+          "sha256": "362699bd03a8753336a26aef1fb5b3c72a595a9610683a7e707a4c22810ca615",
+          "exit_code": 0
+        },
+        {
+          "file": "supabase/migrations/20261102100200_staff_merchandising_reconciliation.sql",
+          "sha256": "77b6d8b1575b950210d75d756b7bec3d2529adf8dd44cb8740290918214b37c0",
+          "exit_code": 0
+        },
+        {
+          "file": "supabase/migrations/20261102100300_staff_overview_reconciliation.sql",
+          "sha256": "d392ff6f364a7df69b4190b15160f769ead0af45bdfe924371afefe53aa56979",
+          "exit_code": 0
+        }
+      ],
+      "local_seed_sha256": "232b7d1490d9281526ce1fa7345d304e5cfc9c6975634e07b2e20fec0593e4f3",
+      "regression_sha256": "cde3109c25ce7444a6155c24b238913bfed7fee78562b55a756d4f260c414f94",
+      "fresh_chain_and_real_regression_exit": 0,
+      "fresh_and_upgraded_definitions_grants_policies_equal": true,
+      "public_private_functions": 793,
+      "tables_including_private": 212,
+      "relation_capability_assertions": 5136,
+      "retained_operational_counts_before": [
+        18,
+        66,
+        20,
+        2,
+        15
+      ],
+      "retained_operational_counts_after": [
+        18,
+        66,
+        20,
+        2,
+        15
+      ],
+      "production_access": false
+    },
+    "critical_sql": {
+      "observed_at_utc": "2026-11-02T08:23:18.091103+00:00",
+      "local_container": "gtr-db-reconstruct",
+      "baseline_sha256": "2502826ee08e67d7bcee3f7bdacdc31d944ccbb1bf9c3d86090b79b938ea016c",
+      "active_migration_hashes": {
+        "supabase/migrations/20261102080000_reconciled_erp_baseline.sql": "2502826ee08e67d7bcee3f7bdacdc31d944ccbb1bf9c3d86090b79b938ea016c",
+        "supabase/migrations/20261102085000_baseline_runtime_contracts.sql": "c4e2791d640b1c4e72f0ba5bd2a4be28ac5ad9e7c499ffc57471c4def04329f1",
+        "supabase/migrations/20261102085100_pos_published_vehicle_validation.sql": "bd3ca928583aa9a0fd44bea028f457e93009d87d953fb55b605a945f2eb44dc0",
+        "supabase/migrations/20261102085200_cashier_reserved_settlement_posting.sql": "a52f97b42101481d744d824da9e88c878c79faa60094d87ef5598862f1fdd581",
+        "supabase/migrations/20261102085300_storage_policy_helper_execution.sql": "355e863086c17a1691df2f9e56b347215a86ffa91d31d1515094a8b29315f4a2",
+        "supabase/migrations/20261102085400_retained_workflow_posting_scopes.sql": "f4636eafd3345f0aa4b343ae6a814fed79f466b19ca81ebadecd155748a72cdd",
+        "supabase/migrations/20261102090000_payment_settlement_reconciliation.sql": "f52b0b5f301df0abc63b034f4a14b9a079cc9ab8db0e95684c502ca52205eee4",
+        "supabase/migrations/20261102091000_customer_garage_identity.sql": "d89dc414fa09961dd49bf865823d99f6b5a294b85362bd0f327ca1a5f90b5d3b",
+        "supabase/migrations/20261102092000_customer_order_projection_reconciliation.sql": "32f528b58a6603cffe422ca5db5107beacc62be901a3c440973fcb4d6c69cc96",
+        "supabase/migrations/20261102100000_staff_self_service_reconciliation.sql": "3ef739b8c361f5d7a4b0aff2bc21353c0f2bf6ecf6d532fc83207fc1f1e5d271",
+        "supabase/migrations/20261102100100_staff_payroll_reconciliation.sql": "362699bd03a8753336a26aef1fb5b3c72a595a9610683a7e707a4c22810ca615",
+        "supabase/migrations/20261102100200_staff_merchandising_reconciliation.sql": "77b6d8b1575b950210d75d756b7bec3d2529adf8dd44cb8740290918214b37c0",
+        "supabase/migrations/20261102100300_staff_overview_reconciliation.sql": "d392ff6f364a7df69b4190b15160f769ead0af45bdfe924371afefe53aa56979"
+      },
+      "source_changed_during_run": false,
+      "smokes": [
+        {
+          "file": "supabase/tests/baseline_contract_smoke.sql",
+          "sha256": "0deb73feb2ba9079176987caf2cdc52c7bc020fe2f7ba3a38ee33b6440d29119",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/phase2_rls_smoke.sql",
+          "sha256": "956cf2cd6b0faf57fec01f154f3d7925f5f448f39eafa9cf8d4f03ac0f49388f",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/phase14_ci_smoke.sql",
+          "sha256": "31151ebbd0c74574525f023c7e634f9f6d060089675cc02ea62f3790855f8273",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/phase3_finance_smoke.sql",
+          "sha256": "ca5a0e14201d2b3d9ea753777c2b3c8c117e0746965671eff7832d5a5ebdb0a0",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/phase4_inventory_smoke.sql",
+          "sha256": "1232d89ff54e52a9842a456d88ca8de62d72a65262c24756c16bbb7e01d9968c",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/pos_operator_discovery_smoke.sql",
+          "sha256": "49efaa14bd4cc9a11b479443672072c9f888ba1772af39ab55c7364187964c46",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/pos_vehicle_context_smoke.sql",
+          "sha256": "18263595c1e873fda3cd10165f386d017cc8307882113756b2cdf77c605a0cd7",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/pos_customer_garage_popular_items_smoke.sql",
+          "sha256": "598c183933c6bc1b5e2c257ce1542a51f9a95b254ccf9358003c899c61a5b6de",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/pos_hidden_bestsellers_smoke.sql",
+          "sha256": "85676826558f59098d1b02fb2d4f2db5308e289ee48edab65254b8cabf2223cd",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/vehicle_artwork_storage_smoke.sql",
+          "sha256": "d597e7a55b7c2ee04242c5ef019be68f74f7c5823f7a47af4fa456fc8489d9d8",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/customer_garage_identity_smoke.sql",
+          "sha256": "129b77de48c5ca131820ad1bf0aadf3260834af27561f759173cdbd974df1be1",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/payment_settlement_reconciliation_smoke.sql",
+          "sha256": "beabf1e823332889a113f7aefade83a80b13e2972c28673a982b7508e1cc09a3",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/web_pos_sale_flow_smoke.sql",
+          "sha256": "6b40ac0efbe6616299b559d310df5224bb2c125a0f60e13f0063418869136ab9",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/retained_workflow_posting_smoke.sql",
+          "sha256": "cde3109c25ce7444a6155c24b238913bfed7fee78562b55a756d4f260c414f94",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/staff_self_service_reconciliation_smoke.sql",
+          "sha256": "855c816a28a270622be642bd711042f6396b57cef5be4fe81f80d678fbe4b7b3",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/staff_payroll_reconciliation_smoke.sql",
+          "sha256": "99c9a3c123c6e9b28882de2037ee8e5488cd0d993f3148fbe47b23cdd91147da",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/staff_overview_merchandising_reconciliation_smoke.sql",
+          "sha256": "09e348c8b0167408dd08735d4c018783ceae5b5fb6b8286da1b3dedb5acc8ab5",
+          "exit_code": 0,
+          "tap_failed": false
+        }
+      ],
+      "passed": 17,
+      "failed": []
+    },
+    "all_sql": {
+      "observed_at_utc": "2026-11-02T08:23:32.583647+00:00",
+      "local_container": "gtr-db-reconstruct",
+      "baseline_sha256": "2502826ee08e67d7bcee3f7bdacdc31d944ccbb1bf9c3d86090b79b938ea016c",
+      "active_migration_hashes": {
+        "supabase/migrations/20261102080000_reconciled_erp_baseline.sql": "2502826ee08e67d7bcee3f7bdacdc31d944ccbb1bf9c3d86090b79b938ea016c",
+        "supabase/migrations/20261102085000_baseline_runtime_contracts.sql": "c4e2791d640b1c4e72f0ba5bd2a4be28ac5ad9e7c499ffc57471c4def04329f1",
+        "supabase/migrations/20261102085100_pos_published_vehicle_validation.sql": "bd3ca928583aa9a0fd44bea028f457e93009d87d953fb55b605a945f2eb44dc0",
+        "supabase/migrations/20261102085200_cashier_reserved_settlement_posting.sql": "a52f97b42101481d744d824da9e88c878c79faa60094d87ef5598862f1fdd581",
+        "supabase/migrations/20261102085300_storage_policy_helper_execution.sql": "355e863086c17a1691df2f9e56b347215a86ffa91d31d1515094a8b29315f4a2",
+        "supabase/migrations/20261102085400_retained_workflow_posting_scopes.sql": "f4636eafd3345f0aa4b343ae6a814fed79f466b19ca81ebadecd155748a72cdd",
+        "supabase/migrations/20261102090000_payment_settlement_reconciliation.sql": "f52b0b5f301df0abc63b034f4a14b9a079cc9ab8db0e95684c502ca52205eee4",
+        "supabase/migrations/20261102091000_customer_garage_identity.sql": "d89dc414fa09961dd49bf865823d99f6b5a294b85362bd0f327ca1a5f90b5d3b",
+        "supabase/migrations/20261102092000_customer_order_projection_reconciliation.sql": "32f528b58a6603cffe422ca5db5107beacc62be901a3c440973fcb4d6c69cc96",
+        "supabase/migrations/20261102100000_staff_self_service_reconciliation.sql": "3ef739b8c361f5d7a4b0aff2bc21353c0f2bf6ecf6d532fc83207fc1f1e5d271",
+        "supabase/migrations/20261102100100_staff_payroll_reconciliation.sql": "362699bd03a8753336a26aef1fb5b3c72a595a9610683a7e707a4c22810ca615",
+        "supabase/migrations/20261102100200_staff_merchandising_reconciliation.sql": "77b6d8b1575b950210d75d756b7bec3d2529adf8dd44cb8740290918214b37c0",
+        "supabase/migrations/20261102100300_staff_overview_reconciliation.sql": "d392ff6f364a7df69b4190b15160f769ead0af45bdfe924371afefe53aa56979"
+      },
+      "source_changed_during_run": false,
+      "smokes": [
+        {
+          "file": "supabase/tests/ai_autonomous_layer_smoke.sql",
+          "sha256": "4a83b98e636891133b192439e154f2483b59625c320ad0377ca6472958454edc",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/baseline_contract_smoke.sql",
+          "sha256": "0deb73feb2ba9079176987caf2cdc52c7bc020fe2f7ba3a38ee33b6440d29119",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/batch1_split_bill_tender_gl_smoke.sql",
+          "sha256": "7e45a38ac05c6b35d484bfb1d1d8710e27053da25a698b1296a5da8add12d576",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/companion_pairing_smoke.sql",
+          "sha256": "37d3e46676c2609b72fcf9881730262265f8f83df13a27ce32d7e0f81f2814de",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/customer_garage_identity_smoke.sql",
+          "sha256": "129b77de48c5ca131820ad1bf0aadf3260834af27561f759173cdbd974df1be1",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/customer_oauth_ensure_smoke.sql",
+          "sha256": "7ea4de284b4a2cb167cf68bc10fe0bf50ae5000faaa5841c9fefb9eff5a09f30",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/customer_order_active_delivery_job_smoke.sql",
+          "sha256": "44dd2106b80eba2ef119be7f210b6714e341486bc9c2e9a3bec650c644a84820",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/customer_storefront_authz_smoke.sql",
+          "sha256": "fa33a7ea2c3cbc65dd762ae8aeae5a53bd8a15092c7d658f541fce7a4372097d",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/dedicated_delivery_app_smoke.sql",
+          "sha256": "a1aadabc2a0a447fecdc82ac3d16a416446c3e2c612ac9323058a906995d6f9b",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/delivery_job_settlement_smoke.sql",
+          "sha256": "e767ca92bc0b424a3c33e0b7b10475d0ba9124932ef471eef6e417b8b24a4f71",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/delivery_notify_track_url_smoke.sql",
+          "sha256": "025be3c6cc8d86c0f6e34c52689b3603128dd6c755c3dd08d23937fb66dbcd20",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/delivery_pods_storage_smoke.sql",
+          "sha256": "cc8ade36d0601920b74f7bc8b5226c83428948ec11b330ac8aec60f991d502b4",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/dispatch_auto_assign_notify_smoke.sql",
+          "sha256": "f45dc8fad34edf42fc7329f3bb5c7b5627c3bb71323b43409cf8c7898b195afa",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/epic_a_procurement_wh_smoke.sql",
+          "sha256": "499990c55495e4f6994f4cc39af65e4518d97870f62b11629e7c0de741314fff",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/finance_multi_approver_smoke.sql",
+          "sha256": "a4391cedf5f5216701627c8e4e57f00718f73938f4d56e976309e10dd8944100",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/finance_period_balances_requisitions_smoke.sql",
+          "sha256": "9e38bb0bd475f7ba69f442a7a56a8f4d6bc03eb7eaf2670a7477f8876c55ad14",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/finance_requisition_lines_smoke.sql",
+          "sha256": "5506a32cf62936c94c044f7b707cb6f60f24dc54ceac2d41aa16de5e88059697",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/fleet_vehicles_smoke.sql",
+          "sha256": "9bb4c445da152c2242645fd075f9c201bc42325975757238b0e17e51c6978bb0",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/fund_release_insert_once_smoke.sql",
+          "sha256": "8342e2d7fe2cdb769137b7494157437af95db90d8e39896832ba68d8f5aaaf7d",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/hr_onboarding_staff_role_smoke.sql",
+          "sha256": "35653fa9deb1352401973abf8b947daac94661577ed17b4c32f037afe4cf1ce6",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/loyalty_credit_amount_minor_dual_write_smoke.sql",
+          "sha256": "a01e008ed37d3ae630c37a9de88cdbc390db2704427345170bfdd96624d8d4d2",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/payment_settlement_reconciliation_smoke.sql",
+          "sha256": "beabf1e823332889a113f7aefade83a80b13e2972c28673a982b7508e1cc09a3",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/phase10_logistics_smoke.sql",
+          "sha256": "018754f287ce6bd6318a80b96d013d8df02ca61f8cddd7a545edb8a9d3e3babf",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/phase13_payments_receipts_smoke.sql",
+          "sha256": "31de11073eee1240dd64891cda6872ccb1ef4574dc9603c6dd42b33cb72da6b7",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/phase14_ci_smoke.sql",
+          "sha256": "31151ebbd0c74574525f023c7e634f9f6d060089675cc02ea62f3790855f8273",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/phase16_bins_smoke.sql",
+          "sha256": "fc208e08361d27cdc58f095c4c812d2acb949044a6cedd2ad57fb899b37f0169",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/phase16_consignment_smoke.sql",
+          "sha256": "00274665f4266577e037bda1875eba7748511a2357599aa7a8ae2e377d15b2e1",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/phase16_kits_smoke.sql",
+          "sha256": "8e4a63f4475d874f4c8ed1fe6027d087c3cca7169be5e476d08b2d4f69aa5233",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/phase16_loyalty_smoke.sql",
+          "sha256": "f23569831c88388b02b689b5138052f45857455e1c95b0623b615fee572de734",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/phase2_rls_smoke.sql",
+          "sha256": "956cf2cd6b0faf57fec01f154f3d7925f5f448f39eafa9cf8d4f03ac0f49388f",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/phase3_finance_smoke.sql",
+          "sha256": "ca5a0e14201d2b3d9ea753777c2b3c8c117e0746965671eff7832d5a5ebdb0a0",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/phase4_inventory_smoke.sql",
+          "sha256": "1232d89ff54e52a9842a456d88ca8de62d72a65262c24756c16bbb7e01d9968c",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/phase4b_reconciliation_smoke.sql",
+          "sha256": "cc228110fa9f7f95e047ed96f047290238fc03f6e05f79fb210d142a5b60331b",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/phase5_sales_smoke.sql",
+          "sha256": "d7651849666d248010bcbf5e00542abd343885f8183ae4115ee05eeb044b649c",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/phase5b_warranty_smoke.sql",
+          "sha256": "e41c79e818d1e8ebf50e1cf4e8fdd70fbc4c6bc9f3ca2e3876494f77d7e1ab4d",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/phase8_procurement_smoke.sql",
+          "sha256": "27ffed551cbbfbe6424f0f147580bf438177465517aabcfb8f326ff1ada2dea5",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/phase8b_rfq_blanket_smoke.sql",
+          "sha256": "9d0876dc794fdc9dfe959c445ec9bb51a9854c63809f630de4ba9639a295ee1f",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/phase9_hr_payroll_smoke.sql",
+          "sha256": "1164595b620a6e63727886538bec797a1bd3cffbaee31a532fe9cd7ede234ceb",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/pos_customer_garage_popular_items_smoke.sql",
+          "sha256": "598c183933c6bc1b5e2c257ce1542a51f9a95b254ccf9358003c899c61a5b6de",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/pos_hidden_bestsellers_smoke.sql",
+          "sha256": "85676826558f59098d1b02fb2d4f2db5308e289ee48edab65254b8cabf2223cd",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/pos_offline_sync_smoke.sql",
+          "sha256": "aa8d7c9bd748efb31adbb5c4014df2e57597a42828718b92dcad274f951c359e",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/pos_operator_discovery_smoke.sql",
+          "sha256": "49efaa14bd4cc9a11b479443672072c9f888ba1772af39ab55c7364187964c46",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/pos_scan_companion_otp_smoke.sql",
+          "sha256": "b264dafe27f5a48476cde6b0ed745171245f734cf65a649a8788412e298359d5",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/pos_till_float_1120_staff_smoke.sql",
+          "sha256": "3c8e125e89cae95f1ff54bbdcaacdfadf9edd2600b820cd68baeff6bcae6f828",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/pos_till_items_smoke.sql",
+          "sha256": "5f7de9abecead91c32842529bd3ace58bb63452fb7f4a297c87e2d8fd6018b61",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/pos_vehicle_context_smoke.sql",
+          "sha256": "18263595c1e873fda3cd10165f386d017cc8307882113756b2cdf77c605a0cd7",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/procurement_approve_smoke.sql",
+          "sha256": "539eb0ff4c2ae651bbfa1275648884ebfd78f76807088c803b0da225321b12ad",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/retained_workflow_posting_smoke.sql",
+          "sha256": "cde3109c25ce7444a6155c24b238913bfed7fee78562b55a756d4f260c414f94",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/sim_role_rules_smoke.sql",
+          "sha256": "44045cbdc3a62b440f286e5e9091542cfa9c308d5f15c7b852f12b3f0cc1e2fd",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/staff_overview_merchandising_reconciliation_smoke.sql",
+          "sha256": "09e348c8b0167408dd08735d4c018783ceae5b5fb6b8286da1b3dedb5acc8ab5",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/staff_payroll_reconciliation_smoke.sql",
+          "sha256": "99c9a3c123c6e9b28882de2037ee8e5488cd0d993f3148fbe47b23cdd91147da",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/staff_self_service_reconciliation_smoke.sql",
+          "sha256": "855c816a28a270622be642bd711042f6396b57cef5be4fe81f80d678fbe4b7b3",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/tablet_offline_replay_smoke.sql",
+          "sha256": "8bfcbd95fa2bd95f06fa112f56f2a4c2681b0105c9c15fd207fcfe4cee2ff75a",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/tablet_pos_p2_p6_smoke.sql",
+          "sha256": "2dc0b3421e147a5bf0988470eaaa829e0d5338349fd188edb2ccdcdd9da52caf",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/vehicle_artwork_storage_smoke.sql",
+          "sha256": "d597e7a55b7c2ee04242c5ef019be68f74f7c5823f7a47af4fa456fc8489d9d8",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/web_customer_finance_gaps_smoke.sql",
+          "sha256": "450c78f53e2ff29b04de5451ac1fbce6ded7eef16ef9f43ca47666a1586514c6",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/web_pos_sale_flow_smoke.sql",
+          "sha256": "6b40ac0efbe6616299b559d310df5224bb2c125a0f60e13f0063418869136ab9",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/whatsapp_bot_rate_limit_smoke.sql",
+          "sha256": "2843ed10fa5db94fd6fe92d9c2d91e7d13d8600ab5299bee75b8f3469056b067",
+          "exit_code": 0,
+          "tap_failed": false
+        },
+        {
+          "file": "supabase/tests/wishlist_reviews_navara_diagrams_smoke.sql",
+          "sha256": "f024e1a00f62afbd408399ca88515d7107c769f0ab52d6de215e195013c27533",
+          "exit_code": 0,
+          "tap_failed": false
+        }
+      ],
+      "passed": 59,
+      "failed": []
+    },
+    "delivery_cash_concurrency": {
+      "observed_at_utc": "2026-11-02T08:20:56.504843+00:00",
+      "container": "gtr-db-reconstruct",
+      "migration_sha256": "f4636eafd3345f0aa4b343ae6a814fed79f466b19ca81ebadecd155748a72cdd",
+      "parallel_sessions": 2,
+      "lock_precedes_cached_ownership_check": true,
+      "peer_blocked_by_request_lock": true,
+      "lock_timeout_seconds": 0.4,
+      "observed_wait_seconds": 0.4637863150001067,
+      "after_release_peer_denied": true,
+      "operational_counts_before": [
+        66,
+        20,
+        2
+      ],
+      "operational_counts_after": [
+        66,
+        20,
+        2
+      ],
+      "production_access": false
+    },
+    "scope": "Native local Supabase platform; no hosted adoption or production access"
+  },
+  "simulation": {
+    "native_scenarios": {
+      "verified_at": "2026-11-02T08:10:26.386862+00:00",
+      "platform": "PostgreSQL 17.6 on x86_64-pc-linux-gnu, compiled by gcc (GCC) 13.2.0, 64-bit",
+      "native_database_container": "gtr-db-reconstruct",
+      "native_auth_image": "public.ecr.aws/supabase/gotrue:v2.197.0 (exact native filesystem flattened for vfs daemon)",
+      "auth_gateway": "localhost prefix forwarding to native GoTrue; no Auth/SQL behavior simulated",
+      "schema_replayed": false,
+      "no_production_calls": true,
+      "results": [
+        {
+          "script": "seed",
+          "exit_code": 0,
+          "failure_markers": [],
+          "passed": true,
+          "source_sha256": "ef59a33f436b8b3191249bdd3aca57d4294d718ecdcaf83eff8a5cbdab51fbd1"
+        },
+        {
+          "script": "e2e_day",
+          "exit_code": 0,
+          "failure_markers": [],
+          "passed": true,
+          "source_sha256": "48c0ce46b24eafd669853cbfe97e51ba2bf069ada0e2ff9d83efb0da12348b01"
+        },
+        {
+          "script": "e2e_cod",
+          "exit_code": 0,
+          "failure_markers": [],
+          "passed": true,
+          "source_sha256": "b1ef815813eea7c16a5f0df88ce5d39ce8e82681f11212c21f00c43daad7ce0c"
+        },
+        {
+          "script": "e2e_handin",
+          "exit_code": 0,
+          "failure_markers": [],
+          "passed": true,
+          "source_sha256": "4377fbcfd5c9fb75c4ebf244453804230e711cb4a7693ff7d960e611891cf5ed"
+        },
+        {
+          "script": "e2e_card",
+          "exit_code": 0,
+          "failure_markers": [],
+          "passed": true,
+          "source_sha256": "b4513f07f77ea95671d4649052917cc06d002bc86837b91eb109697a22b76e4a"
+        },
+        {
+          "script": "e2e_backorder",
+          "exit_code": 0,
+          "failure_markers": [],
+          "passed": true,
+          "source_sha256": "5448381d345e1e829083a1dfc59405a3a40567457eab86d5390ce8798793dcc9"
+        },
+        {
+          "script": "e2e_exceptions",
+          "exit_code": 0,
+          "failure_markers": [],
+          "passed": true,
+          "source_sha256": "0bc8da9d94eedafb69d3d4f23e2e99fbf39b5ab05c140ff74a21e51cc9ff2165"
+        },
+        {
+          "script": "e2e_restock",
+          "exit_code": 0,
+          "failure_markers": [],
+          "passed": true,
+          "source_sha256": "a254fe568679f1b17183998646a07db0dd2b5d757b710c6f98989481202c2fcc"
+        },
+        {
+          "script": "e2e_alerts",
+          "exit_code": 0,
+          "failure_markers": [],
+          "passed": true,
+          "source_sha256": "01043d163c0ff1608785d16cb3eb7613e6d93a7b96cb62545f2cc952ee65f154"
+        },
+        {
+          "script": "sim_role_rules_smoke.sql",
+          "exit_code": 0,
+          "passed": true,
+          "source_sha256": "44045cbdc3a62b440f286e5e9091542cfa9c308d5f15c7b852f12b3f0cc1e2fd"
+        }
+      ],
+      "passed": 10,
+      "total": 10
+    },
+    "orchestration_controls": 21,
+    "immutable_scenarios_helpers_and_rules": 13,
+    "immutable_historical_snapshots": 4,
+    "source_receipt_sha256": "b717163ce673b31b9c20850ba824737ac980eeeed0ce8a34ffcafb6f725c0148",
+    "qualification": "All8 original scenarios and role assertions passed before the final request-ownership lock. The final lock source is covered by native two-session and real workflow/context/denial regressions, the13-file fresh-chain proof and final17/59 SQL receipts. Complete empty CLI-stack execution remains CI."
+  },
+  "independent_security_review": {
+    "repository_path": "docs/project-state/verification/2026-11-02-security.json",
+    "state": "PASS_FOR_REVIEWED_SOURCE",
+    "reviewed_files": 63,
+    "open_findings": 0,
+    "report_sha256": "e85eef86cb38cdf2569e3ca8e0ed371094679d097fea4a59ce4d730afba5953b",
+    "reviewed_files_manifest_sha256": "edcc57759599d369083c045dcb232446459d4b5bfd235729961ebc0679832cb9"
+  },
+  "effects": "Local source/tests only; no production adoption, credential creation, provider charges, signed distribution or real user messages."
+}

@@ -51,6 +51,9 @@ DECLARE
   v_cart_b UUID;
   v_inv UUID;
   v_inv_b UUID;
+  v_posted_invoice UUID;
+  v_paynow_cart UUID;
+  v_paynow_order UUID;
   v_line UUID;
   v_core_cnt INT;
   v_intent_cp UUID;
@@ -142,7 +145,7 @@ BEGIN
   END IF;
 
   -- -----------------------------------------------------------------------
-  -- 1) Customer A: cart → core-charge split → checkout → own invoice
+  -- 1) Customer A: cart → core-charge split → reserve-first checkout → own unpaid order
   -- -----------------------------------------------------------------------
   PERFORM public._test_set_auth_uid(v_cust_a_user);
 
@@ -167,11 +170,11 @@ BEGIN
 
   v_inv := public.checkout_customer_cart(v_cart);
   IF NOT EXISTS (
-    SELECT 1 FROM public.sales_invoices
-    WHERE id = v_inv AND customer_id = v_cust_a AND status = 'posted'
-      AND total = 60 AND currency = 'USD' AND exchange_rate_applied = 1
+    SELECT 1 FROM public.commerce_orders
+    WHERE id = v_inv AND customer_id = v_cust_a AND state = 'awaiting_payment'
+      AND sales_invoice_id IS NULL AND total = 60 AND currency = 'USD' AND exchange_rate_applied = 1
   ) THEN
-    RAISE EXCEPTION 'smoke fail: customer checkout invoice missing/wrong total';
+    RAISE EXCEPTION 'smoke fail: reserve-first checkout snapshot missing/wrong total';
   END IF;
 
   v_order := public.get_customer_order(v_inv);
@@ -180,11 +183,11 @@ BEGIN
     RAISE EXCEPTION 'smoke fail: get_customer_order bad payload %', v_order;
   END IF;
 
-  -- RLS: customer A sees own invoice
+  -- RLS: customer A sees the own unpaid order before an invoice exists
   SET LOCAL ROLE authenticated;
-  SELECT count(*) INTO v_seen FROM public.sales_invoices WHERE id = v_inv;
+  SELECT count(*) INTO v_seen FROM public.commerce_orders WHERE id = v_inv;
   IF v_seen <> 1 THEN
-    RAISE EXCEPTION 'smoke fail: customer A cannot SELECT own invoice';
+    RAISE EXCEPTION 'smoke fail: customer A cannot SELECT own unpaid order';
   END IF;
   RESET ROLE;
 
@@ -216,19 +219,19 @@ BEGIN
   END;
 
   SET LOCAL ROLE authenticated;
-  SELECT count(*) INTO v_seen FROM public.sales_invoices WHERE id = v_inv;
+  SELECT count(*) INTO v_seen FROM public.commerce_orders WHERE id = v_inv;
   IF v_seen <> 0 THEN
-    RAISE EXCEPTION 'smoke fail: peer SELECT on A invoice allowed';
+    RAISE EXCEPTION 'smoke fail: peer SELECT on A unpaid order allowed';
   END IF;
   RESET ROLE;
 
-  -- B own unpaid invoice for intent denial cross-check
+  -- B own unpaid order for intent denial cross-check
   v_cart_b := public.create_customer_cart(v_main, 'USD', 'immediate', 1);
   PERFORM public.add_customer_cart_line(v_cart_b, v_item, v_uom, 1);
   v_inv_b := public.checkout_customer_cart(v_cart_b);
 
   -- -----------------------------------------------------------------------
-  -- 3) Customer A intents on own invoice; denied on B; settle service-only
+  -- 3) Customer A intents on own order; denied on B; settle service-only
   -- -----------------------------------------------------------------------
   PERFORM public._test_set_auth_uid(v_cust_a_user);
 
@@ -240,17 +243,27 @@ BEGIN
     SELECT 1 FROM public.contipay_payment_intents
     WHERE id = v_intent_cp AND customer_id = v_cust_a AND amount = 60
       AND currency = 'USD' AND exchange_rate_applied = 1
-      AND (metadata ->> 'sales_invoice_id') = v_inv::text
+      AND commerce_order_id = v_inv AND (metadata ->> 'commerce_order_id') = v_inv::text
   ) THEN
     RAISE EXCEPTION 'smoke fail: ContiPay customer intent missing currency metadata';
   END IF;
 
+  BEGIN
+    PERFORM public.create_customer_paynow_intent(v_inv,'ecocash','SF-SWITCH-'||v_inv::TEXT,60);
+    RAISE EXCEPTION 'smoke fail: provider switch accepted while ContiPay attempt active';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM NOT LIKE 'active contipay payment attempt exists%' THEN RAISE; END IF;
+  END;
+  -- A separate owned order exercises Paynow without abandoning a live charge.
+  v_paynow_cart := public.create_customer_cart(v_main,'USD','immediate',1);
+  PERFORM public.add_customer_cart_line(v_paynow_cart,v_item,v_uom,1);
+  v_paynow_order := public.checkout_customer_cart(v_paynow_cart);
   v_intent_pn := public.create_customer_paynow_intent(
-    v_inv, 'ecocash'::public.paynow_method, 'SF-PN-' || v_inv::text, 60
+    v_paynow_order, 'ecocash'::public.paynow_method, 'SF-PN-' || v_paynow_order::text, 30
   );
   IF NOT EXISTS (
     SELECT 1 FROM public.paynow_payment_intents
-    WHERE id = v_intent_pn AND customer_id = v_cust_a AND amount = 60
+    WHERE id = v_intent_pn AND customer_id = v_cust_a AND amount = 30 AND commerce_order_id=v_paynow_order
   ) THEN
     RAISE EXCEPTION 'smoke fail: Paynow customer intent missing';
   END IF;
@@ -286,7 +299,7 @@ BEGIN
     SET LOCAL ROLE authenticated;
     PERFORM public.mark_contipay_settled(
       v_ext, 'hash-sf-' || v_inv::text, 'prov-sf',
-      jsonb_build_array(jsonb_build_object('sales_invoice_id', v_inv, 'amount', 60)),
+      NULL, -- provider callback never supplies invoice allocations
       'ZIG', 1800, 30, true, NULL
     );
     RAISE EXCEPTION 'smoke fail: customer settle ContiPay allowed';
@@ -300,7 +313,7 @@ BEGIN
   PERFORM public._test_set_service_role(v_admin);
   v_pe := public.mark_contipay_settled(
     v_ext, 'hash-sf-' || v_inv::text, 'prov-sf',
-    jsonb_build_array(jsonb_build_object('sales_invoice_id', v_inv, 'amount', 60)),
+    NULL, -- provider callback never supplies invoice allocations
     'ZIG', 1800, 30, true, NULL
   );
   IF v_pe IS NULL THEN
@@ -309,9 +322,25 @@ BEGIN
   -- Idempotent second settle
   PERFORM public.mark_contipay_settled(
     v_ext, 'hash-sf-' || v_inv::text, 'prov-sf',
-    jsonb_build_array(jsonb_build_object('sales_invoice_id', v_inv, 'amount', 60)),
+    NULL, -- provider callback never supplies invoice allocations
     'ZIG', 1800, 30, true, NULL
   );
+
+  SELECT sales_invoice_id INTO v_posted_invoice FROM public.commerce_orders WHERE id = v_inv;
+  IF NOT EXISTS(SELECT 1 FROM public.sales_invoices WHERE id=v_posted_invoice
+      AND customer_id=v_cust_a AND status='posted' AND total=60 AND amount_paid=60) THEN
+    RAISE EXCEPTION 'smoke fail: verified settlement did not finalize/pay the owned invoice';
+  END IF;
+  PERFORM public._test_set_auth_uid(v_cust_a_user);
+  SET LOCAL ROLE authenticated;
+  SELECT count(*) INTO v_seen FROM public.sales_invoices WHERE id=v_posted_invoice;
+  IF v_seen<>1 THEN RAISE EXCEPTION 'smoke fail: owner cannot read finalized invoice'; END IF;
+  RESET ROLE;
+  PERFORM public._test_set_auth_uid(v_cust_b_user);
+  SET LOCAL ROLE authenticated;
+  SELECT count(*) INTO v_seen FROM public.sales_invoices WHERE id=v_posted_invoice;
+  IF v_seen<>0 THEN RAISE EXCEPTION 'smoke fail: peer can read finalized invoice'; END IF;
+  RESET ROLE;
 
   -- -----------------------------------------------------------------------
   -- 4) Garage own vs peer

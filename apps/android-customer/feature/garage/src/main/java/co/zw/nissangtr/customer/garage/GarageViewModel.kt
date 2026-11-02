@@ -115,6 +115,8 @@ class GarageViewModel(
                     make = selected.make,
                     model = selected.model,
                     generation = selected.generation,
+                    chassisCode = selected.generation,
+                    vehicleMasterId = selected.vehicleMasterId,
                     engine = selected.engine,
                     vin = selected.vin,
                     isPrimary = _state.value.isPrimary,

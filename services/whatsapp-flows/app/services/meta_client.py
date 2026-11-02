@@ -46,7 +46,7 @@ class MetaClient:
 
     async def _post_messages(self, payload: dict[str, Any]) -> dict[str, Any]:
         if not self.configured:
-            if self.settings.whatsapp_allow_unverified_local:
+            if self.settings.is_local_development and self.settings.whatsapp_allow_unverified_local:
                 logger.warning("meta_client stub send: %s", payload.get("type"))
                 return {"messages": [{"id": "stub"}], "stub": True}
             raise MetaClientError("WHATSAPP_ACCESS_TOKEN / PHONE_NUMBER_ID unset")
@@ -146,7 +146,7 @@ class MetaClient:
 
     async def upload_pdf(self, pdf_bytes: bytes, filename: str = "receipt.pdf") -> str:
         if not self.configured:
-            if self.settings.whatsapp_allow_unverified_local:
+            if self.settings.is_local_development and self.settings.whatsapp_allow_unverified_local:
                 return "stub-media-id"
             raise MetaClientError("WhatsApp not configured for media upload")
         v = self.settings.whatsapp_api_version

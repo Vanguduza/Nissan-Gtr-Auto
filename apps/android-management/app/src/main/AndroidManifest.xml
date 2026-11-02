@@ -6,6 +6,8 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.GTRManagement">
+        <!-- Required Android launcher; staff and finance authority comes from authenticated server checks. -->
+        <!-- nosemgrep: java.android.security.exported_activity.exported_activity -->
         <activity
             android:name=".MainActivity"
             android:exported="true"

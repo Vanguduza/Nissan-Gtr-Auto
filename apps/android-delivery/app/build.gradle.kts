@@ -14,17 +14,18 @@ fun localProp(name: String): String {
     }
     return local.getProperty(name)
         ?: (project.findProperty(name) as? String)
-        ?: ""
+        ?: System.getenv(name)
+        ?: if (name == "rpc.forceFake") System.getenv("RPC_FORCE_FAKE").orEmpty() else ""
 }
 
 android {
     namespace = "co.zw.nissangtr.delivery"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "co.zw.nissangtr.delivery"
         minSdk = 26
-        targetSdk = 34
+        targetSdk = 36
         versionCode = 2
         versionName = "0.1.1"
         // Placeholders — set via local.properties / CI; never commit real keys.
@@ -103,3 +104,7 @@ dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
+
+// Shared, fail-closed signing/configuration gate for every production variant.
+extra["androidReleaseApp"] = "delivery-android"
+apply(from = rootProject.file("../../scripts/android-release.gradle"))

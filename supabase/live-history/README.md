@@ -22,8 +22,12 @@ Until this export the only copy of that source was the production database itsel
   would apply both and fail.
 - New backend work should be written against the hosted schema (this history), not against older
   repo migrations that production never ran.
-- Unifying `supabase/migrations/` with this history (baseline squash of the hosted schema, then
-  forward migrations only) is a separate, reviewed change.
+- The reconciled fresh-install baseline and forward-only active chain now live in
+  `supabase/migrations/`. The former active chain is preserved byte-for-byte in
+  `supabase/migration-history/legacy/`; `supabase/baseline/manifest.json` records the
+  curated mapping and hashes. See `supabase/baseline/README.md` for validation and
+  the separate, controlled adoption procedure for an existing hosted database.
+  A source baseline is not proof that production has adopted it.
 
 No secrets: credentials reach the database only as RPC parameters into Vault
 (`catalog_r2_vault_and_vehicle_routing`); hashes in the files are SHA-256 object digests.

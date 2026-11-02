@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 from app.api.v1.flow_endpoint import handle_flow_action
 
 
@@ -21,8 +23,8 @@ def test_data_exchange_nested_action_calculate_cart(monkeypatch) -> None:
     class FakeQuote:
         currency = "USD"
         total = 10.0
-        lines = []
-        missing_oems = []
+        lines: ClassVar[list[object]] = []
+        missing_oems: ClassVar[list[str]] = []
 
         def summary_text(self) -> str:
             return "1x Water Pump — USD 10.00\nTotal: USD 10.00"

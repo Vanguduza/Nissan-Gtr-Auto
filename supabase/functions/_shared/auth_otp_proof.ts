@@ -5,6 +5,8 @@
  * Secret: AUTH_OTP_PROOF_SECRET, else SUPABASE_SERVICE_ROLE_KEY (Edge-only).
  */
 
+import { isLocalDevelopmentEnvironment } from "./local_env.ts";
+
 export const AUTH_OTP_PROOF_TTL_SEC = 10 * 60;
 export const AUTH_OTP_MAX_ATTEMPTS = 5;
 
@@ -70,21 +72,7 @@ export function otpProofSecret(): string | null {
 
 /** True when Edge must never use local OTP stub (production / hosted heuristic). */
 export function isAuthOtpProductionEnv(): boolean {
-  const env = (Deno.env.get("ENVIRONMENT") ?? Deno.env.get("ENV") ?? "")
-    .trim()
-    .toLowerCase();
-  if (env === "production" || env === "prod") return true;
-  const url = (Deno.env.get("SUPABASE_URL") ?? "").trim().toLowerCase();
-  // Local stack uses localhost / 127.0.0.1 / kong; hosted projects use *.supabase.co
-  if (
-    url.includes("127.0.0.1") ||
-    url.includes("localhost") ||
-    url.includes(":54321")
-  ) {
-    return false;
-  }
-  if (url.includes(".supabase.co")) return true;
-  return false;
+  return !isLocalDevelopmentEnvironment();
 }
 
 export async function mintOtpProofToken(

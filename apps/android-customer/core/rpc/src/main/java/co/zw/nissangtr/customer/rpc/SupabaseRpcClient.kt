@@ -493,6 +493,9 @@ class SupabaseRpcClient(
                     "make",
                     "model",
                     "generation",
+                    "chassis_code",
+                    "model_slug",
+                    "vehicle_master_id",
                     "engine",
                     "vin",
                     "is_primary",
@@ -511,21 +514,16 @@ class SupabaseRpcClient(
                     engine = it.engine,
                     vin = it.vin,
                     isPrimary = it.isPrimary,
+                    chassisCode = it.chassisCode,
+                    modelSlug = it.modelSlug,
+                    vehicleMasterId = it.vehicleMasterId,
                 )
             }
 
     override suspend fun upsertCustomerGarageVehicle(input: GarageVehicleInput): String =
         client.postgrest.rpc(
             RpcNames.UPSERT_CUSTOMER_GARAGE_VEHICLE,
-            buildJsonObject {
-                putNullable("p_id", input.id)
-                putNullable("p_make", input.make)
-                putNullable("p_model", input.model)
-                putNullable("p_generation", input.generation)
-                putNullable("p_engine", input.engine)
-                putNullable("p_vin", input.vin)
-                put("p_is_primary", input.isPrimary)
-            },
+            input.toRpcBody(),
         ).decodeAs<String>()
 
     override suspend fun deleteCustomerGarageVehicle(id: String) {
@@ -1078,6 +1076,9 @@ private data class GarageRow(
     val engine: String? = null,
     val vin: String? = null,
     @SerialName("is_primary") val isPrimary: Boolean = false,
+    @SerialName("chassis_code") val chassisCode: String? = null,
+    @SerialName("model_slug") val modelSlug: String? = null,
+    @SerialName("vehicle_master_id") val vehicleMasterId: String? = null,
 )
 
 @Serializable

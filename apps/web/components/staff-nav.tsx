@@ -27,6 +27,7 @@ import {
   ShieldCheck,
   Star,
   Truck,
+  UserRound,
   Users,
   Warehouse,
   type LucideIcon,
@@ -46,6 +47,7 @@ import {
 
 const staffNavIcons: Record<string, LucideIcon> = {
   "/staff": LayoutGrid,
+  "/staff/account": UserRound,
   warehouse: Warehouse,
   finance: Banknote,
   crm: Users,

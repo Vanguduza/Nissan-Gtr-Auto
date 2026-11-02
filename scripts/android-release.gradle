@@ -1,0 +1,76 @@
+// Applied by all three Android app modules. Keep credentials out of task arguments/logs.
+def localValues = new Properties()
+def localFile = rootProject.file('local.properties')
+if (localFile.exists()) localFile.withInputStream { localValues.load(it) }
+def value = { String name ->
+    localValues.getProperty(name) ?: project.findProperty(name)?.toString() ?: System.getenv(name) ?: ''
+}
+def releaseApp = project.extensions.extraProperties.get('androidReleaseApp').toString()
+def repositoryRoot = rootProject.projectDir.parentFile.parentFile
+def signingNames = ['GTR_ANDROID_KEYSTORE_PATH', 'GTR_ANDROID_STORE_PASSWORD', 'GTR_ANDROID_KEY_ALIAS', 'GTR_ANDROID_KEY_PASSWORD']
+def androidApp = extensions.getByName('android')
+if (signingNames.every { !value(it).isBlank() }) {
+    def productionSigning = androidApp.signingConfigs.create('production') {
+        storeFile = rootProject.file(value('GTR_ANDROID_KEYSTORE_PATH'))
+        storePassword = value('GTR_ANDROID_STORE_PASSWORD')
+        keyAlias = value('GTR_ANDROID_KEY_ALIAS')
+        keyPassword = value('GTR_ANDROID_KEY_PASSWORD')
+    }
+    androidApp.buildTypes.getByName('release').signingConfig = productionSigning
+}
+
+def canonicalLineage = tasks.register('verifyAndroidCanonicalLineage', Exec) {
+    group = 'verification'
+    description = 'Verify the approved source lineage before building an Android app.'
+    workingDir repositoryRoot
+    if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+        commandLine 'py', '-3', 'scripts/project_truth_guard.py', 'release-check', '--app', releaseApp
+    } else {
+        commandLine 'python3', 'scripts/project_truth_guard.py', 'release-check', '--app', releaseApp
+    }
+}
+def releaseSource = tasks.register('verifyAndroidReleaseSource', Exec) {
+    group = 'verification'
+    description = 'Require clean source and valid ledger evidence before production packaging.'
+    workingDir repositoryRoot
+    def check = ['scripts/project_truth_guard.py', 'release-check', '--app', releaseApp, '--require-clean']
+    if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+        commandLine(['py', '-3'] + check)
+    } else {
+        commandLine(['python3'] + check)
+    }
+}
+def productionConfiguration = tasks.register('verifyAndroidReleaseConfiguration', Exec) {
+    group = 'verification'
+    description = 'Require Live production settings and a usable, non-debug signing key.'
+    dependsOn releaseSource
+    workingDir repositoryRoot
+    def checker = ['scripts/android_release_check.py', '--app', releaseApp]
+    if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+        commandLine(['py', '-3'] + checker)
+    } else {
+        commandLine(['python3'] + checker)
+    }
+    environment 'SUPABASE_URL', value('SUPABASE_URL')
+    environment 'SUPABASE_ANON_KEY', value('SUPABASE_ANON_KEY')
+    environment 'RPC_FORCE_FAKE', value('rpc.forceFake') ?: value('RPC_FORCE_FAKE')
+    environment 'GOOGLE_WEB_CLIENT_ID', value('GOOGLE_WEB_CLIENT_ID') ?: value('GOOGLE_SERVER_CLIENT_ID')
+    environment 'ROUTING_BASE_URL', value('ROUTING_BASE_URL') ?: value('OSRM_URL')
+    environment 'MAPLIBRE_STYLE_URL', value('MAPLIBRE_STYLE_URL')
+    signingNames.each { name -> environment name, value(name) }
+    // Android resolves a relative keystore path against its project directory.
+    if (!value('GTR_ANDROID_KEYSTORE_PATH').isBlank()) {
+        environment 'GTR_ANDROID_KEYSTORE_PATH', rootProject.file(value('GTR_ANDROID_KEYSTORE_PATH')).absolutePath
+    }
+    environment 'GTR_ANDROID_TARGET_SDK', androidApp.defaultConfig.targetSdkVersion.apiLevel.toString()
+}
+
+tasks.configureEach {
+    if (name == 'preBuild' || name.startsWith('assemble') || name.startsWith('bundle')) {
+        dependsOn canonicalLineage
+    }
+    // Includes phone/tablet flavors and both APK/AAB paths. An unsigned Release is never a deliverable.
+    if (name ==~ /(?i)(pre.*ReleaseBuild|validateSigning.*Release|package.*Release.*|assemble.*Release|bundle.*Release.*)/) {
+        dependsOn productionConfiguration
+    }
+}

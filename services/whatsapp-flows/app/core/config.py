@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from urllib.parse import urlparse
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -12,6 +13,21 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    environment: str = "production"
+
+    @property
+    def is_local_development(self) -> bool:
+        """Unknown or remote backends never authorize unverified behavior."""
+        if self.environment.strip().lower() not in {"development", "dev", "local", "test"}:
+            return False
+        try:
+            url = urlparse(self.supabase_url)
+            return url.scheme in {"http", "https"} and url.hostname in {
+                "localhost", "127.0.0.1", "::1", "host.docker.internal", "kong",
+            }
+        except ValueError:
+            return False
+
     # Supabase (service role — Flow endpoint is Meta-authenticated, not user JWT)
     supabase_url: str = "http://127.0.0.1:54321"
     supabase_service_role_key: str = ""
@@ -20,6 +36,7 @@ class Settings(BaseSettings):
     whatsapp_access_token: str = ""
     whatsapp_phone_number_id: str = ""
     whatsapp_api_version: str = "v21.0"
+    whatsapp_app_secret: str = ""
     whatsapp_allow_unverified_local: bool = False
 
     # Flow endpoint crypto — path to RSA private key PEM matching Meta-uploaded public key
@@ -50,11 +67,20 @@ class Settings(BaseSettings):
     # x-api-key (default) | bearer
     ecocash_auth_header: str = "x-api-key"
     ecocash_allow_stub: bool = True
-    # Optional shared secret if EcoCash later sends signed webhooks
+    # Required for /ecocash/{push,lookup,callback} settle (fail closed unless local flag)
     ecocash_webhook_secret: str = ""
+    ecocash_allow_unverified_local: bool = False
 
     # Local stubs when PSP / Meta secrets unset
     allow_payment_stub: bool = True
+
+    # Paynow / generic PSP settle on /api/v1/payments/callback — fail closed without secret
+    # (or verified Paynow form hash via paynow_integration_key). Local stub flag only.
+    payments_webhook_secret: str = ""
+    payments_allow_unverified_local: bool = False
+    paynow_integration_key: str = ""
+    # Merchant-account binding when Paynow's signed callback omits currency.
+    paynow_settlement_currency: str = ""
 
 
 @lru_cache

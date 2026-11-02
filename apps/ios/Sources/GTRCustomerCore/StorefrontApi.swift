@@ -169,6 +169,9 @@ public protocol StorefrontApi: AnyObject {
         facets: [String]?
     ) async throws -> SearchCatalogResponse
 
+    /// Customer product search returns product descriptions and opaque stock identities.
+    func searchProducts(query: String, limit: Int) async throws -> [CatalogListItem]
+
     /// Browse PLP — stock_items + default USD price + saleable qty.
     func listCatalogBrowse(category: String?, limit: Int) async throws -> CatalogBrowseResult
 
@@ -234,6 +237,17 @@ public protocol StorefrontApi: AnyObject {
     func listInvoiceLines(invoiceId: UUID) async throws -> [InvoiceLineSummary]
 }
 
+public extension StorefrontApi {
+    func searchProducts(query: String, limit: Int) async throws -> [CatalogListItem] {
+        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !needle.isEmpty else { return [] }
+        let items = try await listCatalogBrowse(category: nil, limit: 100).items
+        return Array(items.filter {
+            $0.name.localizedCaseInsensitiveContains(needle) || $0.oem.localizedCaseInsensitiveContains(needle)
+        }.prefix(max(1, min(limit, 50))))
+    }
+}
+
 /// In-memory Fake for Simulator / Windows scaffold — no network.
 @MainActor
 public final class FakeStorefrontApi: StorefrontApi {
@@ -265,8 +279,8 @@ public final class FakeStorefrontApi: StorefrontApi {
 
     private static let seedOilFilterId = UUID(uuidString: "00000000-0000-4000-8000-0000000000a1")!
     private static let seedAirFilterId = UUID(uuidString: "00000000-0000-4000-8000-0000000000a2")!
-    private static let seedUomId = UUID(uuidString: "00000000-0000-4000-8000-0000000000u1")!
-    private static let seedWarehouseId = UUID(uuidString: "00000000-0000-4000-8000-0000000000w1")!
+    private static let seedUomId = UUID(uuidString: "00000000-0000-4000-8000-0000000000b1")!
+    private static let seedWarehouseId = UUID(uuidString: "00000000-0000-4000-8000-0000000000b2")!
 
     public init(seedDemo: Bool = true) {
         catalogProducts = Self.seedCatalogProducts()
@@ -1086,9 +1100,9 @@ public final class FakeStorefrontApi: StorefrontApi {
     public func listCatalogVariants(makerSlug: String, modelSlug: String) async throws -> [EpcVariant] {
         switch modelSlug {
         case "x-trail":
-            return [EpcVariant(slug: "t31-mr20", chassisCode: "T31", engineCode: "MR20", yearLabel: "2007–2013")]
+            return [EpcVariant(slug: "t31-mr20", chassisCode: "T31", yearLabel: "2007–2013", engineCode: "MR20")]
         case "navara":
-            return [EpcVariant(slug: "d40-yd25", chassisCode: "D40", engineCode: "YD25", yearLabel: "2005–2015")]
+            return [EpcVariant(slug: "d40-yd25", chassisCode: "D40", yearLabel: "2005–2015", engineCode: "YD25")]
         default:
             return []
         }
@@ -1208,7 +1222,7 @@ public final class FakeStorefrontApi: StorefrontApi {
         let key = oem.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         if let hit = catalogProducts[key] { return hit }
         if let hit = catalogProducts.values.first(where: {
-            $0.oem.caseInsensitiveCompare(oem) == .orderedSame
+            $0.oem.caseInsensitiveCompare(oem) == .orderedSame || $0.stockItemId == UUID(uuidString: oem)
         }) {
             return hit
         }
@@ -1368,7 +1382,7 @@ public final class FakeStorefrontApi: StorefrontApi {
         let cap = min(max(limit, 1), 50)
         return [
             KitListItem(
-                kitId: UUID(uuidString: "00000000-0000-4000-8000-0000000000k1")!,
+                kitId: UUID(uuidString: "00000000-0000-4000-8000-0000000000c1")!,
                 stockItemId: Self.seedOilFilterId,
                 oem: "15208-65F0C",
                 name: "Oil filter service kit (demo)",
@@ -1385,7 +1399,7 @@ public final class FakeStorefrontApi: StorefrontApi {
         guard orders.contains(where: { $0.invoiceId == invoiceId }) else { return [] }
         return [
             InvoiceLineSummary(
-                id: UUID(uuidString: "00000000-0000-4000-8000-0000000000l1")!,
+                id: UUID(uuidString: "00000000-0000-4000-8000-0000000000d1")!,
                 stockItemId: Self.seedOilFilterId,
                 uomId: Self.seedUomId,
                 qty: 1,
@@ -1393,7 +1407,7 @@ public final class FakeStorefrontApi: StorefrontApi {
                 description: "Oil filter (demo)"
             ),
             InvoiceLineSummary(
-                id: UUID(uuidString: "00000000-0000-4000-8000-0000000000l2")!,
+                id: UUID(uuidString: "00000000-0000-4000-8000-0000000000d2")!,
                 stockItemId: Self.seedAirFilterId,
                 uomId: Self.seedUomId,
                 qty: 1,
@@ -1450,8 +1464,7 @@ public final class FakeStorefrontApi: StorefrontApi {
     }
 }
 
-/// Factory — **prefer Live** when URL + anon present; Fake when env missing / force-fake /
-/// Live init failure.
+/// Debug previews may use Fake. Release artifacts must use the approved live project.
 ///
 /// Live uses URLSession PostgREST (`POST …/rest/v1/rpc/{name}`) so Windows scaffolds
 /// need no supabase-swift resolve. On macOS you may later swap the transport for SPM
@@ -1459,6 +1472,7 @@ public final class FakeStorefrontApi: StorefrontApi {
 @MainActor
 public enum StorefrontApiFactory {
     public static func make() -> any StorefrontApi {
+        #if DEBUG
         guard AppEnv.prefersLive else {
             return FakeStorefrontApi()
         }
@@ -1467,5 +1481,15 @@ public enum StorefrontApiFactory {
         } catch {
             return FakeStorefrontApi()
         }
+        #else
+        do {
+            try AppEnv.validateReleaseConfiguration(
+                url: AppEnv.supabaseURL, anonKey: AppEnv.supabaseAnonKey, forceFake: AppEnv.forceFake
+            )
+            return try LiveStorefrontApi()
+        } catch {
+            preconditionFailure("Invalid release configuration; the app cannot use demo data in production.")
+        }
+        #endif
     }
 }

@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.core.supabase_client import get_supabase
+from app.core.webhook_auth import assert_shared_secret, header_secret
 from app.services.checkout_display import (
     CheckoutDisplayError,
     build_zig_settlement,
@@ -23,10 +25,44 @@ from app.services.ecocash_client import (
 )
 from app.services.fx_rates import fetch_daily_zig_rate
 from app.services.meta_client import MetaClient
+from app.services.payment_state import (
+    PAYABLE_ORDER_STATUSES,
+    PaymentProof,
+    mark_order_paid,
+    record_unpaid_status,
+)
 from app.services.receipt_pdf import build_receipt_pdf
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/payments/ecocash", tags=["ecocash"])
+
+
+def _authorize_ecocash_settle(request: Request, settings: Settings | None = None) -> None:
+    """Fail closed: EcoCash push/lookup/callback require webhook secret (or local flag)."""
+    cfg = settings or get_settings()
+    provided = header_secret(
+        request,
+        "X-EcoCash-Signature",
+        "x-ecocash-signature",
+        "X-Payments-Webhook-Secret",
+        "x-payments-webhook-secret",
+        "X-Worker-Secret",
+        "x-worker-secret",
+    )
+    # Prefer EcoCash-specific secret; fall back to shared payments worker secret.
+    expected = (cfg.ecocash_webhook_secret or cfg.payments_webhook_secret or "").strip()
+    local = cfg.is_local_development and bool(
+        cfg.ecocash_allow_unverified_local or cfg.payments_allow_unverified_local
+    )
+    assert_shared_secret(
+        provided=provided,
+        expected=expected,
+        allow_unverified_local=local,
+        unset_message=(
+            "ECOCASH_WEBHOOK_SECRET or PAYMENTS_WEBHOOK_SECRET required "
+            "(set ECOCASH_ALLOW_UNVERIFIED_LOCAL=1 for local stub only)"
+        ),
+    )
 
 
 class EcoCashPushBody(BaseModel):
@@ -56,13 +92,7 @@ async def _deliver_receipt(order: dict[str, Any]) -> None:
 
 def _get_order(order_id: str) -> dict[str, Any]:
     sb = get_supabase()
-    existing = (
-        sb.table("whatsapp_flow_orders")
-        .select("*")
-        .eq("id", order_id)
-        .limit(1)
-        .execute()
-    )
+    existing = sb.table("whatsapp_flow_orders").select("*").eq("id", order_id).limit(1).execute()
     if not existing.data:
         raise HTTPException(status_code=404, detail="order not found")
     return existing.data[0]
@@ -105,18 +135,10 @@ def _ecocash_charge_from_order(order: dict[str, Any]) -> tuple[float, str]:
     return minor_to_major(display.payable.amount_minor), "ZIG"
 
 
-def _mark_paid(order_id: str, reference: str | None) -> dict[str, Any]:
-    order = _get_order(order_id)
-    if order.get("status") == "PAID":
-        return order
-    updated = (
-        get_supabase()
-        .table("whatsapp_flow_orders")
-        .update({"status": "PAID", "payment_reference": reference})
-        .eq("id", order_id)
-        .execute()
-    )
-    return (updated.data or [order])[0]
+def _mark_paid(
+    order_id: str, reference: str | None, proof: PaymentProof
+) -> tuple[dict[str, Any], bool]:
+    return mark_order_paid(get_supabase(), order_id, proof)
 
 
 async def push_ecocash_for_order(
@@ -125,11 +147,7 @@ async def push_ecocash_for_order(
     phone_override: str | None = None,
 ) -> dict[str, Any]:
     """Initiate EcoCash C2B for a PENDING order; notify customer on WhatsApp."""
-    payer = (
-        phone_override
-        or order.get("ecocash_payer_msisdn")
-        or order.get("wa_id")
-    )
+    payer = phone_override or order.get("ecocash_payer_msisdn") or order.get("wa_id")
     wa_notify = order.get("wa_id") or payer
     if not payer:
         raise HTTPException(
@@ -176,8 +194,7 @@ async def push_ecocash_for_order(
     same = (
         wa_notify
         and normalized
-        and "".join(c for c in str(wa_notify) if c.isdigit())[-9:]
-        == normalized[-9:]
+        and "".join(c for c in str(wa_notify) if c.isdigit())[-9:] == normalized[-9:]
     )
     pin_hint = (
         "Open EcoCash on this phone and enter your PIN to approve."
@@ -194,7 +211,7 @@ async def push_ecocash_for_order(
     )
     try:
         await MetaClient().send_text(str(wa_notify), text)
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.exception("WhatsApp EcoCash prompt failed for %s", order.get("id"))
 
     return {
@@ -209,23 +226,26 @@ async def push_ecocash_for_order(
 
 
 @router.post("/push")
-async def ecocash_push(body: EcoCashPushBody) -> dict[str, Any]:
+async def ecocash_push(request: Request, body: EcoCashPushBody) -> dict[str, Any]:
     """Manual / retry EcoCash C2B push for an order."""
+    _authorize_ecocash_settle(request)
     order = _get_order(body.order_id)
-    if order.get("status") == "PAID":
-        return {"ok": True, "order_id": body.order_id, "status": "PAID", "skipped": True}
+    if order.get("status") not in PAYABLE_ORDER_STATUSES:
+        return {"ok": True, "order_id": body.order_id, "status": order["status"], "skipped": True}
     return await push_ecocash_for_order(order, phone_override=body.phone)
 
 
 @router.post("/lookup")
 async def ecocash_lookup(
+    request: Request,
     body: EcoCashLookupBody,
     background_tasks: BackgroundTasks,
 ) -> dict[str, Any]:
     """Poll EcoCash transaction status; mark PAID + send PDF receipt when successful."""
+    _authorize_ecocash_settle(request)
     order = _get_order(body.order_id)
-    if order.get("status") == "PAID":
-        return {"ok": True, "order_id": body.order_id, "status": "PAID", "receipt": False}
+    if order.get("status") not in PAYABLE_ORDER_STATUSES:
+        return {"ok": True, "order_id": body.order_id, "status": order["status"], "receipt": False}
 
     phone = order.get("ecocash_payer_msisdn") or order.get("wa_id")
     source_ref = order.get("payment_source_reference")
@@ -260,35 +280,39 @@ async def ecocash_lookup(
         raw.get("ecocashReference")
         or raw.get("transactionReference")
         or raw.get("reference")
-        or order.get("payment_reference")
-        or source_ref,
+        or "",
     )
-    paid = _mark_paid(body.order_id, ref)
-    background_tasks.add_task(_deliver_receipt, paid)
-    return {"ok": True, "order_id": body.order_id, "status": "PAID", "receipt": True, "raw": raw}
+    proof = PaymentProof.parse("ecocash", raw.get("amount"), raw.get("currency"), source_ref, ref)
+    paid, claimed = _mark_paid(body.order_id, ref, proof)
+    if claimed:
+        background_tasks.add_task(_deliver_receipt, paid)
+    return {
+        "ok": True,
+        "order_id": body.order_id,
+        "status": paid["status"],
+        "receipt": claimed,
+        "raw": raw,
+    }
 
 
 @router.post("/callback")
 async def ecocash_callback(
     request: Request,
     background_tasks: BackgroundTasks,
-    x_ecocash_signature: str | None = Header(default=None, alias="X-EcoCash-Signature"),
 ) -> dict[str, Any]:
     """Server-to-server EcoCash settle (shape may vary — map common fields).
 
-    Plug-in: set ECOCASH_WEBHOOK_SECRET when EcoCash documents a signature header.
-    Until then, accept JSON with sourceReference / order id + success status.
+    Fail closed without ECOCASH_WEBHOOK_SECRET / PAYMENTS_WEBHOOK_SECRET unless
+    ECOCASH_ALLOW_UNVERIFIED_LOCAL=1 (local stub only). Header:
+    X-EcoCash-Signature or X-Payments-Webhook-Secret.
     """
     settings = get_settings()
     raw_body = await request.body()
-    if settings.ecocash_webhook_secret:
-        # Fail closed when secret configured but header missing/wrong (exact algo TBD by EcoCash).
-        if not x_ecocash_signature or x_ecocash_signature != settings.ecocash_webhook_secret:
-            raise HTTPException(status_code=401, detail="invalid EcoCash webhook signature")
+    _authorize_ecocash_settle(request, settings)
 
     try:
-        body = await request.json()
-    except Exception as exc:  # noqa: BLE001
+        body = json.loads(raw_body.decode("utf-8") or "{}")
+    except Exception as exc:
         raise HTTPException(status_code=422, detail="JSON body required") from exc
     if not isinstance(body, dict):
         raise HTTPException(status_code=422, detail="JSON object required")
@@ -323,32 +347,23 @@ async def ecocash_callback(
         raise HTTPException(status_code=404, detail="order not found for EcoCash callback")
 
     if not ecocash_status_is_paid(status, body):
-        mapped = status.strip().upper() if status else "PENDING"
-        if mapped not in {"PENDING", "FAILED", "CANCELLED", "FULFILLING", "COMPLETED"}:
-            mapped = "FAILED"
-        sb.table("whatsapp_flow_orders").update(
-            {
-                "status": mapped,
-                "payment_reference": str(
-                    body.get("ecocashReference")
-                    or body.get("transactionReference")
-                    or body.get("reference")
-                    or "",
-                )
-                or None,
-            },
-        ).eq("id", order["id"]).execute()
-        return {"ok": True, "order_id": order["id"], "status": mapped, "receipt": False}
+        current, changed = record_unpaid_status(sb, str(order["id"]), status)
+        return {
+            "ok": True,
+            "order_id": current["id"],
+            "status": current["status"],
+            "receipt": False,
+            "ignored": not changed,
+        }
 
     ref = str(
         body.get("ecocashReference")
         or body.get("transactionReference")
         or body.get("reference")
-        or source_ref
-        or order.get("payment_reference"),
+        or ""
     )
-    paid = _mark_paid(str(order["id"]), ref)
-    background_tasks.add_task(_deliver_receipt, paid)
-    # raw_body kept for future HMAC verify once EcoCash publishes the algorithm
-    _ = raw_body
-    return {"ok": True, "order_id": paid["id"], "status": "PAID", "receipt": True}
+    proof = PaymentProof.parse("ecocash", body.get("amount"), body.get("currency"), source_ref, ref)
+    paid, claimed = _mark_paid(str(order["id"]), ref, proof)
+    if claimed:
+        background_tasks.add_task(_deliver_receipt, paid)
+    return {"ok": True, "order_id": paid["id"], "status": paid["status"], "receipt": claimed}

@@ -42,7 +42,6 @@ struct CatalogScreen: View {
     @State private var garagePrimary: GarageVehicle?
     @State private var vehicleBusy = false
     @State private var vehicleError: String?
-    @State private var showEpcBrowse = false
 
     private var fitmentBarLabel: String {
         if let selectedFitment {
@@ -132,16 +131,7 @@ struct CatalogScreen: View {
         .onChange(of: query) { _, newValue in
             scheduleSuggestions(for: newValue)
         }
-        .sheet(isPresented: $showEpcBrowse) {
-            EpcBrowseScreen(
-                onOpenOem: { oem in
-                    showEpcBrowse = false
-                    Task { await openProduct(oem) }
-                },
-                onClose: { showEpcBrowse = false }
-            )
-            .environmentObject(session)
-        }
+
     }
 
     // MARK: - Home
@@ -172,9 +162,6 @@ struct CatalogScreen: View {
                         vehicleError = nil
                     }
                 )
-                Button("Browse EPC diagrams") { showEpcBrowse = true }
-                    .font(GTRType.label(.caption))
-                    .foregroundStyle(GTRColors.primary)
                 if let activeCategory {
                     Button("Filtered: \(activeCategory) · Clear") {
                         Task { await applyCategoryFilter(nil) }
@@ -227,7 +214,7 @@ struct CatalogScreen: View {
     }
 
     private var inlineSearchField: some View {
-        ShopSearchBar(placeholder: "OEM, VIN, model, or PNC", text: $query)
+        ShopSearchBar(placeholder: "Search products", text: $query)
     }
 
     private var suggestionPopup: some View {
@@ -358,8 +345,8 @@ struct CatalogScreen: View {
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
                     ForEach(browseItems) { item in
                         ShopProductCard(
-                            title: item.oem,
-                            subtitle: item.name,
+                            title: CustomerCatalogPresentation.productName(item.name, identifier: item.oem),
+                            subtitle: nil,
                             priceLabel: item.usd.map { StorefrontFormat.money($0, currency: .USD) } ?? "POR",
                             stockLabel: item.stock.label,
                             ratingLabel: "—",
@@ -372,7 +359,7 @@ struct CatalogScreen: View {
                                     )
                                 }
                             },
-                            onTap: { Task { await openProduct(item.oem) } }
+                            onTap: { Task { await openProduct(item.stockItemId.uuidString) } }
                         )
                     }
                 }
@@ -396,8 +383,8 @@ struct CatalogScreen: View {
         } else {
             ShopHorizontalRail(items: items) { item in
                 ShopProductCard(
-                    title: item.oem,
-                    subtitle: item.name,
+                    title: CustomerCatalogPresentation.productName(item.name, identifier: item.oem),
+                    subtitle: nil,
                     priceLabel: item.usd.map { StorefrontFormat.money($0, currency: .USD) } ?? "POR",
                     stockLabel: item.stock.label,
                     ratingLabel: "—",
@@ -410,7 +397,7 @@ struct CatalogScreen: View {
                             )
                         }
                     },
-                    onTap: { Task { await openProduct(item.oem) } }
+                    onTap: { Task { await openProduct(item.stockItemId.uuidString) } }
                 )
             }
         }
@@ -439,7 +426,7 @@ struct CatalogScreen: View {
     }
 
     private var browseCategoryLabels: [String] {
-        let fromItems = browseItems.compactMap(\.category)
+        let fromItems = browseItems.compactMap { $0.category.flatMap(CatalogCategoryFilter.resolve)?.parent.label }
         let merged = Array(Set(categories + fromItems)).sorted()
         return merged.isEmpty ? categories : merged
     }
@@ -460,7 +447,7 @@ struct CatalogScreen: View {
                             .overlay {
                                 ShopProductGalleryHero(
                                     imageUrls: galleryUrls,
-                                    heroLabel: product.oem,
+                                    heroLabel: CustomerCatalogPresentation.productName(product.name, identifier: product.oem),
                                     selectedIndex: selectedGalleryIndex
                                 )
                             }
@@ -515,7 +502,7 @@ struct CatalogScreen: View {
 
                     VStack(alignment: .leading, spacing: 16) {
                         HStack {
-                            Text(product.brand ?? "Nissan OEM")
+                            Text(product.brand ?? "Nissan")
                                 .font(GTRType.body(.subheadline))
                                 .foregroundStyle(GTRColors.silverDim)
                             Spacer()
@@ -523,7 +510,7 @@ struct CatalogScreen: View {
                                 ShopRatingRow(
                                     ratingLabel: String(
                                         format: "%.1f · %d",
-                                        reviewStats.avgRating,
+                                        NSDecimalNumber(decimal: reviewStats.avgRating).doubleValue,
                                         reviewStats.reviewCount
                                     )
                                 )
@@ -534,7 +521,7 @@ struct CatalogScreen: View {
                                 .font(GTRType.label(.caption))
                         }
 
-                        Text(product.name)
+                        Text(CustomerCatalogPresentation.productName(product.name, identifier: product.oem))
                             .font(GTRType.display(.title2))
                             .foregroundStyle(GTRColors.steel)
 
@@ -570,7 +557,7 @@ struct CatalogScreen: View {
                                 reviewStats.map {
                                     $0.reviewCount == 0
                                         ? "No reviews yet"
-                                        : String(format: "%.1f average · %d review(s). Tap to read or submit.", $0.avgRating, $0.reviewCount)
+                                        : String(format: "%.1f average · %d review(s). Tap to read or submit.", NSDecimalNumber(decimal: $0.avgRating).doubleValue, $0.reviewCount)
                                 } ?? "No reviews yet"
                             )
                             .font(GTRType.body(.subheadline))
@@ -579,14 +566,13 @@ struct CatalogScreen: View {
                         }
                         .buttonStyle(.plain)
 
-                        if !product.fitmentLines.isEmpty {
-                            ShopMerchTitleRow(title: "Fitment vs garage", actionLabel: nil)
-                            ForEach(product.fitmentLines, id: \.self) { line in
-                                Text(line)
-                                    .font(GTRType.body(.subheadline))
-                                    .foregroundStyle(GTRColors.steel)
-                            }
-                        }
+                        Text(CustomerCatalogPresentation.fitmentMessage(
+                            lines: product.fitmentLines,
+                            generation: selectedFitment?.generation ?? garagePrimary?.generation,
+                            engine: selectedFitment?.engine ?? garagePrimary?.engine
+                        ))
+                        .font(GTRType.body(.subheadline))
+                        .foregroundStyle(GTRColors.steel)
 
                         ShopMerchTitleRow(title: "Qty", actionLabel: nil)
                         TextField("Qty", text: $qty)
@@ -632,12 +618,7 @@ struct CatalogScreen: View {
     // MARK: - Actions
 
     private func galleryKeys(for product: CatalogProduct) -> [String] {
-        var keys = [product.oem]
-        keys.append(contentsOf: product.fitmentLines.prefix(4).map { String($0.prefix(8)) })
-        while keys.count < 4 {
-            keys.append("\(product.oem)-\(keys.count)")
-        }
-        return Array(keys.prefix(6))
+        return (0..<max(1, product.imageUrls.count)).map { "Photo \($0 + 1)" }
     }
 
     private func categorySymbol(_ name: String) -> String {
@@ -748,7 +729,7 @@ struct CatalogScreen: View {
             product = try await session.api.loadCatalogProduct(oem: oem)
             reviewStats = try? await session.api.getProductReviewStats(
                 stockItemId: product?.stockItemId,
-                oem: oem
+                oem: nil
             )
             route = .product
             error = nil
@@ -813,87 +794,17 @@ struct CatalogScreen: View {
     }
 
     private func fetchSuggestions(query: String) async -> SuggestionFetchResult {
-        var out: [String: SearchSuggestion] = [:]
-        var backend: String?
-        var facetCounts: [String: [String: Int]] = [:]
-
-        func put(_ s: SearchSuggestion) {
-            let key = "\(s.kind.rawValue):\(s.title.uppercased()):\(s.oem ?? "")"
-            if out[key] == nil { out[key] = s }
-        }
-
-        func absorb(_ hits: [CatalogPartHit], asParts: Bool) {
-            for hit in hits.prefix(8) {
-                if asParts {
-                    put(SearchSuggestion(
-                        kind: .part,
-                        title: hit.oemPartNumber,
-                        subtitle: [hit.categoryName, hit.pncCode].compactMap { $0 }.joined(separator: " · ").nilIfEmpty,
-                        oem: hit.oemPartNumber
-                    ))
-                }
-                if let cat = hit.categoryName?.trimmingCharacters(in: .whitespacesAndNewlines), !cat.isEmpty {
-                    put(SearchSuggestion(kind: .category, title: cat, subtitle: hit.subcategoryName, filterQuery: cat))
-                }
-                if let pnc = hit.pncCode?.trimmingCharacters(in: .whitespacesAndNewlines), !pnc.isEmpty {
-                    put(SearchSuggestion(kind: .category, title: pnc, subtitle: "PNC", filterQuery: pnc))
-                }
-                for model in [hit.chassisCode, hit.engineCode].compactMap({ $0 }) {
-                    let m = model.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if !m.isEmpty {
-                        put(SearchSuggestion(kind: .model, title: m, subtitle: hit.oemPartNumber, filterQuery: m))
-                    }
-                }
-            }
-        }
-
-        func absorbMeili(_ mode: CatalogSearchMode) async {
-            let facets = ["category_name", "pnc_code", "chassis_code", "model_variant"]
-            guard let res = try? await session.api.searchCatalogMeili(
-                mode: mode,
-                query: query,
-                limit: 20,
-                facets: facets
-            ) else { return }
-            backend = res.backend ?? backend
-            absorb(res.parts, asParts: mode == .part || mode == .vin)
-            for (facet, values) in res.facetDistribution {
-                var bucket = facetCounts[facet, default: [:]]
-                for (label, count) in values {
-                    bucket[label, default: 0] += count
-                }
-                facetCounts[facet] = bucket
-            }
-        }
-
-        await absorbMeili(.part)
-        if !out.values.contains(where: { $0.kind == .model }) {
-            await absorbMeili(.model)
-        }
-        await absorbMeili(.pnc)
-
-        let vinLike = query.count >= 11 && query.count <= 17 && query.allSatisfy(\.isLetterOrNumber)
-        if vinLike { await absorbMeili(.vin) }
-
-        if out.isEmpty {
-            for mode in [CatalogSearchMode.part, .model, .pnc] {
-                if let res = try? await session.api.searchCatalog(mode: mode, query: query) {
-                    backend = res.backend ?? "fts"
-                    absorb(res.parts, asParts: mode == .part)
-                }
-            }
-        }
-
-        let chips = facetCounts.flatMap { facet, values in
-            values.sorted { $0.value > $1.value }.prefix(3).map { (facet, $0.key) }
-        }.prefix(8).map { $0 }
-
+        let products = (try? await session.api.searchProducts(query: query, limit: 20)) ?? []
         return SuggestionFetchResult(
-            suggestions: Array(out.values.prefix(24)),
-            facetChips: chips,
-            backend: backend
+            suggestions: products.map {
+                SearchSuggestion(kind: .part,
+                    title: CustomerCatalogPresentation.productName($0.name, identifier: $0.oem),
+                    oem: $0.stockItemId.uuidString)
+            },
+            facetChips: [], backend: nil
         )
     }
+
 }
 
 // MARK: - Suggestion models
@@ -904,14 +815,14 @@ private enum SuggestKind: String, CaseIterable {
         switch self {
         case .category: return "Category / type"
         case .model: return "Model"
-        case .part: return "Part number"
+        case .part: return "Products"
         }
     }
     var systemImage: String {
         switch self {
         case .category: return "square.grid.2x2"
         case .model: return "car"
-        case .part: return "number"
+        case .part: return "shippingbox"
         }
     }
 }

@@ -1,5 +1,5 @@
 # Throwaway local stack for the simulation in CI (and locally: supabase/sim/ci/run.sh).
-# No migrations here: the schema comes from ../snapshot, then newer migrations are applied.
+# ci/run.sh applies the active fresh-install migration chain, then simulation-only fixtures.
 project_id = "gtr-sim-ci"
 
 [api]
@@ -14,6 +14,9 @@ port = 56422
 shadow_port = 56420
 major_version = 17
 
+[db.migrations]
+enabled = false
+
 [db.seed]
 enabled = false
 
@@ -23,7 +26,7 @@ enabled = false
 [studio]
 enabled = false
 
-[inbucket]
+[local_smtp]
 enabled = false
 
 [storage]

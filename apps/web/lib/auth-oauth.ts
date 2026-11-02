@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@gtr/supabase-client";
 import { siteUrl } from "@/lib/supabase";
+import { safeAuthNextPath } from "@/lib/auth-next";
 
 export type CustomerOAuthProvider = "google";
 
@@ -9,8 +10,7 @@ export type OAuthStartResult =
 
 /** Same-origin relative paths only (open-redirect guard). */
 export function safeAuthNext(raw: string | null | undefined): string | null {
-  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return null;
-  return raw;
+  return safeAuthNextPath(raw);
 }
 
 /**

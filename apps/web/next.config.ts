@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { validateWebEnvironment } from "../../scripts/web-environment.mjs";
 
 /** Workspace packages use ESM `.js` specifiers that map to `.ts` sources. */
 /** Vercel rebuild trigger — keep Root Directory (apps/web) in the commit diff. */
@@ -11,6 +12,11 @@ const extensionAlias = {
 // a production bundle with it switched on.
 if (process.env.NODE_ENV === "production" && process.env.NEXT_PUBLIC_POS_PREVIEW === "1") {
   throw new Error("NEXT_PUBLIC_POS_PREVIEW=1 is not allowed in production builds.");
+}
+
+if (process.env.NODE_ENV === "production") {
+  const errors = validateWebEnvironment(process.env);
+  if (errors.length) throw new Error(`Invalid production configuration: ${errors.join(" ")}`);
 }
 
 const nextConfig: NextConfig = {

@@ -21,6 +21,7 @@ final class StorefrontSession: ObservableObject {
 
     @Published private(set) var isSignedIn: Bool
     @Published private(set) var userEmail: String?
+    @Published private(set) var authenticationError: String?
     @Published private(set) var wishOems: Set<String> = []
     @Published private(set) var wishlistItems: [WishlistItem] = []
 
@@ -33,6 +34,7 @@ final class StorefrontSession: ObservableObject {
 
     private let liveApi: LiveStorefrontApi?
     private var goTrue: GoTrueAuthClient?
+    private var authCoordinator: AuthSessionCoordinator?
 
     private static let themeKey = "gtr.themeMode"
     private static let pushKey = "gtr.receivePush"
@@ -63,21 +65,61 @@ final class StorefrontSession: ObservableObject {
             return
         }
 
-        if let envToken = AppEnv.accessToken {
-            liveApi?.setAccessToken(envToken)
-            self.isSignedIn = true
-            self.userEmail = nil
-        } else if let stored = AuthTokenStore.load() {
-            liveApi?.setAccessToken(stored.accessToken)
-            self.isSignedIn = true
-            self.userEmail = stored.email
-        } else {
-            self.isSignedIn = false
-            self.userEmail = nil
-        }
-
+        self.isSignedIn = false
+        self.userEmail = nil
         if AppEnv.isConfigured { self.goTrue = try? GoTrueAuthClient() }
+        do {
+            try configureAuthentication()
+            #if DEBUG
+            if let envToken = AppEnv.accessToken {
+                try authCoordinator?.install(.init(accessToken: envToken, refreshToken: nil, email: nil, expiresIn: nil))
+            }
+            #endif
+            Task { [weak self] in await self?.restoreSession() }
+        } catch {
+            authenticationError = "Your saved sign-in is unavailable. Unlock your device and try again."
+        }
     }
+
+    private func configureAuthentication() throws {
+        guard let liveApi, let goTrue else { return }
+        let coordinator = try AuthSessionCoordinator { token in
+            try await goTrue.refreshSession(refreshToken: token)
+        }
+        coordinator.onChange = { [weak self] record in self?.applyAuthRecord(record) }
+        authCoordinator = coordinator
+        liveApi.configureAuthentication(
+            tokenProvider: { [weak self] rejected in
+                guard let coordinator = self?.authCoordinator else { throw StorefrontError.notAuthenticated }
+                return try await coordinator.accessToken(rejectedAccessToken: rejected)
+            },
+            onFailure: { [weak self] in self?.signOut() }
+        )
+    }
+
+    /// Re-check on launch and foreground; an expired token never restores signed-in UI.
+    func restoreSession() async {
+        guard !usesFake else { return }
+        do {
+            if authCoordinator == nil { try configureAuthentication() }
+            _ = try await authCoordinator?.accessToken()
+            applyAuthRecord(authCoordinator?.currentRecord)
+            authenticationError = nil
+        } catch {
+            applyAuthRecord(authCoordinator?.currentRecord)
+            authenticationError = "Your sign-in could not be renewed. Try again when connected, or sign in again."
+        }
+    }
+
+    private func applyAuthRecord(_ record: AuthTokenRecord?) {
+        let usable = record.map { !$0.needsRefresh(leeway: 0) } ?? false
+        liveApi?.setAccessToken(usable ? record!.accessToken : "")
+        userEmail = usable ? record?.email : nil
+        isSignedIn = usable
+        if !usable { wishOems = []; wishlistItems = [] }
+    }
+
+    func dismissAuthenticationError() { authenticationError = nil }
 
     func isLiked(oem: String) -> Bool {
         wishOems.contains(oem.trimmingCharacters(in: .whitespacesAndNewlines).uppercased())
@@ -112,6 +154,7 @@ final class StorefrontSession: ObservableObject {
 
     func signIn(email: String, password: String) async throws {
         guard let liveApi else {
+            guard usesFake else { throw StorefrontError.notConfigured }
             isSignedIn = true
             userEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
             await refreshWishlist()
@@ -132,6 +175,7 @@ final class StorefrontSession: ObservableObject {
 
     func completeSignup(email: String, code: String, password: String) async throws {
         guard let liveApi else {
+            guard usesFake else { throw StorefrontError.notConfigured }
             isSignedIn = true
             userEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
             return
@@ -153,6 +197,7 @@ final class StorefrontSession: ObservableObject {
 
     func completePasswordReset(email: String, code: String, newPassword: String) async throws {
         guard let liveApi else {
+            guard usesFake else { throw StorefrontError.notConfigured }
             isSignedIn = true
             userEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
             return
@@ -169,6 +214,7 @@ final class StorefrontSession: ObservableObject {
     /// Sign in with Apple → Supabase Auth `grant_type=id_token`.
     func signInWithApple(idToken: String, rawNonce: String, email: String?) async throws {
         guard let liveApi else {
+            guard usesFake else { throw StorefrontError.notConfigured }
             isSignedIn = true
             userEmail = email
             await refreshWishlist()
@@ -186,6 +232,7 @@ final class StorefrontSession: ObservableObject {
     /// Google via ASWebAuthenticationSession → Supabase OAuth PKCE.
     func signInWithGoogle() async throws {
         guard let liveApi else {
+            guard usesFake else { throw StorefrontError.notConfigured }
             isSignedIn = true
             userEmail = userEmail ?? "google@local"
             await refreshWishlist()
@@ -222,17 +269,10 @@ final class StorefrontSession: ObservableObject {
         liveApi: LiveStorefrontApi,
         emailOverride: String? = nil
     ) async throws {
-        liveApi.setAccessToken(authSession.accessToken)
-        let email = emailOverride ?? authSession.email
-        AuthTokenStore.save(
-            AuthTokenRecord(
-                accessToken: authSession.accessToken,
-                refreshToken: authSession.refreshToken,
-                email: email
-            )
-        )
-        userEmail = email
-        isSignedIn = true
+        if authCoordinator == nil { try configureAuthentication() }
+        guard let authCoordinator else { throw StorefrontError.notConfigured }
+        try authCoordinator.install(authSession, emailOverride: emailOverride)
+        authenticationError = nil
         _ = try? await liveApi.ensureOwnCustomerIfNeeded()
         await syncGuestCompareToServer()
         await refreshWishlist()
@@ -248,7 +288,12 @@ final class StorefrontSession: ObservableObject {
     }
 
     func signOut() {
-        AuthTokenStore.clear()
+        do {
+            if let authCoordinator { try authCoordinator.signOut() }
+            else { try AuthTokenStore.clear() }
+        } catch {
+            authenticationError = "Unlock your device and try signing out again to remove the saved sign-in."
+        }
         liveApi?.setAccessToken("")
         userEmail = nil
         wishOems = []
