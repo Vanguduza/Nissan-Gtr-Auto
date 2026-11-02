@@ -1,22 +1,26 @@
 {
   "actor": "codex",
   "branch_at_record": "cursor/deployment-reconciliation-ad25",
-  "change_id": "6f60e66f455af81ce304",
+  "change_id": "a8e910aa6f97dfb7d2ea",
   "changed_files": [
-    "PROJECT_CANONICAL_STATE.json",
-    "docs/plans/2026-11-02-deployment-reconciliation.json",
+    ".github/workflows/ios.yml",
+    "apps/ios/GTRCustomer/Bridges/ReviewCameraBridge.swift",
+    "apps/ios/GTRCustomer/Features/CustomerShellChrome.swift",
+    "bridges/ios/ReviewCamera/Sources/ReviewCamera/ReviewCameraBridge.swift",
     "docs/project-state/BRANCH_RECONCILIATION.json",
-    "docs/project-state/CURRENT_STATE.json",
     "docs/project-state/DEPLOYMENT_READINESS.json",
-    "docs/project-state/verification/2026-11-02-ci-followup.json"
+    "docs/project-state/verification/2026-11-02-android-native.json",
+    "docs/project-state/verification/2026-11-02-ios-native-build.json"
   ],
-  "diff_sha256": "6f60e66f455af81ce3042545f28c4d6597bd15f7d343d7671ffa891ebf4a7de8",
+  "diff_sha256": "a8e910aa6f97dfb7d2ea6c423edbed49b54a39ce05ff4f03761c29c4178494f2",
   "domains": [
+    "ci",
     "documentation",
+    "ios",
     "repository"
   ],
-  "intent": "Bind release ancestry to native CI and security followup source",
-  "recorded_at_utc": "2026-11-02T09:06:50.541146+00:00",
+  "intent": "Fix native iOS compilation and qualify builds on current stable Apple SDKs",
+  "recorded_at_utc": "2026-11-02T09:29:51.720501+00:00",
   "schema_version": 1,
-  "source_parent": "d49bd43dd978534fce0aa226ace5c1df9a5d80f1"
+  "source_parent": "0dc3053790ea09dabc6351eec589463583c54b35"
 }

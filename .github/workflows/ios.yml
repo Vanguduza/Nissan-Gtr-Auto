@@ -26,18 +26,71 @@ jobs:
           fetch-depth: 0
       - name: Verify canonical iOS lineage
         run: python3 scripts/project_truth_guard.py release-check --app ios
+      - name: Select stable Xcode 26 or newer
+        # Since April 28, 2026, App Store uploads require Xcode 26+ and iOS 26+ SDKs.
+        # https://developer.apple.com/news/upcoming-requirements/
+        run: |
+          python3 - <<'PY'
+          import json, os, re, subprocess
+          from pathlib import Path
+          choices, seen = [], set()
+          for application in sorted(Path("/Applications").glob("Xcode*.app")):
+              developer = application.resolve() / "Contents/Developer"
+              if developer in seen:
+                  continue
+              seen.add(developer)
+              record = {"application": str(application), "developer_dir": str(developer)}
+              if re.search(r"beta|rc|candidate", application.name + " " + developer.parent.parent.name, re.I):
+                  record["skip"] = "prerelease Xcode"
+                  print(json.dumps(record))
+                  continue
+              environment = dict(os.environ, DEVELOPER_DIR=str(developer))
+              try:
+                  info = subprocess.check_output(["xcodebuild", "-version"], env=environment, text=True).strip()
+                  version = re.search(r"^Xcode ([0-9]+(?:\.[0-9]+){0,2})$", info, re.M)
+                  build = re.search(r"^Build version ([0-9]+[A-Z][0-9]+)$", info, re.M)
+                  if not version or not build:
+                      raise ValueError("unrecognized or prerelease Xcode version/build")
+                  device_sdk = subprocess.check_output(["xcrun", "--sdk", "iphoneos", "--show-sdk-version"], env=environment, text=True).strip()
+                  simulator_sdk = subprocess.check_output(["xcrun", "--sdk", "iphonesimulator", "--show-sdk-version"], env=environment, text=True).strip()
+                  versions = [tuple(map(int, value.split("."))) for value in (version[1], device_sdk, simulator_sdk)]
+                  record.update(xcode=version[1], build=build[1], iphoneos_sdk=device_sdk, iphonesimulator_sdk=simulator_sdk)
+                  if all(value[0] >= 26 for value in versions):
+                      choices.append((versions[0], str(developer)))
+                  else:
+                      record["skip"] = "requires stable Xcode 26+ and both iOS SDKs 26+"
+              except (subprocess.CalledProcessError, OSError, ValueError) as error:
+                  record["skip"] = str(error)
+              print(json.dumps(record))
+          if not choices:
+              raise SystemExit("No installed stable Xcode 26+ with iOS device/simulator SDKs 26+; see installed toolchains above")
+          _, developer = max(choices, key=lambda choice: choice[0])
+          with open(os.environ["GITHUB_ENV"], "a") as environment:
+              environment.write("DEVELOPER_DIR=" + developer + "\n")
+          print("Selected " + developer)
+          PY
       - name: Test core authentication, Keychain and transport behavior
         run: swift test --package-path apps/ios
       - name: Select an available iPhone simulator
         run: |
           python3 - <<'PY'
           import json, os, subprocess
+          sdk = tuple(map(int, subprocess.check_output(["xcrun", "--sdk", "iphonesimulator", "--show-sdk-version"], text=True).strip().split(".")[:2]))
           devices = json.loads(subprocess.check_output(["xcrun", "simctl", "list", "devices", "available", "--json"]))["devices"]
-          choices = [d for runtime, rows in sorted(devices.items(), reverse=True) if ".iOS-" in runtime for d in rows if d.get("isAvailable") and d["name"].startswith("iPhone")]
+          choices = []
+          for runtime, rows in devices.items():
+              if ".iOS-" not in runtime:
+                  continue
+              version = tuple(map(int, runtime.split(".iOS-", 1)[1].split("-")[:2]))
+              # Keep the iOS 17+ app within the selected Xcode SDK's runtime support.
+              if (17, 0) <= version <= sdk:
+                  choices.extend((version, d) for d in rows if d.get("isAvailable") and d["name"].startswith("iPhone"))
           if not choices:
-              raise SystemExit("No available iPhone simulator runtime")
+              raise SystemExit("No available iPhone simulator compatible with the selected Xcode SDK")
+          version, device = max(choices, key=lambda choice: choice[0])
+          print("Using iOS " + ".".join(map(str, version)) + " simulator with SDK " + ".".join(map(str, sdk)))
           with open(os.environ["GITHUB_ENV"], "a") as env:
-              env.write("SIMULATOR_ID=" + choices[0]["udid"] + "\n")
+              env.write("SIMULATOR_ID=" + device["udid"] + "\n")
           PY
       - name: Test native iOS Keychain and auth on simulator
         run: >-

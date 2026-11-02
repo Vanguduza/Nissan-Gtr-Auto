@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "repository": "Vanguduza/Nissan-Gtr-Auto",
+  "source_commit": "0dc3053790ea09dabc6351eec589463583c54b35",
+  "source_branch": "cursor/deployment-reconciliation-ad25",
+  "acceptance_status": "PASS_NATIVE_ANDROID_16KB_ENCRYPTED_FIXTURE_COMPATIBILITY",
+  "scope": "SQLCipher4.5.4 encrypted fixture opens, retained catalogue/pending-sale rows read, second pending sale written, database reopened with integrity_check=ok using maintained4.20.0 driver; wrong key throws and leaves original encrypted bytes unchanged.",
+  "environment": {
+    "android_api": 36,
+    "android_release": "16",
+    "system_image": "google_apis_ps16k",
+    "architecture": "x86_64",
+    "emulator": "emulator-5554 - 16",
+    "observed_kernel_page_size_bytes": 16384,
+    "kernel_assertion": "PAGESIZE must equal16384; observed PASS before instrumentation"
+  },
+  "primary_ci": {
+    "event": "pull_request",
+    "run_id": 41418039130,
+    "job_id": 125186576094,
+    "job_url": "https://github.com/Vanguduza/Nissan-Gtr-Auto/actions/runs/41418039130/job/125186576094",
+    "observed_page_size_at_utc": "2026-11-02T09:09:19.9064813Z",
+    "instrumentation_started_at_utc": "2026-11-02T09:15:00.8369854Z",
+    "build_succeeded_at_utc": "2026-11-02T09:15:04.0481539Z",
+    "task": ":feature:pos:connectedDebugAndroidTest",
+    "tests_started": 2,
+    "gradle_result": "BUILD SUCCESSFUL"
+  },
+  "corroborating_ci": {
+    "event": "push",
+    "run_id": 41418030605,
+    "job_id": 125186549216,
+    "job_url": "https://github.com/Vanguduza/Nissan-Gtr-Auto/actions/runs/41418030605/job/125186549216",
+    "observed_page_size_at_utc": "2026-11-02T09:09:11.5003535Z",
+    "instrumentation_started_at_utc": "2026-11-02T09:15:32.2223749Z",
+    "build_succeeded_at_utc": "2026-11-02T09:15:35.1276828Z",
+    "tests_started": 2,
+    "gradle_result": "BUILD SUCCESSFUL",
+    "artifact_id": 13129346124
+  },
+  "junit": {
+    "suite": "co.zw.nissangtr.management.pos.offline.SqlCipherUpgradeCompatibilityTest",
+    "tests": 2,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "timestamp_utc": "2026-11-02T09:15:02Z",
+    "tests_cases": [
+      {
+        "name": "wrongKeyPreservesTheEncryptedOutboxForRecovery",
+        "seconds": 0.507,
+        "status": "PASS_EXECUTED"
+      },
+      {
+        "name": "legacyCacheAndPendingSaleSurviveModernDriverReadWriteReopen",
+        "seconds": 1.021,
+        "status": "PASS_EXECUTED"
+      }
+    ],
+    "source_xml": "/workspace/scratch/nissan-gtr-fix/mobile/pr21-native-junit.xml",
+    "source_xml_sha256": "ba7959cdb867818c70b1ce22d7d29bc2ac3ec168f2ee16aa48d2d6cd2ff351ae"
+  },
+  "retained_artifact": {
+    "id": 13128628880,
+    "name": "android-native-16kb-0dc3053790ea09dabc6351eec589463583c54b35",
+    "url": "https://github.com/Vanguduza/Nissan-Gtr-Auto/actions/runs/41418039130/artifacts/13128628880",
+    "bytes": 17716,
+    "github_reported_sha256": "c65e1059f10087ca486fb636c7782ff0440efecb4f75e5121efee1354d3c89cb",
+    "downloaded_sha256_verified": true,
+    "archive": "/workspace/scratch/nissan-gtr-fix/mobile/pr21-native-16kb-0dc30537.zip",
+    "includes": "JUnit XML, HTML report, per-test logcat, device info, UTP/profiling/test-result evidence"
+  },
+  "source_file_sha256": {
+    ".github/workflows/android-native-16k.yml": "68324094be81f62ef08c711f623016a6c28211aafac3881a01be67fcb36b73b6",
+    "apps/android-management/feature/pos/build.gradle.kts": "1b6f32466af067f10184f0772f1e7c510e8b3ee7221e424ff901061cf0b7d25e",
+    "apps/android-management/feature/pos/src/androidTest/assets/sqlcipher-4.5.4-cache.db": "1f369fa4288580dc2c23e42455e6ec852bf2582b91c30f9a7e0c19b9c6f70b0b",
+    "apps/android-management/feature/pos/src/androidTest/assets/sqlcipher-4.5.4-cache.provenance.json": "264f8418fc6f41f657781d5f5a89df0447ae27df1e4a139a175eccf9e124910e",
+    "apps/android-management/feature/pos/src/androidTest/java/co/zw/nissangtr/management/pos/offline/SqlCipherUpgradeCompatibilityTest.kt": "9914a503930c3171ba1cbda8a7c96ac213ed3a49b3f991279cb242f51f2b306e",
+    "apps/android-management/feature/pos/src/main/java/co/zw/nissangtr/management/pos/offline/LegacyPassphraseEncoding.kt": "fa14669db8a58dece4cab57dd9db7b25dd31ef3a9ff86b07543aa45823eb0580",
+    "apps/android-management/feature/pos/src/main/java/co/zw/nissangtr/management/pos/offline/PreserveOfflineDatabaseErrorHandler.kt": "1c65fe8dd758246d43ca501e0c26d3c49448f8bc482ba1f3b8900c4d664be244",
+    "apps/android-management/feature/pos/src/main/java/co/zw/nissangtr/management/pos/offline/SqlCipherOfflinePosStore.kt": "c503a8116fdc69097d792f76935c833ea24408891c0c6bc67d4335ad2d588520"
+  },
+  "log_excerpts": "/workspace/scratch/nissan-gtr-fix/mobile/native-acceptance-log-excerpts-0dc30537.json",
+  "supersedes": "The previously unexecuted native16KB encrypted-cache compatibility limitation in validation.json is now resolved for these exact source files and this fixture/scenario.",
+  "limits": [
+    "Emulated API36 x86_64 execution; no physical-device acceptance claimed.",
+    "Known legacy encrypted fixture and production password-encoding helper; this is not proof that an actual deployed customer/staff database was migrated.",
+    "Kiosk, printer, camera/scanner, card terminal, GPS/POD, production routing, OAuth and release signing acceptance remain separate."
+  ],
+  "effects": "Read-only CI evidence retrieval and scratch receipt generation; no code, Git, service or production-state edits."
+}

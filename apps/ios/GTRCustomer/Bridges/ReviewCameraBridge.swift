@@ -86,12 +86,15 @@ final class UIKitReviewCameraBridge: NSObject, ReviewCameraBridge {
         }
     }
 
-    private static func topViewController(
-        base: UIViewController? = UIApplication.shared.connectedScenes
+    private static func topViewController() -> UIViewController? {
+        let base = UIApplication.shared.connectedScenes
             .compactMap { ($0 as? UIWindowScene)?.keyWindow }
             .first?
             .rootViewController
-    ) -> UIViewController? {
+        return topViewController(base: base)
+    }
+
+    private static func topViewController(base: UIViewController?) -> UIViewController? {
         if let nav = base as? UINavigationController {
             return topViewController(base: nav.visibleViewController)
         }

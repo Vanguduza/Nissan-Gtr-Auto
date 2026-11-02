@@ -96,8 +96,8 @@
     {
       "id": "R07",
       "area": "iOS credentials and session lifecycle",
-      "source_state": "TESTED_PORTABLY",
-      "resolution": "Keychain session storage replaces plaintext defaults with safe migration and logout fencing. Expiry-aware single-flight refresh persists rotation, retries protected requests once and clears revoked sessions. Eighteen portable Swift tests, optimized core build and fifteen packaging controls pass.",
+      "source_state": "NATIVE_MACOS_CORE_TESTED_IOS_BUILD_TRACKED_BY_PR",
+      "resolution": "Keychain session storage replaces plaintext defaults with safe migration and logout fencing. Expiry-aware single-flight refresh persists rotation, retries protected requests once and clears revoked sessions. Eighteen portable Swift tests, optimized core build and fifteen packaging controls pass. Native macOS core19/19, including real Security Keychain roundtrip, passed. Subsequent app compile corrections and stable Xcode26/iOSSDK26 selection are recorded separately and require the full native rerun.",
       "repository_evidence": [
         "apps/ios/Sources/GTRCustomerCore/AuthTokenStore.swift",
         "apps/ios/Sources/GTRCustomerCore/AuthSessionCoordinator.swift",
@@ -109,8 +109,8 @@
     {
       "id": "R08",
       "area": "Mobile lineage, signing, platform and devices",
-      "source_state": "GUARDED_AND_LOCALLY_TESTED",
-      "resolution": "iOS is registered; required approved Android lineages and customer visual styles remain. Android targets API 36 and uses compatible CameraX, MLKit and SQLCipher dependencies. Four debug APKs build and pass 16KB ELF/ZIP alignment, with 464 JVM tests and seventeen guard tests. A mandatory native 16KB emulator job checks legacy encrypted-cache opening, updating, reopening and wrong-key preservation before signed release packaging.",
+      "source_state": "NATIVE_16KB_TESTED_SIGNING_AND_DEVICE_QUALIFICATION_REQUIRED",
+      "resolution": "iOS is registered; required approved Android lineages and customer visual styles remain. Android targets API 36 and uses compatible CameraX, MLKit and SQLCipher dependencies. Four debug APKs build and pass 16KB ELF/ZIP alignment, with 464 JVM tests and seventeen guard tests. A mandatory native 16KB emulator job checks legacy encrypted-cache opening, updating, reopening and wrong-key preservation before signed release packaging. Actual API36 x86_64 kernel16384 execution passed both encrypted-cache preservation tests, with zero failures/errors/skips and a verified downloaded JUnit artifact. iOS CI now requires stable Xcode26+ with device and simulator SDKs26+ per Apple\u2019s April28,2026 requirement.",
       "repository_evidence": [
         "PROJECT_CANONICAL_STATE.json",
         ".github/workflows/android-apps.yml",
@@ -119,7 +119,7 @@
         "apps/android-management/feature/pos/src/androidTest/",
         "scripts/android_artifact_manifest.py"
       ],
-      "remaining_qualification": "Native 16KB execution, signed APK/AAB/IPA and real-device kiosk, camera/QR, printer, card terminal, GPS/POD and offline replay acceptance remain separate. No production keys were created. Management has no committed visual goldens; local unit results do not establish a new visual approval."
+      "remaining_qualification": "Signed APK/AAB/IPA and real-device kiosk, camera/QR, printer, card terminal, GPS/POD and offline replay acceptance remain separate. No production keys were created. Management has no committed visual goldens; local unit results do not establish a new visual approval."
     },
     {
       "id": "R09",
@@ -179,5 +179,7 @@
   "integration_pull_request": "https://github.com/Vanguduza/Nissan-Gtr-Auto/pull/21",
   "native_ci_gate": "Exact-source iOS/Xcode, native16KB, database/simulation and all required source checks must pass before merge; read the linked pull request for current results.",
   "ci_followup_validation": "verification/2026-11-02-ci-followup.json",
-  "security_ci_delta": "verification/2026-11-02-security-ci.json"
+  "security_ci_delta": "verification/2026-11-02-security-ci.json",
+  "android_native_acceptance": "verification/2026-11-02-android-native.json",
+  "ios_native_build_corrections": "verification/2026-11-02-ios-native-build.json"
 }

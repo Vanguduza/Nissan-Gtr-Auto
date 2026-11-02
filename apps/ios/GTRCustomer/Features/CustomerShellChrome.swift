@@ -283,6 +283,7 @@ struct HamburgerMenuOverlay: View {
             .padding(.top, 8)
     }
 
+    @ViewBuilder
     private func menuRow(_ title: String, _ systemImage: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 12) {
