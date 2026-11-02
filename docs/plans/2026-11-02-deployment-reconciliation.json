@@ -84,5 +84,5 @@
     "readiness_record": "docs/project-state/DEPLOYMENT_READINESS.json",
     "branch_dispositions": "docs/project-state/BRANCH_RECONCILIATION.json"
   },
-  "integration_source_commit": "e2dc178f6cd9a9989c9fb400e2b85c4c3039c682"
+  "integration_source_commit": "d49bd43dd978534fce0aa226ace5c1df9a5d80f1"
 }

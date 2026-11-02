@@ -2,10 +2,10 @@
   "schema_version": 1,
   "repository": "Vanguduza/Nissan-Gtr-Auto",
   "branch": "cursor/deployment-reconciliation-ad25",
-  "source_commit": "e2dc178f6cd9a9989c9fb400e2b85c4c3039c682",
-  "source_tree": "e708eec8a5a0732b992df4687f85881187148ce9",
-  "observed_at_utc": "2026-11-02T08:29:20.727613+00:00",
-  "recorded_commit_count": 127,
-  "observation_scope": "Reviewed implementation source before the following lineage-metadata commit; source integration and native CI pending",
+  "source_commit": "d49bd43dd978534fce0aa226ace5c1df9a5d80f1",
+  "source_tree": "e021253b5ed25ef29697f115870c7289cd588ca5",
+  "observed_at_utc": "2026-11-02T09:06:50.459645+00:00",
+  "recorded_commit_count": 129,
+  "observation_scope": "Reviewed source plus native CI repairs before this lineage metadata commit; current CI and integration tracked in PR21",
   "readiness_record": "docs/project-state/DEPLOYMENT_READINESS.json"
 }

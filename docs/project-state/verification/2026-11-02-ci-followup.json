@@ -4,7 +4,7 @@
   "observed_at_utc": "2026-11-02T09:06:01.737895+00:00",
   "original_reviewed_implementation_commit": "e2dc178f6cd9a9989c9fb400e2b85c4c3039c682",
   "first_ci_head": "98b8c8f6d539c953fd5603125562687909e8fe28",
-  "integration_source_commit": null,
+  "integration_source_commit": "d49bd43dd978534fce0aa226ace5c1df9a5d80f1",
   "original_review_record": "2026-11-02-security.json",
   "security_delta_record": "2026-11-02-security-ci.json",
   "security_delta_sha256": "8d523e9aa74d3236db7c46da69f15f7e337b0edbd4be85008418530dd9b0e267",

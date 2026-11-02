@@ -12,7 +12,7 @@
     "unique_branch_exclusive_commits": 45,
     "refetch_before_integration": "All 25 audited remote heads unchanged at final source preparation; symbolic origin/HEAD excluded."
   },
-  "integration_source_commit": "e2dc178f6cd9a9989c9fb400e2b85c4c3039c682",
+  "integration_source_commit": "d49bd43dd978534fce0aa226ace5c1df9a5d80f1",
   "branches": [
     {
       "branch": "apk-builds",
@@ -193,14 +193,14 @@
   "source_validation": {
     "workspace_lint_typecheck_unit_build": "PASS on Node 22.23.4 / pnpm 9.15.0; production build uses a clearly synthetic, nondeployed public-key fixture",
     "workspace_production_audit": "0 advisories",
-    "payment_python": "150 passed; authenticated negative/status/origin/amount/CAS coverage",
+    "payment_python": "153 passed after callback browser/log privacy hardening; financial proof and origin/idempotency controls retained",
     "edge_security": "21 passed; frozen callback checks",
-    "ios": "16 portable Swift tests and 15 packaging controls; optimized core, syntax and project checks pass",
+    "ios": "18 portable Debug and optimized Swift tests plus 15 packaging controls; native transport test supports streamed Darwin request bodies",
     "android": "464 JVM tests and 17 guards; 4 debug APKs build and 16KB align; customer/delivery goldens verified",
     "staff_browser": "11 isolated normal-login browser workflows plus final visual/permission regressions pass; native SQL separately checked",
     "source_provenance": "8 isolated real-Git integrity tests; merge tree must preserve a verified head and target history",
     "baseline": "173 legacy + 125 hosted SQL files preserved byte-identically; 271 curated inputs; native fresh/default-ACL/contract roundtrip passes; final 13-file replay, 17/17 critical and 59/59 SQL checks pass",
-    "independent_security": "Zero open reviewed-source findings across 63 hashed files; all final migration/test hashes, ledger authority and RLS/ACL receipts checked",
+    "independent_security": "Original63-file review plus26-path CI/security delta; zero confirmed open source vulnerabilities; scoped policy annotations and scanner limits explicitly recorded",
     "public_browser": "8 desktop/phone boundary and OAuth-continuation cases passed on final client source",
     "simulation": "All 8 original native trading scenarios and original role assertions pass; 21 harness controls pass. Final request-ownership lock independently reviewed with post-lock two-session/workflow/context/denial tests."
   },

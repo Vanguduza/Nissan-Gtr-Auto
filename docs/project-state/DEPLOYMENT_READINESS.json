@@ -4,9 +4,9 @@
   "assessment_date_utc": "2026-11-02",
   "assessment_base_commit": "e1eaea88ac9e904118d57c439579e1549622f5d9",
   "implementation_branch": "cursor/deployment-reconciliation-ad25",
-  "integration_source_commit": "e2dc178f6cd9a9989c9fb400e2b85c4c3039c682",
-  "release_verdict": "HOLD_FOR_NATIVE_CI_AND_HOSTED_DEVICE_QUALIFICATION",
-  "source_integration": "IN_PROGRESS",
+  "integration_source_commit": "d49bd43dd978534fce0aa226ace5c1df9a5d80f1",
+  "release_verdict": "HOLD_FOR_HOSTED_PROVIDER_AND_DEVICE_QUALIFICATION",
+  "source_integration": "TRACKED_BY_PULL_REQUEST",
   "findings": [
     {
       "id": "R01",
@@ -97,7 +97,7 @@
       "id": "R07",
       "area": "iOS credentials and session lifecycle",
       "source_state": "TESTED_PORTABLY",
-      "resolution": "Keychain session storage replaces plaintext defaults with safe migration and logout fencing. Expiry-aware single-flight refresh persists rotation, retries protected requests once and clears revoked sessions. Sixteen portable Swift tests, optimized core build and fifteen packaging controls pass.",
+      "resolution": "Keychain session storage replaces plaintext defaults with safe migration and logout fencing. Expiry-aware single-flight refresh persists rotation, retries protected requests once and clears revoked sessions. Eighteen portable Swift tests, optimized core build and fifteen packaging controls pass.",
       "repository_evidence": [
         "apps/ios/Sources/GTRCustomerCore/AuthTokenStore.swift",
         "apps/ios/Sources/GTRCustomerCore/AuthSessionCoordinator.swift",
@@ -175,5 +175,9 @@
     "The source integration and native CI state must be read at the exact recorded commit; passing earlier checks is insufficient after source changes."
   ],
   "local_validation_record": "verification/2026-11-02-local.json",
-  "independent_security_review": "verification/2026-11-02-security.json"
+  "independent_security_review": "verification/2026-11-02-security.json",
+  "integration_pull_request": "https://github.com/Vanguduza/Nissan-Gtr-Auto/pull/21",
+  "native_ci_gate": "Exact-source iOS/Xcode, native16KB, database/simulation and all required source checks must pass before merge; read the linked pull request for current results.",
+  "ci_followup_validation": "verification/2026-11-02-ci-followup.json",
+  "security_ci_delta": "verification/2026-11-02-security-ci.json"
 }
